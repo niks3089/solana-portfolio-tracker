@@ -1,5 +1,6 @@
 ---
-- name: Deploy Portfolio Dashboard
+# Quick deploy - only sync code and restart service
+- name: Deploy Portfolio Dashboard (Code Only)
   hosts: portfolio_servers
   become: yes
   become_method: sudo
@@ -8,23 +9,38 @@
     - "{{ playbook_dir }}/vars/prod.yml"
     - "{{ playbook_dir }}/vars/vault.yml"
 
-  pre_tasks:
-    - name: Debug deployment info
-      debug:
-        msg:
-          - "Deploying to: {{ inventory_hostname }}"
-          - "Server: {{ server_name }}"
-          - "Location: {{ server_location }}"
+  tasks:
+    - name: Sync portfolio code
+      synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ app_dir }}"
+        delete: yes
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=.env"
+          - "--exclude=deployment"
 
-  roles:
-    - ansible/roles/portfolio
+    - name: Set correct ownership
+      file:
+        path: "{{ app_dir }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+        recurse: yes
 
-  post_tasks:
-    - name: Verify portfolio service is running
+    - name: Install dependencies
+      npm:
+        path: "{{ app_dir }}"
+        state: present
+      become: true
+      become_user: "{{ app_user }}"
+
+    - name: Restart portfolio service
       systemd:
         name: portfolio
-        state: started
-      register: service_status
+        state: restarted
+        daemon_reload: yes
 
     - name: Check service health
       uri:
@@ -36,7 +52,7 @@
       delay: 5
       until: health_check.status == 200
 
-    - name: Display deployment success
+    - name: Display success
       debug:
-        msg: "Portfolio Dashboard deployed successfully on {{ server_name }}!"
+        msg: "Deployed successfully! https://{{ domain_name }}"
 

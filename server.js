@@ -26,6 +26,8 @@ const CONFIG = {
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost:5432/portfolio_dashboard',
   PORT: process.env.PORT || 3000,
   SUBSCRIPTION_DAYS: 30,
+  // Free mode - everything unlocked, no wallet connection required
+  FREE_MODE: process.env.FREE_MODE === 'true',
 };
 
 // Discount codes
@@ -287,6 +289,40 @@ async function resolveSolDomain(domain) {
 // API Routes
 // ============================================================================
 
+// Get portfolio history (net worth over time)
+app.get('/api/portfolio/history/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    const { days = '7' } = req.query;
+
+    // Birdeye supports max 30 days
+    const count = Math.min(parseInt(days) || 7, 30);
+
+    const data = await fetchJSON(
+      `https://public-api.birdeye.so/wallet/v2/net-worth?wallet=${wallet}&count=${count}&direction=back&type=1d&sort_type=asc`,
+      { headers: { 'x-chain': 'solana', 'X-API-KEY': CONFIG.BIRDEYE_API_KEY } }
+    );
+
+    if (!data.success || !data.data?.history) {
+      return res.json({ success: false, history: [] });
+    }
+
+    res.json({
+      success: true,
+      wallet: data.data.wallet_address,
+      history: data.data.history.map(h => ({
+        timestamp: h.timestamp,
+        netWorth: h.net_worth,
+        change: h.net_worth_change,
+        changePercent: h.net_worth_change_percent
+      }))
+    });
+  } catch (error) {
+    console.error('Portfolio history error:', error);
+    res.status(500).json({ success: false, error: error.message, history: [] });
+  }
+});
+
 // Resolve .sol domain to address
 app.get('/api/resolve/:domain', async (req, res) => {
   const { domain } = req.params;
@@ -432,6 +468,7 @@ app.get('/api/payment-config', (req, res) => {
     tokenDecimals: 6,
     durationDays: CONFIG.SUBSCRIPTION_DAYS,
     network: 'mainnet-beta',
+    freeMode: CONFIG.FREE_MODE, // If true, everything is free
   });
 });
 
@@ -441,6 +478,11 @@ app.get('/api/payment-config', (req, res) => {
 
 // Check Pro status for a wallet
 app.get('/api/pro-status/:wallet', async (req, res) => {
+  // In free mode, everyone is Pro
+  if (CONFIG.FREE_MODE) {
+    return res.json({ isPro: true, wallet: req.params.wallet, freeMode: true });
+  }
+
   try {
     const { wallet } = req.params;
 

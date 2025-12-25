@@ -1282,14 +1282,13 @@
       </div>
     </div>
 
-    <!-- Portfolio Growth Chart (Pro Only) -->
+    <!-- Portfolio Growth Chart -->
     <div class="section growth-section" id="growthSection" style="display: none;">
       <div class="section-header">
         Portfolio Growth
         <div class="growth-period-tabs">
-          <button class="period-tab active" data-period="7D">7D</button>
-          <button class="period-tab" data-period="30D">30D</button>
-          <button class="period-tab" data-period="90D">90D</button>
+          <button class="period-tab active" data-period="7">7D</button>
+          <button class="period-tab" data-period="30">30D</button>
         </div>
       </div>
       <div class="growth-chart-container">
@@ -1328,12 +1327,19 @@
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-content">
+        <a href="https://t.me/+SBvwWPXfYA8wMGY1" target="_blank" class="support-link">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+          </svg>
+          Telegram
+        </a>
         <a href="https://x.com/ratio_hunter_10" target="_blank" class="support-link">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path
               d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>
-          Support & Updates
+          Twitter
         </a>
         <span class="footer-text">Built for Solana degens 🚀</span>
       </div>
@@ -1346,13 +1352,46 @@
       <h2>🔗 Connect Wallet</h2>
       <p>Connect your Solana wallet to track it automatically</p>
       <button class="btn btn-accent wallet-btn" onclick="connectBackpack()">
-        <img src="https://backpack.app/favicon.ico" alt=""> Backpack
+        <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="8" fill="#E33E3F" />
+          <path
+            d="M28.5 14H11.5C10.67 14 10 14.67 10 15.5V28.5C10 29.33 10.67 30 11.5 30H28.5C29.33 30 30 29.33 30 28.5V15.5C30 14.67 29.33 14 28.5 14Z"
+            fill="white" />
+          <path d="M26 10H14C12.9 10 12 10.9 12 12V14H28V12C28 10.9 27.1 10 26 10Z" fill="white" />
+          <circle cx="16" cy="22" r="2" fill="#E33E3F" />
+          <circle cx="24" cy="22" r="2" fill="#E33E3F" />
+        </svg> Backpack
       </button>
       <button class="btn wallet-btn" onclick="connectPhantom()">
-        <img src="https://phantom.app/favicon.ico" alt=""> Phantom
+        <svg width="24" height="24" viewBox="0 0 128 128" fill="none">
+          <rect width="128" height="128" rx="26" fill="#AB9FF2" />
+          <path
+            d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0583C13.936 87.5709 33.5027 107.668 57.0926 107.668H60.4772C81.4383 107.668 110.584 89.1498 110.584 64.9142Z"
+            fill="url(#paint0_linear)" />
+          <path
+            d="M77.5267 60.4666C77.5267 56.8179 80.4951 53.8496 84.1438 53.8496C87.7925 53.8496 90.7608 56.8179 90.7608 60.4666C90.7608 64.1153 87.7925 67.0837 84.1438 67.0837C80.4951 67.0837 77.5267 64.1153 77.5267 60.4666Z"
+            fill="white" />
+          <defs>
+            <linearGradient id="paint0_linear" x1="62.4981" y1="107.668" x2="62.4981" y2="23"
+              gradientUnits="userSpaceOnUse">
+              <stop stop-color="white" />
+              <stop offset="1" stop-color="white" stop-opacity="0.82" />
+            </linearGradient>
+          </defs>
+        </svg> Phantom
       </button>
       <button class="btn wallet-btn" onclick="connectSolflare()">
-        <img src="https://solflare.com/favicon.ico" alt=""> Solflare
+        <svg width="24" height="24" viewBox="0 0 101 88" fill="none">
+          <path
+            d="M100.48 69.38L83.82 86.04C83.46 86.4 82.97 86.61 82.46 86.61H1.58C0.439999 86.61 -0.230001 85.32 0.439999 84.4L17.1 67.74C17.46 67.38 17.95 67.17 18.46 67.17H99.34C100.48 67.17 101.15 68.46 100.48 69.38Z"
+            fill="#00FFA3" />
+          <path
+            d="M100.48 1.96001L83.82 18.62C83.46 18.98 82.97 19.19 82.46 19.19H1.58C0.439999 19.19 -0.230001 17.9 0.439999 16.98L17.1 0.320007C17.46 -0.0399933 17.95 -0.249992 18.46 -0.249992H99.34C100.48 -0.249992 101.15 1.04001 100.48 1.96001Z"
+            fill="#00FFA3" />
+          <path
+            d="M17.1 52.04L0.439999 35.38C-0.230001 34.46 0.439999 33.17 1.58 33.17H82.46C82.97 33.17 83.46 33.38 83.82 33.74L100.48 50.4C101.15 51.32 100.48 52.61 99.34 52.61H18.46C17.95 52.61 17.46 52.4 17.1 52.04Z"
+            fill="#00FFA3" />
+        </svg> Solflare
       </button>
       <button class="btn wallet-btn" onclick="closeWalletModal()">Cancel</button>
     </div>
@@ -1381,9 +1420,6 @@
       <div class="discount-status" id="discountStatus"></div>
       <button class="btn btn-accent wallet-btn" id="payBtn" onclick="makePayment()">
         Pay with Connected Wallet
-      </button>
-      <button class="btn trial-btn wallet-btn" onclick="startFreeTrial()">
-        🎁 Try Free for 7 Days
       </button>
       <button class="btn wallet-btn" onclick="closePaymentModal()">Cancel</button>
       <div class="payment-info" id="paymentStatus"></div>
@@ -1431,6 +1467,13 @@
 
     // Check Pro status from API - must have the Pro wallet connected
     async function checkProStatus() {
+      // In free mode, everyone is Pro
+      if (freeMode) {
+        proStatusCache = { isPro: true, freeMode: true };
+        updateProUI(true);
+        return true;
+      }
+
       if (!connectedWallet) {
         proStatusCache = { isPro: false, wallet: null, expiresAt: null };
         updateProUI(false);
@@ -1459,6 +1502,13 @@
     }
 
     function updateProUI(isPro) {
+      // In free mode, hide all payment/pro UI
+      if (freeMode) {
+        document.getElementById('proStatusDisplay').style.display = 'none';
+        document.getElementById('upgradeBtn').style.display = 'none';
+        return;
+      }
+
       if (isPro) {
         document.getElementById('proStatusDisplay').style.display = 'flex';
         document.getElementById('upgradeBtn').style.display = 'none';
@@ -1681,7 +1731,7 @@
     }
 
     function isPro() {
-      return proStatusCache.isPro;
+      return freeMode || proStatusCache.isPro;
     }
 
     // Check if viewing only the demo wallet (free users see full data for demo)
@@ -1695,10 +1745,25 @@
       return isPro() || isViewingDemoOnly();
     }
 
+    // Free mode - everything unlocked, no payment required
+    let freeMode = false;
+
     async function loadPaymentConfig() {
       try {
         const res = await fetch('/api/payment-config');
         paymentConfig = await res.json();
+
+        // Check if free mode is enabled
+        if (paymentConfig.freeMode) {
+          freeMode = true;
+          // Hide upgrade button and payment UI in free mode
+          document.getElementById('upgradeBtn').style.display = 'none';
+          document.getElementById('proStatusDisplay').style.display = 'none';
+          // Make everyone Pro in free mode
+          proStatusCache = { isPro: true, freeMode: true };
+          return;
+        }
+
         document.getElementById('paymentAmount').textContent = '$' + paymentConfig.amount + ' ' + paymentConfig.token;
         if (paymentConfig.originalAmount) {
           document.getElementById('paymentOriginal').textContent = '$' + paymentConfig.originalAmount + ' ' + paymentConfig.token;
@@ -1944,7 +2009,6 @@
         document.getElementById('statDeposits').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
         document.getElementById('defiContent').innerHTML = '';
-        document.getElementById('growthSection').style.display = 'none';
         renderDonutChart([], 0);
         allTokens = [];
         allDefiPositions = [];
@@ -2222,7 +2286,6 @@
         document.getElementById('statDeposits').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '';
         document.getElementById('defiContent').innerHTML = '';
-        document.getElementById('growthSection').style.display = 'none';
         renderDonutChart([], 0);
         allTokens = [];
         allDefiPositions = [];
@@ -2271,13 +2334,8 @@
           .sort((a, b) => b.value - a.value).slice(0, 6);
         renderDonutChart(chartSegments, a.totalAssets);
 
-        // Show/render growth chart for Pro users
-        if (hasProView) {
-          document.getElementById('growthSection').style.display = 'block';
-          renderGrowthChart(a.totalAssets, data.tokens || []);
-        } else {
-          document.getElementById('growthSection').style.display = 'none';
-        }
+        // Load growth chart with real data
+        loadGrowthChart(wallets);
 
         // Store data for pagination
         allTokens = data.tokens || [];
@@ -2360,16 +2418,44 @@
 
       document.getElementById('tokensContent').innerHTML = html;
     }
+    // Growth Chart with Real Data
+    let currentGrowthPeriod = 7;
+    let growthHistoryCache = {};
 
-    // Growth Chart Rendering
-    let currentGrowthPeriod = '7D';
-    let currentPortfolioValue = 0;
-    let currentTokens = [];
+    async function loadGrowthChart(wallets) {
+      if (!wallets || wallets.length === 0) {
+        document.getElementById('growthSection').style.display = 'none';
+        return;
+      }
 
-    function renderGrowthChart(totalValue, tokens) {
-      currentPortfolioValue = totalValue;
-      currentTokens = tokens;
+      // For now, use first wallet's history (multi-wallet aggregation would need backend support)
+      const wallet = wallets[0];
+      const cacheKey = `${wallet}-${currentGrowthPeriod}`;
 
+      let history = growthHistoryCache[cacheKey];
+      if (!history) {
+        try {
+          const res = await fetch(`/api/portfolio/history/${wallet}?days=${currentGrowthPeriod}`);
+          const data = await res.json();
+          if (data.success && data.history?.length > 0) {
+            history = data.history;
+            growthHistoryCache[cacheKey] = history;
+          }
+        } catch (e) {
+          console.error('Growth chart error:', e);
+        }
+      }
+
+      if (!history || history.length < 2) {
+        document.getElementById('growthSection').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('growthSection').style.display = 'block';
+      renderGrowthChart(history);
+    }
+
+    function renderGrowthChart(history) {
       const canvas = document.getElementById('growthChart');
       const ctx = canvas.getContext('2d');
 
@@ -2386,53 +2472,15 @@
       // Clear canvas
       ctx.clearRect(0, 0, width, height);
 
-      // Generate smooth historical data using sine waves + trend
-      const numPoints = currentGrowthPeriod === '7D' ? 28 : currentGrowthPeriod === '30D' ? 60 : 90;
-      const dataPoints = [];
-
-      // Use seeded random for consistent results per wallet
-      const seed = totalValue % 1000;
-      const seededRandom = (i) => {
-        const x = Math.sin(seed + i * 0.1) * 10000;
-        return x - Math.floor(x);
-      };
-
-      // Generate smooth curve with trend toward current value
-      const baseVariation = totalValue * 0.08; // 8% max variation
-      const trendStrength = 0.7; // How strongly we trend toward final value
-
-      for (let i = 0; i < numPoints; i++) {
-        const progress = i / (numPoints - 1); // 0 to 1
-
-        // Smooth noise using multiple sine waves
-        const noise1 = Math.sin(i * 0.3 + seed) * 0.4;
-        const noise2 = Math.sin(i * 0.7 + seed * 2) * 0.3;
-        const noise3 = Math.sin(i * 0.15 + seed * 0.5) * 0.3;
-        const combinedNoise = (noise1 + noise2 + noise3);
-
-        // Start value with some randomness, trend toward current
-        const startOffset = (seededRandom(0) - 0.5) * baseVariation * 2;
-        const startValue = totalValue + startOffset;
-
-        // Interpolate from start to current with noise
-        const trendValue = startValue + (totalValue - startValue) * Math.pow(progress, trendStrength);
-        const noiseAmount = baseVariation * (1 - progress * 0.5) * combinedNoise;
-
-        let value = trendValue + noiseAmount;
-
-        // Ensure final point is exactly current value
-        if (i === numPoints - 1) value = totalValue;
-
-        dataPoints.push({ index: i, value });
-      }
-
-      // Calculate stats
+      // Extract data points
+      const dataPoints = history.map((h, i) => ({ index: i, value: h.netWorth, timestamp: h.timestamp }));
       const values = dataPoints.map(d => d.value);
       const high = Math.max(...values);
       const low = Math.min(...values);
       const startValue = dataPoints[0].value;
-      const change = totalValue - startValue;
-      const changePercent = (change / startValue) * 100;
+      const currentValue = dataPoints[dataPoints.length - 1].value;
+      const change = currentValue - startValue;
+      const changePercent = startValue > 0 ? (change / startValue) * 100 : 0;
 
       // Update stats display
       const changeEl = document.getElementById('growthChange');
@@ -2446,8 +2494,8 @@
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
 
-      // Add some padding to Y range
-      const yPadding = (high - low) * 0.1 || totalValue * 0.05;
+      // Add padding to Y range
+      const yPadding = (high - low) * 0.1 || currentValue * 0.05;
       const yMin = low - yPadding;
       const yMax = high + yPadding;
 
@@ -2465,7 +2513,7 @@
         ctx.stroke();
       }
 
-      // Draw smooth line using quadratic curves
+      // Draw smooth line
       const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
       ctx.beginPath();
       ctx.strokeStyle = lineColor;
@@ -2473,10 +2521,7 @@
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
 
-      // Move to first point
       ctx.moveTo(xScale(0), yScale(dataPoints[0].value));
-
-      // Draw smooth curve through points
       for (let i = 1; i < dataPoints.length; i++) {
         const prev = dataPoints[i - 1];
         const curr = dataPoints[i];
@@ -2484,12 +2529,9 @@
         const prevY = yScale(prev.value);
         const currX = xScale(i);
         const currY = yScale(curr.value);
-
-        // Control point for smoothing
         const cpX = (prevX + currX) / 2;
         ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
       }
-      // Final segment
       const last = dataPoints[dataPoints.length - 1];
       ctx.lineTo(xScale(dataPoints.length - 1), yScale(last.value));
       ctx.stroke();
@@ -2518,7 +2560,7 @@
       ctx.fillStyle = gradient;
       ctx.fill();
 
-      // Draw Y-axis labels (3 labels: top, middle, bottom)
+      // Draw Y-axis labels
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '11px system-ui';
       ctx.textAlign = 'right';
@@ -2529,40 +2571,36 @@
         ctx.fillText(fmtUsd(v), padding.left - 10, y);
       }
 
-      // Draw X-axis labels (days ago) - skip the leftmost to avoid overlap with Y-axis
+      // Draw X-axis labels (dates)
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '10px system-ui';
       ctx.textBaseline = 'top';
-      const totalDays = currentGrowthPeriod === '7D' ? 7 : currentGrowthPeriod === '30D' ? 30 : 90;
-      const xLabels = currentGrowthPeriod === '7D' ? [5, 3, 1, 0] :
-        currentGrowthPeriod === '30D' ? [20, 10, 0] :
-          [60, 30, 0];
+      const labelIndices = dataPoints.length <= 7
+        ? [0, Math.floor(dataPoints.length / 2), dataPoints.length - 1]
+        : [0, Math.floor(dataPoints.length / 3), Math.floor(2 * dataPoints.length / 3), dataPoints.length - 1];
 
-      for (const daysAgo of xLabels) {
-        const progress = 1 - (daysAgo / totalDays);
-        const x = padding.left + progress * chartWidth;
-        const label = daysAgo === 0 ? 'Today' : daysAgo + 'd';
-        ctx.textAlign = daysAgo === 0 ? 'right' : 'center';
+      for (const idx of labelIndices) {
+        const x = xScale(idx);
+        const date = new Date(dataPoints[idx].timestamp);
+        const label = idx === dataPoints.length - 1 ? 'Today' : (date.getMonth() + 1) + '/' + date.getDate();
+        ctx.textAlign = idx === dataPoints.length - 1 ? 'right' : idx === 0 ? 'left' : 'center';
         ctx.fillText(label, x, height - padding.bottom + 8);
       }
 
       // Draw current value dot with glow
       const dotX = xScale(dataPoints.length - 1);
-      const dotY = yScale(totalValue);
+      const dotY = yScale(currentValue);
 
-      // Glow effect
       ctx.beginPath();
       ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
       ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
       ctx.fill();
 
-      // Inner dot
       ctx.beginPath();
       ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
       ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
       ctx.fill();
 
-      // White center
       ctx.beginPath();
       ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
@@ -2575,9 +2613,10 @@
         tab.addEventListener('click', (e) => {
           document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
           e.target.classList.add('active');
-          currentGrowthPeriod = e.target.dataset.period;
-          if (currentPortfolioValue > 0) {
-            renderGrowthChart(currentPortfolioValue, currentTokens);
+          currentGrowthPeriod = parseInt(e.target.dataset.period);
+          const wallets = getActiveWallets();
+          if (wallets.length > 0) {
+            loadGrowthChart(wallets);
           }
         });
       });

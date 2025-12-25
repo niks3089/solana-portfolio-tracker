@@ -204,3 +204,77 @@
     state: enabled
     policy: deny
 
+# Nginx reverse proxy
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Install Certbot
+  apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Create certbot webroot directory
+  file:
+    path: /var/www/certbot
+    state: directory
+    mode: '0755'
+
+- name: Check if SSL certificate exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+  register: ssl_cert
+
+- name: Stop nginx for initial cert generation
+  systemd:
+    name: nginx
+    state: stopped
+  when: not ssl_cert.stat.exists
+
+- name: Generate SSL certificate
+  command: >
+    certbot certonly --standalone
+    -d {{ domain_name }}
+    --email {{ ssl_email }}
+    --agree-tos
+    --non-interactive
+  when: not ssl_cert.stat.exists
+
+- name: Configure Nginx
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/portfolio
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart nginx
+
+- name: Enable Nginx site
+  file:
+    src: /etc/nginx/sites-available/portfolio
+    dest: /etc/nginx/sites-enabled/portfolio
+    state: link
+  notify: Restart nginx
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart nginx
+
+- name: Start Nginx
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Set up SSL renewal cron job
+  cron:
+    name: "Renew Let's Encrypt certificates"
+    minute: "0"
+    hour: "3"
+    job: "certbot renew --quiet && systemctl reload nginx"
+

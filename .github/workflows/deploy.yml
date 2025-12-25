@@ -1,17 +1,19 @@
 name: Deploy Portfolio Dashboard
 
 on:
+  # Manual trigger
   workflow_dispatch:
     inputs:
-      deploymentDescription:
-        type: string
-        description: 'Deployment description'
+      full_init:
+        description: 'Run full initialization (includes PostgreSQL, Nginx, SSL)'
         required: false
+        type: boolean
+        default: false
+  # Auto deploy on push to main
   push:
     branches:
       - main
     paths:
-      - 'deployment/**'
       - 'server.js'
       - 'public/**'
       - 'scripts/**'
@@ -21,7 +23,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      VAULT_PASSWORD: ${{ secrets.VAULT_PASSWORD }}
       ANSIBLE_HOST_KEY_CHECKING: false
     steps:
       - uses: actions/checkout@v4
@@ -41,15 +42,14 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.DEPLOY_KEY }}
 
-      - name: Create vault password file
-        run: echo "$VAULT_PASSWORD" > .vault_password
-
-      - name: Run Ansible Playbook
+      - name: Deploy (code only)
+        if: ${{ !inputs.full_init }}
         run: |
           cd deployment
-          ansible-playbook deploy.yml --vault-password-file ../.vault_password
+          ansible-playbook deploy.yml
 
-      - name: Clean up vault password file
-        if: always()
-        run: rm -f .vault_password
-
+      - name: Full initialization
+        if: ${{ inputs.full_init }}
+        run: |
+          cd deployment
+          ansible-playbook init.yml

@@ -4,6 +4,10 @@ app_user: portfolio
 app_dir: /home/portfolio/app
 app_port: 3000
 
+# Domain
+domain_name: saul.run
+ssl_email: ratio_hunter_10@proton.me
+
 # PostgreSQL
 postgres_db: portfolio_dashboard
 postgres_user: portfolio
@@ -15,5 +19,8 @@ dialect_api_key: "sk_usjjgv83q3jrlvqg2fwilsi7"
 lambda_p2p_api_key: "feMLcQShh5WNpbgE4zgAAz3iWDAzvoCL"
 
 # Payment
-payment_wallet: "2P2QaYCyjXiSqygKxrN4mREnTENTL4oQ64kN5nx4XPaX"
+payment_wallet: "A6f4NMPjrQSBUpCVkWW22bjEGfxsFGH3GUQJemNv8zXk"
+
+# Free mode - everything unlocked, no wallet required
+free_mode: "true"
 
