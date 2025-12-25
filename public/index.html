@@ -1,0 +1,3033 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio Dashboard</title>
+  <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a24;
+      --border: #2a2a3a;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --accent: #00d4aa;
+      --accent-dim: #00d4aa33;
+      --positive: #00d4aa;
+      --negative: #ff4466;
+      --warning: #ffaa00;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: var(--border);
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: var(--bg-primary);
+      border-color: var(--warning);
+      font-weight: 600;
+    }
+
+    .btn-warning-subtle {
+      background: transparent;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+      font-size: 0.85rem;
+      padding: 0.4rem 0.75rem;
+    }
+
+    .btn-warning-subtle:hover {
+      background: var(--warning);
+      color: var(--bg-primary);
+    }
+
+    .pro-status-display {
+      display: flex;
+      align-items: center;
+    }
+
+    .pro-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      background: linear-gradient(135deg, rgba(0, 212, 170, 0.15), rgba(0, 212, 170, 0.05));
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pro-pill:hover {
+      background: linear-gradient(135deg, rgba(0, 212, 170, 0.25), rgba(0, 212, 170, 0.1));
+      border-color: var(--accent);
+    }
+
+    .pro-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .pro-text {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pro-days {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .pro-details-popup {
+      position: fixed;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      min-width: 200px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      animation: fadeIn 0.15s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .pro-details-header {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pro-details-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.35rem 0;
+      font-size: 0.85rem;
+    }
+
+    .pro-details-label {
+      color: var(--text-secondary);
+    }
+
+    .pro-details-value {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .btn-small {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .top-section {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .stat-card.blurred .stat-value {
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-hint {
+      font-size: 0.6rem;
+      text-transform: none;
+      opacity: 0.7;
+    }
+
+    /* Growth Chart Styles */
+    .growth-section .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .growth-period-tabs {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .period-tab {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .period-tab:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .period-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg-primary);
+    }
+
+    .growth-chart-container {
+      padding: 1rem 1.5rem 1.5rem;
+    }
+
+    #growthChart {
+      width: 100%;
+      height: 180px;
+      border-radius: 8px;
+    }
+
+    .growth-stats {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .growth-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .growth-stat-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .growth-stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .growth-stat-value.positive {
+      color: var(--positive);
+    }
+
+    .growth-stat-value.negative {
+      color: var(--negative);
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    .positive {
+      color: var(--positive);
+    }
+
+    .negative {
+      color: var(--negative);
+    }
+
+    .chart-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .chart-title {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .donut-chart {
+      position: relative;
+      width: 180px;
+      height: 180px;
+    }
+
+    .donut-ring {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .donut-hole {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--bg-secondary);
+    }
+
+    .donut-chart.blurred .donut-ring,
+    .donut-chart.blurred .donut-center {
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .chart-legend.blurred {
+      filter: blur(6px);
+      pointer-events: none;
+    }
+
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .donut-total {
+      font-size: 1.2rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .donut-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 0.85rem 1.25rem;
+      text-align: left;
+    }
+
+    th {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      background: var(--bg-tertiary);
+    }
+
+    td {
+      border-top: 1px solid var(--border);
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    .wallet-manager {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .wallet-input-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .wallet-input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .wallet-input {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-family: monospace;
+    }
+
+    .wallet-suggestions {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 50;
+    }
+
+    .wallet-suggestions.active {
+      display: block;
+    }
+
+    .suggestion-item {
+      padding: 0.6rem 0.75rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .suggestion-item:hover {
+      background: var(--border);
+    }
+
+    .suggestion-addr {
+      font-family: monospace;
+      color: var(--text-primary);
+    }
+
+    .suggestion-label {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .group-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .group-tab {
+      padding: 0.4rem 0.8rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .group-tab:hover {
+      background: var(--border);
+    }
+
+    .group-tab.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+    }
+
+    .wallet-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .wallet-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-tertiary);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .wallet-tag-name {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .wallet-tag-addr {
+      color: var(--text-secondary);
+      font-family: monospace;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+    }
+
+    .wallet-tag-remove {
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .wallet-tag-remove:hover {
+      color: var(--negative);
+    }
+
+    .wallet-input-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    .wallet-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 4px;
+      max-height: 250px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .wallet-dropdown.active {
+      display: block;
+    }
+
+    .wallet-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .wallet-dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .wallet-dropdown-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .wallet-dropdown-item.toly-item {
+      border-top: 1px solid var(--border);
+      background: rgba(0, 212, 170, 0.05);
+    }
+
+    .wallet-dropdown-item.toly-item .wallet-dropdown-label {
+      color: var(--accent);
+    }
+
+    .wallet-dropdown-edit {
+      cursor: pointer;
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    .wallet-dropdown-edit:hover {
+      color: var(--accent);
+      opacity: 1;
+    }
+
+    .wallet-dropdown-label {
+      color: var(--accent);
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    .wallet-dropdown-addr {
+      color: var(--text-secondary);
+      font-family: monospace;
+      font-size: 0.85rem;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .wallet-dropdown-addr:hover {
+      color: var(--text-primary);
+    }
+
+    .wallet-dropdown-empty {
+      padding: 1rem;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    .label-editor {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .label-editor.active {
+      display: flex;
+    }
+
+    .label-editor-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      min-width: 320px;
+      max-width: 400px;
+    }
+
+    .label-editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      font-family: monospace;
+      color: var(--text-secondary);
+    }
+
+    .label-editor-close {
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+    }
+
+    .label-editor-close:hover {
+      color: var(--text-primary);
+    }
+
+    .label-editor-input {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .label-editor-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .label-editor-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    .loading {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    .badge-deposit {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .badge-borrow {
+      background: #ff446633;
+      color: var(--negative);
+    }
+
+    .badge-wallet {
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    .badge-pro {
+      background: var(--warning);
+      color: var(--bg-primary);
+      font-weight: 600;
+    }
+
+    .token-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .token-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .modal h2 {
+      margin-bottom: 1rem;
+    }
+
+    .modal p {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .wallet-btn {
+      width: 100%;
+      margin-bottom: 0.75rem;
+      justify-content: center;
+      padding: 0.8rem;
+    }
+
+    .wallet-btn img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .connected-badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .connected-badge:hover {
+      background: #ff446644;
+      color: var(--negative);
+    }
+
+    .payment-offer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .payment-original {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      text-decoration: line-through;
+      opacity: 0.7;
+    }
+
+    .payment-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .offer-tag {
+      background: linear-gradient(135deg, #ff6b6b, #ffa500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 600;
+    }
+
+    .payment-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .discount-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .discount-input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+    }
+
+    .discount-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .discount-status {
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+      min-height: 1.2em;
+    }
+
+    .discount-status.success {
+      color: var(--positive);
+    }
+
+    .discount-status.error {
+      color: var(--negative);
+    }
+
+    .payment-info {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 1rem;
+    }
+
+    .tx-link {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .tx-link:hover {
+      text-decoration: underline;
+    }
+
+    .pro-status {
+      font-size: 0.75rem;
+      color: var(--positive);
+      margin-top: 0.5rem;
+    }
+
+    .blurred {
+      filter: blur(8px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .blurred-text {
+      filter: blur(4px);
+      user-select: none;
+    }
+
+    .blurred-row td {
+      color: var(--text-secondary);
+      filter: blur(3px);
+      user-select: none;
+    }
+
+    .upgrade-prompt {
+      padding: 1rem;
+      text-align: center;
+      color: var(--warning);
+      cursor: pointer;
+      font-weight: 500;
+      background: linear-gradient(to right, transparent, rgba(255, 170, 0, 0.1), transparent);
+      margin-top: 0.5rem;
+      border-radius: 8px;
+    }
+
+    .upgrade-prompt:hover {
+      background: linear-gradient(to right, transparent, rgba(255, 170, 0, 0.2), transparent);
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.5rem 0;
+    }
+
+    .pagination-btn {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .pagination-info {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      padding: 0 0.5rem;
+    }
+
+    .upgrade-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 15, 0.7);
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .upgrade-overlay span {
+      background: var(--warning);
+      color: var(--bg-primary);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .relative {
+      position: relative;
+    }
+
+    .coupon-input {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.6rem;
+      border-radius: 6px;
+      width: 100%;
+      margin-top: 1rem;
+      text-align: center;
+      font-family: monospace;
+    }
+
+    .coupon-applied {
+      color: var(--positive);
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
+    .free-limit {
+      background: var(--bg-tertiary);
+      border: 1px dashed var(--border);
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .free-limit a {
+      color: var(--warning);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 900px) {
+      .top-section {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Subtitle under logo */
+    .logo-subtitle {
+      font-size: 0.7rem;
+      color: rgba(0, 212, 170, 0.6);
+      font-weight: 400;
+      margin-top: 0.25rem;
+      letter-spacing: 0.02em;
+    }
+
+    .logo-subtitle span {
+      margin: 0 0.5rem;
+      font-size: 0.9rem;
+      color: rgba(0, 212, 170, 0.8);
+    }
+
+    /* Pro Features in Modal */
+    .pro-features {
+      text-align: left;
+      margin: 1rem 0;
+      padding: 0.75rem;
+      background: var(--bg-primary);
+      border-radius: 8px;
+    }
+
+    .pro-feature {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .pro-feature .check {
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+
+    /* Free Trial Button */
+    .trial-btn {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .trial-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem 0;
+      margin-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .support-link {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .support-link:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .support-link svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .footer-text {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="logo">Solana Portfolio</div>
+        <div class="logo-subtitle">Track your crypto wealth<span>•</span>Multiple wallets<span>•</span>Private</div>
+      </div>
+      <div class="header-actions">
+        <div class="pro-status-display" id="proStatusDisplay" style="display:none">
+          <span class="pro-pill" onclick="showProDetails()">
+            <span class="pro-dot"></span>
+            <span class="pro-text">Pro</span>
+            <span class="pro-days" id="proDaysLeft"></span>
+          </span>
+        </div>
+        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn">⚡ Upgrade</button>
+        <div id="walletStatus">
+          <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="wallet-manager">
+      <div class="wallet-input-wrapper" style="margin-bottom:0.75rem;position:relative">
+        <input type="text" class="wallet-input" id="walletInput" placeholder="Add wallet" autocomplete="off"
+          onfocus="showWalletDropdown()" oninput="filterWalletDropdown()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addWallet();hideWalletDropdown()}">
+        <div class="wallet-dropdown" id="walletDropdown"></div>
+      </div>
+      <div class="wallet-tags" id="walletTags"></div>
+    </div>
+
+    <div class="top-section">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Assets</div>
+          <div class="stat-value" id="statAssets">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Net Worth</div>
+          <div class="stat-value" id="statNetWorth">$0</div>
+        </div>
+        <div class="stat-card" id="pnlCard">
+          <div class="stat-label">All-Time P&L <span class="stat-hint">(realized + unrealized)</span></div>
+          <div class="stat-value" id="statPnL">$0</div>
+        </div>
+        <div class="stat-card" id="defiCard">
+          <div class="stat-label">DeFi Deposits</div>
+          <div class="stat-value positive" id="statDeposits">$0</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Position Breakdown</div>
+        <div class="donut-chart" id="donutChart">
+          <div class="donut-ring" style="background: var(--bg-tertiary);"></div>
+          <div class="donut-hole"></div>
+          <div class="donut-center">
+            <span class="donut-total">$0</span>
+            <span class="donut-label">Total</span>
+          </div>
+        </div>
+        <div class="chart-legend" id="chartLegend"></div>
+      </div>
+    </div>
+
+    <!-- Portfolio Growth Chart (Pro Only) -->
+    <div class="section growth-section" id="growthSection" style="display: none;">
+      <div class="section-header">
+        Portfolio Growth
+        <div class="growth-period-tabs">
+          <button class="period-tab active" data-period="7D">7D</button>
+          <button class="period-tab" data-period="30D">30D</button>
+          <button class="period-tab" data-period="90D">90D</button>
+        </div>
+      </div>
+      <div class="growth-chart-container">
+        <canvas id="growthChart" width="800" height="200"></canvas>
+        <div class="growth-stats">
+          <div class="growth-stat">
+            <span class="growth-stat-label">Period Change</span>
+            <span class="growth-stat-value" id="growthChange">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">High</span>
+            <span class="growth-stat-value" id="growthHigh">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">Low</span>
+            <span class="growth-stat-value" id="growthLow">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Token Holdings</div>
+      <div id="tokensContent">
+        <div class="loading">Add a wallet to view portfolio</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">DeFi Positions</div>
+      <div id="defiContent">
+        <div class="loading">Add a wallet to view positions</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <a href="https://x.com/ratio_hunter_10" target="_blank" class="support-link">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+          Support & Updates
+        </a>
+        <span class="footer-text">Built for Solana degens 🚀</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Wallet Connect Modal -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="modal">
+      <h2>🔗 Connect Wallet</h2>
+      <p>Connect your Solana wallet to track it automatically</p>
+      <button class="btn btn-accent wallet-btn" onclick="connectBackpack()">
+        <img src="https://backpack.app/favicon.ico" alt=""> Backpack
+      </button>
+      <button class="btn wallet-btn" onclick="connectPhantom()">
+        <img src="https://phantom.app/favicon.ico" alt=""> Phantom
+      </button>
+      <button class="btn wallet-btn" onclick="connectSolflare()">
+        <img src="https://solflare.com/favicon.ico" alt=""> Solflare
+      </button>
+      <button class="btn wallet-btn" onclick="closeWalletModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal">
+      <h2>⚡ Upgrade to Pro</h2>
+      <div class="pro-features">
+        <div class="pro-feature"><span class="check">✓</span> Aggregated multi-wallet portfolio view</div>
+        <div class="pro-feature"><span class="check">✓</span> Track unlimited wallets without connecting</div>
+        <div class="pro-feature"><span class="check">✓</span> Full P&L analytics & portfolio growth charts</div>
+        <div class="pro-feature"><span class="check">✓</span> Complete DeFi positions breakdown</div>
+        <div class="pro-feature"><span class="check">✓</span> Priority support via Twitter DM</div>
+      </div>
+      <div class="payment-offer">
+        <span class="payment-original" id="paymentOriginal">$3 USDC</span>
+        <span class="payment-amount" id="paymentAmount">$1 USDC</span>
+      </div>
+      <div class="payment-subtitle">per month • <span class="offer-tag">🎉 Launch Offer</span></div>
+      <div class="discount-row">
+        <input type="text" class="discount-input" id="discountCode" placeholder="Discount code">
+        <button class="btn btn-small" onclick="applyDiscount()">Apply</button>
+      </div>
+      <div class="discount-status" id="discountStatus"></div>
+      <button class="btn btn-accent wallet-btn" id="payBtn" onclick="makePayment()">
+        Pay with Connected Wallet
+      </button>
+      <button class="btn trial-btn wallet-btn" onclick="startFreeTrial()">
+        🎁 Try Free for 7 Days
+      </button>
+      <button class="btn wallet-btn" onclick="closePaymentModal()">Cancel</button>
+      <div class="payment-info" id="paymentStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    // Wallet data: { address, label, group }
+    let walletData = [];
+    let activeGroup = 'all';
+    let connectedWallet = null;
+    let connectedProvider = null;
+    let connectedWalletType = null; // 'backpack', 'phantom', 'solflare'
+    let searchHistory = [];
+
+    // Demo wallet (Toly) - free users can view this fully to see what Pro looks like
+    const DEMO_WALLET = '86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY';
+
+    const CHART_COLORS = ['#00d4aa', '#ff4466', '#ffaa00', '#4466ff', '#aa44ff', '#44ffaa', '#ff6644', '#44aaff'];
+
+    let paymentConfig = { wallet: '', amount: 1, originalAmount: 3, token: 'USDC', tokenMint: '', tokenDecimals: 6, durationDays: 30 };
+
+    // Pagination state
+    const ITEMS_PER_PAGE = 10;
+    let tokenPage = 0;
+    let defiPage = 0;
+    let allTokens = [];
+    let allDefiPositions = [];
+
+    // Get active wallet addresses
+    // When connected: only show connected wallet (not demo)
+    // When disconnected: show demo wallet
+    function getActiveWallets() {
+      if (connectedWallet) {
+        // When connected, only return non-demo wallets (just the connected one)
+        return walletData.filter(w => w.address !== DEMO_WALLET).map(w => w.address);
+      }
+      // When disconnected, return all wallets (which should include demo)
+      if (activeGroup === 'all') return walletData.map(w => w.address);
+      return walletData.filter(w => w.label === activeGroup).map(w => w.address);
+    }
+
+    // Pro status cache (refreshed from API)
+    let proStatusCache = { isPro: false, wallet: null, expiresAt: null };
+
+    // Check Pro status from API - must have the Pro wallet connected
+    async function checkProStatus() {
+      if (!connectedWallet) {
+        proStatusCache = { isPro: false, wallet: null, expiresAt: null };
+        updateProUI(false);
+        return false;
+      }
+
+      try {
+        const response = await fetch('/api/pro-status/' + connectedWallet);
+        const data = await response.json();
+
+        proStatusCache = {
+          isPro: data.isPro,
+          wallet: data.wallet,
+          expiresAt: data.expiresAt,
+          paidAt: data.paidAt,
+        };
+
+        updateProUI(data.isPro);
+        return data.isPro;
+      } catch (e) {
+        console.error('Pro status check failed:', e);
+        proStatusCache = { isPro: false, wallet: connectedWallet, expiresAt: null };
+        updateProUI(false);
+        return false;
+      }
+    }
+
+    function updateProUI(isPro) {
+      if (isPro) {
+        document.getElementById('proStatusDisplay').style.display = 'flex';
+        document.getElementById('upgradeBtn').style.display = 'none';
+        // Calculate days left
+        if (proStatusCache.expiresAt) {
+          const daysLeft = Math.ceil((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+          document.getElementById('proDaysLeft').textContent = daysLeft + 'd left';
+        }
+      } else {
+        document.getElementById('proStatusDisplay').style.display = 'none';
+        document.getElementById('upgradeBtn').style.display = '';
+      }
+    }
+
+    function showProDetails() {
+      if (proStatusCache.isPro && proStatusCache.expiresAt) {
+        const shortWallet = proStatusCache.wallet
+          ? (proStatusCache.wallet.slice(0, 6) + '...' + proStatusCache.wallet.slice(-4))
+          : 'Unknown';
+        const expDate = new Date(proStatusCache.expiresAt).toLocaleDateString();
+        const daysLeft = Math.ceil((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+
+        // Create a nice tooltip/popover
+        const existing = document.querySelector('.pro-details-popup');
+        if (existing) {
+          existing.remove();
+          return;
+        }
+
+        const popup = document.createElement('div');
+        popup.className = 'pro-details-popup';
+        popup.innerHTML = `
+          <div class="pro-details-header">Pro Subscription</div>
+          <div class="pro-details-row">
+            <span class="pro-details-label">Status</span>
+            <span class="pro-details-value" style="color: var(--accent)">● Active</span>
+          </div>
+          <div class="pro-details-row">
+            <span class="pro-details-label">Wallet</span>
+            <span class="pro-details-value">${shortWallet}</span>
+          </div>
+          <div class="pro-details-row">
+            <span class="pro-details-label">Expires</span>
+            <span class="pro-details-value">${expDate}</span>
+          </div>
+          <div class="pro-details-row">
+            <span class="pro-details-label">Remaining</span>
+            <span class="pro-details-value">${daysLeft} days</span>
+          </div>
+        `;
+        document.body.appendChild(popup);
+
+        // Position near the pro pill
+        const pill = document.querySelector('.pro-pill');
+        if (pill) {
+          const rect = pill.getBoundingClientRect();
+          popup.style.top = (rect.bottom + 8) + 'px';
+          popup.style.right = (window.innerWidth - rect.right) + 'px';
+        }
+
+        // Close on click outside
+        setTimeout(() => {
+          document.addEventListener('click', function closePopup(e) {
+            if (!popup.contains(e.target) && !e.target.closest('.pro-pill')) {
+              popup.remove();
+              document.removeEventListener('click', closePopup);
+            }
+          });
+        }, 100);
+      }
+    }
+
+    // Save Pro status via API
+    async function saveProStatus(wallet, txSignature, discountCode = null) {
+      try {
+        const response = await fetch('/api/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet,
+            txSignature,
+            amount: paymentConfig.amount * (1 - appliedDiscount / 100),
+            discountCode,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          await checkProStatus();
+          refreshData();
+          return true;
+        } else {
+          console.error('Payment save failed:', data.error);
+          return false;
+        }
+      } catch (e) {
+        console.error('Payment save error:', e);
+        return false;
+      }
+    }
+
+    // Free trial activation
+    async function startFreeTrial() {
+      const statusEl = document.getElementById('paymentStatus');
+
+      if (!connectedWallet) {
+        statusEl.innerHTML = '<span style="color:var(--warning)">Connect a wallet first to start your free trial</span>';
+        return;
+      }
+
+      // Check if already used trial
+      const trialKey = 'trial_used_' + connectedWallet;
+      if (localStorage.getItem(trialKey)) {
+        statusEl.innerHTML = '<span style="color:var(--negative)">Free trial already used for this wallet</span>';
+        return;
+      }
+
+      statusEl.innerHTML = '<span style="color:var(--text-secondary)">Activating free trial...</span>';
+
+      try {
+        const response = await fetch('/api/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet: connectedWallet,
+            txSignature: 'trial_' + Date.now() + '_' + connectedWallet.slice(0, 8),
+            amount: 0,
+            discountCode: 'FREE_TRIAL',
+            isTrial: true,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          localStorage.setItem(trialKey, 'true');
+          statusEl.innerHTML = '<span style="color:var(--positive)">🎉 Free trial activated! Enjoy 7 days of Pro.</span>';
+          await checkProStatus();
+          closePaymentModal();
+          refreshData();
+        } else {
+          statusEl.innerHTML = '<span style="color:var(--negative)">Failed: ' + (data.error || 'Try again') + '</span>';
+        }
+      } catch (e) {
+        statusEl.innerHTML = '<span style="color:var(--negative)">Error: ' + e.message + '</span>';
+      }
+    }
+
+    // Discount codes (validated via API)
+    let appliedDiscount = 0;
+    let appliedDiscountCode = null;
+
+    async function applyDiscount() {
+      const code = document.getElementById('discountCode').value.trim();
+      const statusEl = document.getElementById('discountStatus');
+
+      if (!code) {
+        statusEl.textContent = '';
+        statusEl.className = 'discount-status';
+        appliedDiscount = 0;
+        appliedDiscountCode = null;
+        updatePaymentAmount();
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/discount/' + encodeURIComponent(code));
+        const data = await response.json();
+
+        if (data.valid) {
+          appliedDiscount = data.discount;
+          appliedDiscountCode = code;
+          if (appliedDiscount === 100) {
+            statusEl.textContent = '✓ Code applied: FREE!';
+            statusEl.className = 'discount-status success';
+          } else {
+            statusEl.textContent = '✓ Code applied: ' + appliedDiscount + '% off';
+            statusEl.className = 'discount-status success';
+          }
+          updatePaymentAmount();
+        } else {
+          statusEl.textContent = '✗ Invalid code';
+          statusEl.className = 'discount-status error';
+          appliedDiscount = 0;
+          appliedDiscountCode = null;
+          updatePaymentAmount();
+        }
+      } catch (e) {
+        statusEl.textContent = '✗ Could not validate code';
+        statusEl.className = 'discount-status error';
+        appliedDiscount = 0;
+        appliedDiscountCode = null;
+        updatePaymentAmount();
+      }
+    }
+
+    function updatePaymentAmount() {
+      const baseAmount = paymentConfig.amount || 1;
+      const originalAmount = paymentConfig.originalAmount || 3;
+      const finalAmount = baseAmount * (1 - appliedDiscount / 100);
+
+      // Show/hide original price based on discount
+      const originalEl = document.getElementById('paymentOriginal');
+      if (appliedDiscount > 0) {
+        originalEl.textContent = '$' + baseAmount + ' ' + paymentConfig.token;
+      } else {
+        originalEl.textContent = '$' + originalAmount + ' ' + paymentConfig.token;
+      }
+
+      if (finalAmount === 0) {
+        document.getElementById('paymentAmount').textContent = 'FREE';
+        document.getElementById('payBtn').textContent = 'Activate Pro';
+        originalEl.style.display = 'inline';
+      } else {
+        document.getElementById('paymentAmount').textContent = '$' + finalAmount.toFixed(0) + ' ' + paymentConfig.token;
+        document.getElementById('payBtn').textContent = 'Pay with Connected Wallet';
+        originalEl.style.display = appliedDiscount > 0 ? 'inline' : 'inline';
+      }
+    }
+
+    function isPro() {
+      return proStatusCache.isPro;
+    }
+
+    // Check if viewing only the demo wallet (free users see full data for demo)
+    function isViewingDemoOnly() {
+      const activeWallets = getActiveWallets();
+      return activeWallets.length === 1 && activeWallets[0] === DEMO_WALLET;
+    }
+
+    // Check if should show Pro view (either Pro user or viewing demo wallet only)
+    function shouldShowProView() {
+      return isPro() || isViewingDemoOnly();
+    }
+
+    async function loadPaymentConfig() {
+      try {
+        const res = await fetch('/api/payment-config');
+        paymentConfig = await res.json();
+        document.getElementById('paymentAmount').textContent = '$' + paymentConfig.amount + ' ' + paymentConfig.token;
+        if (paymentConfig.originalAmount) {
+          document.getElementById('paymentOriginal').textContent = '$' + paymentConfig.originalAmount + ' ' + paymentConfig.token;
+        }
+      } catch (e) { console.error('Failed to load payment config', e); }
+    }
+
+    // Load connected wallet from storage
+    function loadConnectedWallet() {
+      const saved = localStorage.getItem('connectedWallet');
+      if (saved) {
+        try {
+          const { wallet, type } = JSON.parse(saved);
+          connectedWallet = wallet;
+          connectedWalletType = type || null;
+          updateWalletStatusUI();
+        } catch (e) { }
+      }
+    }
+
+    function saveConnectedWallet() {
+      if (connectedWallet) {
+        localStorage.setItem('connectedWallet', JSON.stringify({
+          wallet: connectedWallet,
+          type: connectedWalletType
+        }));
+      } else {
+        localStorage.removeItem('connectedWallet');
+      }
+    }
+
+    function fmtUsd(n) {
+      if (n == null || isNaN(n)) return '$0.00';
+      const abs = Math.abs(n);
+      const sign = n < 0 ? '-' : '';
+      if (abs >= 1000000) return sign + '$' + (abs / 1000000).toFixed(2) + 'M';
+      if (abs >= 1000) return sign + '$' + (abs / 1000).toFixed(2) + 'K';
+      return sign + '$' + abs.toFixed(2);
+    }
+
+    function fmtNum(n, d) {
+      if (n == null || isNaN(n)) return '0';
+      return Number(n).toFixed(d || 4);
+    }
+
+    function loadWallets() {
+      try {
+        const saved = localStorage.getItem('portfolioWalletData');
+        walletData = saved ? JSON.parse(saved) : [];
+        // Migration from old format
+        const oldSaved = localStorage.getItem('portfolioWallets');
+        if (!saved && oldSaved) {
+          const oldWallets = JSON.parse(oldSaved);
+          if (Array.isArray(oldWallets) && typeof oldWallets[0] === 'string') {
+            walletData = oldWallets.map(addr => ({ address: addr, label: '', group: 'default' }));
+            saveWallets();
+          }
+        }
+        // Ensure demo wallet is always in the data (for when disconnected)
+        if (!walletData.some(w => w.address === DEMO_WALLET)) {
+          walletData.push({ address: DEMO_WALLET, label: 'toly.sol', group: '' });
+          saveWallets();
+        }
+        // Load search history
+        const hist = localStorage.getItem('walletSearchHistory');
+        searchHistory = hist ? JSON.parse(hist) : [];
+      } catch (e) {
+        walletData = [{ address: DEMO_WALLET, label: 'toly.sol', group: '' }];
+      }
+      renderWalletTags();
+      refreshData();
+    }
+
+    function saveWallets() {
+      localStorage.setItem('portfolioWalletData', JSON.stringify(walletData));
+      // Also save old format for compatibility
+      localStorage.setItem('portfolioWallets', JSON.stringify(walletData.map(w => w.address)));
+    }
+
+    function saveSearchHistory() {
+      localStorage.setItem('walletSearchHistory', JSON.stringify(searchHistory.slice(0, 20)));
+    }
+
+    async function addWallet() {
+      const addrInput = document.getElementById('walletInput');
+      let input = (addrInput.value || '').trim();
+
+      // Free plan restrictions (always allow toly.sol / demo wallet)
+      const isTolyDomain = input.toLowerCase() === 'toly.sol';
+      if (!isPro() && !isTolyDomain) {
+        const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
+
+        if (connectedWallet) {
+          // When connected: only the connected wallet allowed (plus demo)
+          const resolvedAddr = input.toLowerCase().endsWith('.sol') ? null : input;
+          if (resolvedAddr && resolvedAddr !== connectedWallet && resolvedAddr !== DEMO_WALLET) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
+            return;
+          }
+        } else {
+          // When not connected: only 1 personal wallet allowed (plus demo)
+          if (personalWallets >= 1 && !input.toLowerCase().endsWith('.sol')) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
+            return;
+          }
+        }
+      }
+
+      // Check if it's a .sol domain
+      if (input.toLowerCase().endsWith('.sol')) {
+        addrInput.disabled = true;
+        addrInput.placeholder = 'Resolving ' + input + '...';
+
+        try {
+          const response = await fetch('/api/resolve/' + encodeURIComponent(input));
+          const data = await response.json();
+
+          if (data.success && data.address) {
+            // Use the resolved address, keep domain as label
+            const domainLabel = input.toLowerCase();
+            input = data.address;
+
+            // Check for duplicates with resolved address
+            if (walletData.some(w => w.address === input)) {
+              addrInput.disabled = false;
+              addrInput.placeholder = 'Add wallet';
+              addrInput.value = '';
+              return;
+            }
+
+            // Free plan restrictions for .sol domains (allow demo wallet)
+            if (!isPro() && input !== DEMO_WALLET) {
+              const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
+              if (connectedWallet && input !== connectedWallet) {
+                addrInput.disabled = false;
+                addrInput.placeholder = 'Add wallet';
+                showPaymentModal();
+                document.getElementById('paymentStatus').innerHTML =
+                  '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
+                return;
+              } else if (!connectedWallet && personalWallets >= 1) {
+                addrInput.disabled = false;
+                addrInput.placeholder = 'Add wallet';
+                showPaymentModal();
+                document.getElementById('paymentStatus').innerHTML =
+                  '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
+                return;
+              }
+            }
+
+            // Add with domain as label
+            walletData.push({ address: input, label: domainLabel, group: '' });
+
+            // Add to search history
+            if (!searchHistory.some(h => h.address === input)) {
+              searchHistory.unshift({ address: input, label: domainLabel });
+              saveSearchHistory();
+            }
+
+            saveWallets();
+            renderWalletTags();
+            addrInput.value = '';
+            addrInput.disabled = false;
+            addrInput.placeholder = 'Add wallet';
+            refreshData();
+            return;
+          } else {
+            alert('Could not resolve ' + input + ': ' + (data.error || 'Domain not found'));
+            addrInput.disabled = false;
+            addrInput.placeholder = 'Add wallet';
+            return;
+          }
+        } catch (e) {
+          alert('Error resolving domain: ' + e.message);
+          addrInput.disabled = false;
+          addrInput.placeholder = 'Add wallet';
+          return;
+        }
+      }
+
+      // If it looks like a search term (not an address), just ignore
+      if (input.length < 32) {
+        // If dropdown is showing results, don't alert - user is searching
+        if (input.length > 0 && input.length < 32) return;
+        return;
+      }
+      if (walletData.some(w => w.address === input)) return; // Silently ignore duplicates
+
+      // Free plan restrictions for regular addresses
+      if (!isPro()) {
+        const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
+        if (connectedWallet && input !== connectedWallet) {
+          showPaymentModal();
+          document.getElementById('paymentStatus').innerHTML =
+            '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
+          return;
+        } else if (!connectedWallet && personalWallets >= 1) {
+          showPaymentModal();
+          document.getElementById('paymentStatus').innerHTML =
+            '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
+          return;
+        }
+      }
+
+      // Add without label
+      walletData.push({ address: input, label: '', group: '' });
+
+      // Add to search history
+      if (!searchHistory.some(h => h.address === input)) {
+        searchHistory.unshift({ address: input, label: '' });
+        saveSearchHistory();
+      }
+
+      saveWallets();
+      renderWalletTags();
+      addrInput.value = '';
+      refreshData();
+    }
+
+    function removeWallet(addr) {
+      // Keep label in search history before removing
+      const wallet = walletData.find(w => w.address === addr);
+      if (wallet && !searchHistory.some(h => h.address === addr)) {
+        searchHistory.unshift({ address: addr, label: wallet.label || '' });
+        saveSearchHistory();
+      }
+
+      walletData = walletData.filter(w => w.address !== addr);
+      saveWallets();
+      renderWalletTags();
+      if (walletData.length > 0) {
+        refreshData();
+      } else {
+        // Clear display when no wallets
+        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statPnL').textContent = '$0';
+        document.getElementById('statPnL').className = 'stat-value';
+        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
+        document.getElementById('defiContent').innerHTML = '';
+        document.getElementById('growthSection').style.display = 'none';
+        renderDonutChart([], 0);
+        allTokens = [];
+        allDefiPositions = [];
+      }
+    }
+
+    function setActiveGroup(group) {
+      activeGroup = group;
+      renderGroupTabs();
+      renderWalletTags();
+      refreshData();
+    }
+
+    function renderGroupTabs() {
+      // Group tabs removed for simplicity
+    }
+
+    function renderWalletTags() {
+      // When connected, hide toly.sol from tags
+      const visibleWallets = connectedWallet
+        ? walletData.filter(w => w.address !== DEMO_WALLET)
+        : walletData;
+
+      if (visibleWallets.length === 0) {
+        document.getElementById('walletTags').innerHTML = '';
+        return;
+      }
+      document.getElementById('walletTags').innerHTML = visibleWallets.map(w => {
+        const shortAddr = w.address.slice(0, 4) + '...' + w.address.slice(-4);
+        const displayName = w.label || shortAddr;
+        return '<div class="wallet-tag">' +
+          '<span class="wallet-tag-name">' + displayName + '</span>' +
+          '<span class="wallet-tag-addr">' + shortAddr + '</span>' +
+          '<span class="wallet-tag-remove" onclick="removeWallet(\'' + w.address + '\')">×</span></div>';
+      }).join('');
+    }
+
+    let editingWalletAddr = null;
+
+    function editWalletLabel(addr) {
+      const wallet = walletData.find(w => w.address === addr);
+      if (!wallet) return;
+
+      editingWalletAddr = addr;
+      document.getElementById('labelEditorAddr').textContent = addr.slice(0, 6) + '...' + addr.slice(-6);
+      document.getElementById('labelEditorInput').value = wallet.label || '';
+      document.getElementById('labelEditor').classList.add('active');
+      setTimeout(() => document.getElementById('labelEditorInput').focus(), 100);
+    }
+
+    function closeLabelEditor() {
+      document.getElementById('labelEditor').classList.remove('active');
+      editingWalletAddr = null;
+    }
+
+    function saveLabelEdit() {
+      if (!editingWalletAddr) return;
+
+      const wallet = walletData.find(w => w.address === editingWalletAddr);
+      if (!wallet) return;
+
+      const newLabel = document.getElementById('labelEditorInput').value.trim();
+      wallet.label = newLabel;
+      wallet.group = newLabel;
+      saveWallets();
+
+      // Update search history too
+      const historyItem = searchHistory.find(h => h.address === editingWalletAddr);
+      if (historyItem) {
+        historyItem.label = newLabel;
+        saveSearchHistory();
+      }
+
+      renderWalletTags();
+      closeLabelEditor();
+    }
+
+    // Wallet dropdown for search/history
+    function showWalletDropdown() {
+      renderWalletDropdown();
+      document.getElementById('walletDropdown').classList.add('active');
+    }
+
+    function hideWalletDropdown() {
+      document.getElementById('walletDropdown').classList.remove('active');
+    }
+
+    function filterWalletDropdown() {
+      renderWalletDropdown();
+    }
+
+    function renderWalletDropdown() {
+      const input = document.getElementById('walletInput').value.toLowerCase().trim();
+      const dropdown = document.getElementById('walletDropdown');
+
+      // If input looks like a valid address (32+ chars), show hint
+      if (input.length >= 32) {
+        dropdown.innerHTML = '<div class="wallet-dropdown-empty">Press Enter to add this wallet</div>';
+        return;
+      }
+
+      // Combine all known wallets (with safeguards), excluding demo wallet (we'll add it at end)
+      const allWallets = [...(walletData || [])].filter(w => w.address !== DEMO_WALLET);
+      for (const h of (searchHistory || [])) {
+        if (h && h.address && h.address !== DEMO_WALLET && !allWallets.some(w => w.address === h.address)) {
+          allWallets.push(h);
+        }
+      }
+
+      // Filter by input (search label or address)
+      let filtered = allWallets.filter(w => {
+        if (!w || !w.address) return false;
+        if (!input) return true;
+        const labelMatch = w.label && w.label.toLowerCase().includes(input);
+        const addrMatch = w.address.toLowerCase().includes(input);
+        return labelMatch || addrMatch;
+      }).slice(0, 9); // Leave room for toly.sol
+
+      // Always show toly.sol in dropdown (for demo purposes)
+      const tolyMatches = !input || 'toly.sol'.includes(input) || 'toly'.includes(input) || DEMO_WALLET.toLowerCase().includes(input);
+      const tolyEntry = { address: DEMO_WALLET, label: 'toly.sol' };
+
+      if (filtered.length === 0 && !tolyMatches) {
+        if (input) {
+          dropdown.innerHTML = '<div class="wallet-dropdown-empty">No wallets match "' + input + '"</div>';
+        } else {
+          dropdown.innerHTML = '<div class="wallet-dropdown-empty">Paste a wallet address to start</div>';
+        }
+        return;
+      }
+
+      // Always add toly.sol at end if it matches the search
+      if (tolyMatches && !filtered.some(w => w.address === DEMO_WALLET)) {
+        filtered.push(tolyEntry);
+      }
+
+      dropdown.innerHTML = filtered.map(w => {
+        const label = w.label || '';
+        const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-6);
+        const isTracked = walletData.some(wd => wd.address === w.address);
+        const isToly = w.address === DEMO_WALLET;
+        return '<div class="wallet-dropdown-item' + (isToly ? ' toly-item' : '') + '" onclick="selectWalletFromDropdown(\'' + w.address + '\')">' +
+          '<span class="wallet-dropdown-label">' + (label || shortAddr) + '</span>' +
+          '<span class="wallet-dropdown-addr">' + shortAddr + '</span>' +
+          (isTracked ? '<span style="color:var(--accent);font-size:0.75rem;margin-left:auto">✓</span>' : '') +
+          '</div>';
+      }).join('');
+    }
+
+    function editWalletFromDropdown(addr) {
+      // First ensure wallet is tracked (with free plan check)
+      if (!walletData.some(w => w.address === addr)) {
+        // Free plan check
+        if (!isPro() && addr !== DEMO_WALLET) {
+          const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
+          if (connectedWallet && addr !== connectedWallet) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
+            hideWalletDropdown();
+            return;
+          } else if (!connectedWallet && personalWallets >= 1) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
+            hideWalletDropdown();
+            return;
+          }
+        }
+        walletData.push({ address: addr, label: '', group: '' });
+        saveWallets();
+        renderWalletTags();
+      }
+      hideWalletDropdown();
+      // Now edit
+      editWalletLabel(addr);
+    }
+
+    function selectWalletFromDropdown(addr) {
+      document.getElementById('walletInput').value = '';
+      hideWalletDropdown();
+
+      // If not already tracked, add it (with free plan check)
+      if (!walletData.some(w => w.address === addr)) {
+        // Free plan check (allow demo wallet always)
+        if (!isPro() && addr !== DEMO_WALLET) {
+          const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
+          if (connectedWallet && addr !== connectedWallet) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
+            return;
+          } else if (!connectedWallet && personalWallets >= 1) {
+            showPaymentModal();
+            document.getElementById('paymentStatus').innerHTML =
+              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
+            return;
+          }
+        }
+
+        walletData.push({ address: addr, label: '', group: '' });
+        if (!searchHistory.some(h => h.address === addr)) {
+          searchHistory.unshift({ address: addr, label: '' });
+          saveSearchHistory();
+        }
+        saveWallets();
+        renderWalletTags();
+      }
+
+      // Refresh data immediately
+      refreshData();
+    }
+
+    function renderDonutChart(segments, total) {
+      const legend = document.getElementById('chartLegend');
+      const donutChart = document.getElementById('donutChart');
+
+      // Blur for non-Pro users (unless viewing demo wallet)
+      if (!shouldShowProView()) {
+        donutChart.classList.add('blurred');
+        legend.classList.add('blurred');
+      } else {
+        donutChart.classList.remove('blurred');
+        legend.classList.remove('blurred');
+      }
+
+      if (!segments.length || total <= 0) {
+        donutChart.innerHTML = `
+          <div class="donut-ring" style="background: var(--bg-tertiary);"></div>
+          <div class="donut-hole"></div>
+          <div class="donut-center">
+            <span class="donut-total">$0</span>
+            <span class="donut-label">Total</span>
+          </div>
+        `;
+        legend.innerHTML = '';
+        return;
+      }
+
+      // Build conic-gradient for the donut chart
+      let gradientStops = [];
+      let currentPercent = 0;
+
+      segments.forEach((seg, i) => {
+        const pct = (seg.value / total) * 100;
+        const color = CHART_COLORS[i % CHART_COLORS.length];
+        gradientStops.push(color + ' ' + currentPercent + '%');
+        currentPercent += pct;
+        gradientStops.push(color + ' ' + currentPercent + '%');
+      });
+
+      // Create donut with conic-gradient
+      donutChart.innerHTML = `
+        <div class="donut-ring" style="background: conic-gradient(from -90deg, ${gradientStops.join(', ')});"></div>
+        <div class="donut-hole"></div>
+        <div class="donut-center">
+          <span class="donut-total">${fmtUsd(total)}</span>
+          <span class="donut-label">Total</span>
+        </div>
+      `;
+
+      legend.innerHTML = segments.map((seg, i) =>
+        '<div class="legend-item"><span class="legend-dot" style="background:' + CHART_COLORS[i % CHART_COLORS.length] + '"></span>' + seg.label + '</div>'
+      ).join('');
+    }
+
+    async function refreshData() {
+      const wallets = getActiveWallets();
+      if (!wallets.length) {
+        // Clear all stats when no wallets
+        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statPnL').textContent = '$0';
+        document.getElementById('statPnL').className = 'stat-value';
+        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('tokensContent').innerHTML = '';
+        document.getElementById('defiContent').innerHTML = '';
+        document.getElementById('growthSection').style.display = 'none';
+        renderDonutChart([], 0);
+        allTokens = [];
+        allDefiPositions = [];
+        return;
+      }
+
+      document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading...</div>';
+      document.getElementById('defiContent').innerHTML = '<div class="loading">Loading...</div>';
+
+      try {
+        const res = await fetch('/api/portfolio/aggregate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallets })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const a = data.aggregate || {};
+        document.getElementById('statAssets').textContent = fmtUsd(a.totalAssets);
+        document.getElementById('statNetWorth').textContent = fmtUsd(a.totalNetWorth);
+
+        const pnlEl = document.getElementById('statPnL');
+        pnlEl.textContent = (a.totalPnL >= 0 ? '+' : '') + fmtUsd(a.totalPnL);
+        pnlEl.className = 'stat-value ' + (a.totalPnL >= 0 ? 'positive' : 'negative');
+        document.getElementById('statDeposits').textContent = fmtUsd(a.defiDeposits);
+
+        // Blur P&L and DeFi cards for free users (unless viewing demo)
+        const hasProView = shouldShowProView();
+        document.getElementById('pnlCard').classList.toggle('blurred', !hasProView);
+        document.getElementById('defiCard').classList.toggle('blurred', !hasProView);
+
+        // Chart data
+        const protocolTotals = {};
+        let tokenTotal = 0;
+        for (const t of (data.tokens || [])) tokenTotal += t.value || 0;
+        if (tokenTotal > 0) protocolTotals['Tokens'] = tokenTotal;
+        for (const p of (data.defiPositions || [])) {
+          if (p.type !== 'borrow') {
+            const proto = p.protocol || 'Other';
+            protocolTotals[proto] = (protocolTotals[proto] || 0) + (p.value || 0);
+          }
+        }
+        const chartSegments = Object.entries(protocolTotals)
+          .map(([label, value]) => ({ label, value }))
+          .sort((a, b) => b.value - a.value).slice(0, 6);
+        renderDonutChart(chartSegments, a.totalAssets);
+
+        // Show/render growth chart for Pro users
+        if (hasProView) {
+          document.getElementById('growthSection').style.display = 'block';
+          renderGrowthChart(a.totalAssets, data.tokens || []);
+        } else {
+          document.getElementById('growthSection').style.display = 'none';
+        }
+
+        // Store data for pagination
+        allTokens = data.tokens || [];
+        allDefiPositions = data.defiPositions || [];
+        tokenPage = 0;
+        defiPage = 0;
+
+        // Render with pagination
+        renderTokensPage();
+        renderDefiPage();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('tokensContent').innerHTML = '<div class="loading">Error: ' + err.message + '</div>';
+        document.getElementById('defiContent').innerHTML = '<div class="loading">Error: ' + err.message + '</div>';
+      }
+    }
+
+    function renderTokensPage() {
+      const tokens = allTokens;
+      const showWalletCol = getActiveWallets().length > 1;
+      const hasProView = shouldShowProView();
+
+      if (tokens.length === 0) {
+        document.getElementById('tokensContent').innerHTML = '<div class="loading">No tokens</div>';
+        return;
+      }
+
+      // Calculate pagination
+      const totalPages = Math.ceil(tokens.length / ITEMS_PER_PAGE);
+      const start = tokenPage * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const pageTokens = tokens.slice(start, end);
+
+      // For free users (not viewing demo), limit to 2 visible
+      const visibleLimit = hasProView ? pageTokens.length : Math.min(2, pageTokens.length);
+      const visibleTokens = pageTokens.slice(0, visibleLimit);
+      const blurredTokens = hasProView ? [] : pageTokens.slice(visibleLimit);
+
+      let html = '<table><thead><tr>';
+      if (showWalletCol) html += '<th>Wallet</th>';
+      html += '<th>Token</th><th>Balance</th><th>Price</th><th>Value</th><th>P&L</th></tr></thead><tbody>';
+
+      for (const t of visibleTokens) {
+        const pnl = t.pnl ? t.pnl.totalPnL : null;
+        const pnlClass = pnl != null ? (pnl >= 0 ? 'positive' : 'negative') : '';
+        const pnlStr = hasProView && pnl != null ? ((pnl >= 0 ? '+' : '') + fmtUsd(pnl)) : (hasProView ? '—' : '<span class="blurred-text">+$XX.XX</span>');
+        html += '<tr>';
+        if (showWalletCol) html += '<td><span class="badge badge-wallet">' + (t.walletShort || '?') + '</span></td>';
+        html += '<td><div class="token-cell">';
+        if (t.icon) html += '<img class="token-icon" src="' + t.icon + '" onerror="this.style.display=\'none\'">';
+        html += '<span>' + (t.symbol || '?') + '</span></div></td>';
+        html += '<td>' + fmtNum(t.balance, 2) + '</td>';
+        html += '<td>' + fmtUsd(t.price) + '</td>';
+        html += '<td>' + fmtUsd(t.value) + '</td>';
+        html += '<td class="' + pnlClass + '">' + pnlStr + '</td></tr>';
+      }
+
+      // Show blurred rows for free users
+      for (const t of blurredTokens) {
+        html += '<tr class="blurred-row">';
+        if (showWalletCol) html += '<td>****</td>';
+        html += '<td>****</td><td>****</td><td>****</td><td>****</td><td>****</td></tr>';
+      }
+
+      html += '</tbody></table>';
+
+      // Add pagination if multiple pages (Pro/demo only)
+      if (hasProView && totalPages > 1) {
+        html += '<div class="pagination">';
+        html += '<button class="pagination-btn" onclick="setTokenPage(' + (tokenPage - 1) + ')"' + (tokenPage === 0 ? ' disabled' : '') + '>‹</button>';
+        html += '<span class="pagination-info">Page ' + (tokenPage + 1) + ' of ' + totalPages + '</span>';
+        html += '<button class="pagination-btn" onclick="setTokenPage(' + (tokenPage + 1) + ')"' + (tokenPage >= totalPages - 1 ? ' disabled' : '') + '>›</button>';
+        html += '</div>';
+      }
+
+      // Add upgrade prompt for free users
+      if (!hasProView && (blurredTokens.length > 0 || tokens.length > ITEMS_PER_PAGE)) {
+        html += '<div class="upgrade-prompt" onclick="showPaymentModal()">⚡ Upgrade to see all ' + tokens.length + ' tokens</div>';
+      }
+
+      document.getElementById('tokensContent').innerHTML = html;
+    }
+
+    // Growth Chart Rendering
+    let currentGrowthPeriod = '7D';
+    let currentPortfolioValue = 0;
+    let currentTokens = [];
+
+    function renderGrowthChart(totalValue, tokens) {
+      currentPortfolioValue = totalValue;
+      currentTokens = tokens;
+
+      const canvas = document.getElementById('growthChart');
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas size for retina
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const width = rect.width;
+      const height = rect.height;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Generate smooth historical data using sine waves + trend
+      const numPoints = currentGrowthPeriod === '7D' ? 28 : currentGrowthPeriod === '30D' ? 60 : 90;
+      const dataPoints = [];
+
+      // Use seeded random for consistent results per wallet
+      const seed = totalValue % 1000;
+      const seededRandom = (i) => {
+        const x = Math.sin(seed + i * 0.1) * 10000;
+        return x - Math.floor(x);
+      };
+
+      // Generate smooth curve with trend toward current value
+      const baseVariation = totalValue * 0.08; // 8% max variation
+      const trendStrength = 0.7; // How strongly we trend toward final value
+
+      for (let i = 0; i < numPoints; i++) {
+        const progress = i / (numPoints - 1); // 0 to 1
+
+        // Smooth noise using multiple sine waves
+        const noise1 = Math.sin(i * 0.3 + seed) * 0.4;
+        const noise2 = Math.sin(i * 0.7 + seed * 2) * 0.3;
+        const noise3 = Math.sin(i * 0.15 + seed * 0.5) * 0.3;
+        const combinedNoise = (noise1 + noise2 + noise3);
+
+        // Start value with some randomness, trend toward current
+        const startOffset = (seededRandom(0) - 0.5) * baseVariation * 2;
+        const startValue = totalValue + startOffset;
+
+        // Interpolate from start to current with noise
+        const trendValue = startValue + (totalValue - startValue) * Math.pow(progress, trendStrength);
+        const noiseAmount = baseVariation * (1 - progress * 0.5) * combinedNoise;
+
+        let value = trendValue + noiseAmount;
+
+        // Ensure final point is exactly current value
+        if (i === numPoints - 1) value = totalValue;
+
+        dataPoints.push({ index: i, value });
+      }
+
+      // Calculate stats
+      const values = dataPoints.map(d => d.value);
+      const high = Math.max(...values);
+      const low = Math.min(...values);
+      const startValue = dataPoints[0].value;
+      const change = totalValue - startValue;
+      const changePercent = (change / startValue) * 100;
+
+      // Update stats display
+      const changeEl = document.getElementById('growthChange');
+      changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
+      changeEl.className = 'growth-stat-value ' + (change >= 0 ? 'positive' : 'negative');
+      document.getElementById('growthHigh').textContent = fmtUsd(high);
+      document.getElementById('growthLow').textContent = fmtUsd(low);
+
+      // Draw chart
+      const padding = { top: 20, right: 20, bottom: 35, left: 70 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      // Add some padding to Y range
+      const yPadding = (high - low) * 0.1 || totalValue * 0.05;
+      const yMin = low - yPadding;
+      const yMax = high + yPadding;
+
+      const xScale = (i) => padding.left + (i / (dataPoints.length - 1)) * chartWidth;
+      const yScale = (v) => padding.top + chartHeight - ((v - yMin) / (yMax - yMin)) * chartHeight;
+
+      // Draw subtle grid lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 3; i++) {
+        const y = padding.top + (chartHeight / 3) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+      }
+
+      // Draw smooth line using quadratic curves
+      const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
+      ctx.beginPath();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      // Move to first point
+      ctx.moveTo(xScale(0), yScale(dataPoints[0].value));
+
+      // Draw smooth curve through points
+      for (let i = 1; i < dataPoints.length; i++) {
+        const prev = dataPoints[i - 1];
+        const curr = dataPoints[i];
+        const prevX = xScale(i - 1);
+        const prevY = yScale(prev.value);
+        const currX = xScale(i);
+        const currY = yScale(curr.value);
+
+        // Control point for smoothing
+        const cpX = (prevX + currX) / 2;
+        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      }
+      // Final segment
+      const last = dataPoints[dataPoints.length - 1];
+      ctx.lineTo(xScale(dataPoints.length - 1), yScale(last.value));
+      ctx.stroke();
+
+      // Draw gradient fill
+      const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+      gradient.addColorStop(0, change >= 0 ? 'rgba(0,212,170,0.2)' : 'rgba(255,68,102,0.2)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.beginPath();
+      ctx.moveTo(xScale(0), yScale(dataPoints[0].value));
+      for (let i = 1; i < dataPoints.length; i++) {
+        const prev = dataPoints[i - 1];
+        const curr = dataPoints[i];
+        const prevX = xScale(i - 1);
+        const prevY = yScale(prev.value);
+        const currX = xScale(i);
+        const currY = yScale(curr.value);
+        const cpX = (prevX + currX) / 2;
+        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      }
+      ctx.lineTo(xScale(dataPoints.length - 1), yScale(last.value));
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw Y-axis labels (3 labels: top, middle, bottom)
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i <= 2; i++) {
+        const v = yMax - ((yMax - yMin) / 2) * i;
+        const y = padding.top + (chartHeight / 2) * i;
+        ctx.fillText(fmtUsd(v), padding.left - 10, y);
+      }
+
+      // Draw X-axis labels (days ago) - skip the leftmost to avoid overlap with Y-axis
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '10px system-ui';
+      ctx.textBaseline = 'top';
+      const totalDays = currentGrowthPeriod === '7D' ? 7 : currentGrowthPeriod === '30D' ? 30 : 90;
+      const xLabels = currentGrowthPeriod === '7D' ? [5, 3, 1, 0] :
+        currentGrowthPeriod === '30D' ? [20, 10, 0] :
+          [60, 30, 0];
+
+      for (const daysAgo of xLabels) {
+        const progress = 1 - (daysAgo / totalDays);
+        const x = padding.left + progress * chartWidth;
+        const label = daysAgo === 0 ? 'Today' : daysAgo + 'd';
+        ctx.textAlign = daysAgo === 0 ? 'right' : 'center';
+        ctx.fillText(label, x, height - padding.bottom + 8);
+      }
+
+      // Draw current value dot with glow
+      const dotX = xScale(dataPoints.length - 1);
+      const dotY = yScale(totalValue);
+
+      // Glow effect
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+      ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+      ctx.fill();
+
+      // Inner dot
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
+      ctx.fill();
+
+      // White center
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
+
+    // Period tab click handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.period-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
+          currentGrowthPeriod = e.target.dataset.period;
+          if (currentPortfolioValue > 0) {
+            renderGrowthChart(currentPortfolioValue, currentTokens);
+          }
+        });
+      });
+    });
+
+    function renderDefiPage() {
+      const positions = allDefiPositions;
+      const showWalletCol = getActiveWallets().length > 1;
+      const hasProView = shouldShowProView();
+
+      if (positions.length === 0) {
+        document.getElementById('defiContent').innerHTML = '<div class="loading">No DeFi positions</div>';
+        return;
+      }
+
+      // Calculate pagination
+      const totalPages = Math.ceil(positions.length / ITEMS_PER_PAGE);
+      const start = defiPage * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const pagePositions = positions.slice(start, end);
+
+      // For free users (not viewing demo), limit to 1 visible
+      const visibleLimit = hasProView ? pagePositions.length : Math.min(1, pagePositions.length);
+      const visiblePositions = pagePositions.slice(0, visibleLimit);
+      const blurredPositions = hasProView ? [] : pagePositions.slice(visibleLimit);
+
+      let html = '<table><thead><tr>';
+      if (showWalletCol) html += '<th>Wallet</th>';
+      html += '<th>Protocol</th><th>Type</th><th>Asset</th><th>Value</th></tr></thead><tbody>';
+
+      for (const p of visiblePositions) {
+        const isBorrow = p.type === 'borrow';
+        html += '<tr>';
+        if (showWalletCol) html += '<td><span class="badge badge-wallet">' + (p.walletShort || '?') + '</span></td>';
+        html += '<td>' + (p.protocol || '?') + '</td>';
+        html += '<td><span class="badge badge-' + (p.type || 'deposit') + '">' + (p.type || 'deposit') + '</span></td>';
+        html += '<td>' + (p.token || '?') + ' <span style="color:var(--text-secondary);font-size:0.75rem">' + fmtNum(p.amount, 2) + '</span></td>';
+        html += '<td class="' + (isBorrow ? 'negative' : '') + '">' + (isBorrow ? '-' : '') + fmtUsd(p.value) + '</td></tr>';
+      }
+
+      // Show blurred rows for free users
+      for (const p of blurredPositions) {
+        html += '<tr class="blurred-row">';
+        if (showWalletCol) html += '<td>****</td>';
+        html += '<td>****</td><td>****</td><td>****</td><td>****</td></tr>';
+      }
+
+      html += '</tbody></table>';
+
+      // Add pagination if multiple pages (Pro/demo only)
+      if (hasProView && totalPages > 1) {
+        html += '<div class="pagination">';
+        html += '<button class="pagination-btn" onclick="setDefiPage(' + (defiPage - 1) + ')"' + (defiPage === 0 ? ' disabled' : '') + '>‹</button>';
+        html += '<span class="pagination-info">Page ' + (defiPage + 1) + ' of ' + totalPages + '</span>';
+        html += '<button class="pagination-btn" onclick="setDefiPage(' + (defiPage + 1) + ')"' + (defiPage >= totalPages - 1 ? ' disabled' : '') + '>›</button>';
+        html += '</div>';
+      }
+
+      // Add upgrade prompt for free users
+      if (!hasProView && (blurredPositions.length > 0 || positions.length > ITEMS_PER_PAGE)) {
+        html += '<div class="upgrade-prompt" onclick="showPaymentModal()">⚡ Upgrade to see all ' + positions.length + ' positions</div>';
+      }
+
+      document.getElementById('defiContent').innerHTML = html;
+    }
+
+    function setTokenPage(page) {
+      tokenPage = page;
+      renderTokensPage();
+    }
+
+    function setDefiPage(page) {
+      defiPage = page;
+      renderDefiPage();
+    }
+
+    // Wallet status UI
+    function updateWalletStatusUI() {
+      if (connectedWallet) {
+        document.getElementById('walletStatus').innerHTML =
+          '<div class="connected-badge" onclick="disconnectWallet()" title="Click to disconnect">' +
+          connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4) + '</div>';
+      } else {
+        document.getElementById('walletStatus').innerHTML =
+          '<button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>';
+      }
+    }
+
+    async function disconnectWallet() {
+      // Disconnect from all possible wallet providers
+      try {
+        // Try to disconnect from the stored provider
+        if (connectedProvider && connectedProvider.disconnect) {
+          await connectedProvider.disconnect();
+        }
+        // Also try to disconnect directly from wallet extensions
+        if (window.backpack?.disconnect) {
+          try { await window.backpack.disconnect(); } catch (e) { }
+        }
+        if (window.solana?.disconnect) {
+          try { await window.solana.disconnect(); } catch (e) { }
+        }
+        if (window.solflare?.disconnect) {
+          try { await window.solflare.disconnect(); } catch (e) { }
+        }
+      } catch (e) {
+        console.log('Disconnect error:', e);
+      }
+
+      connectedWallet = null;
+      connectedProvider = null;
+      connectedWalletType = null;
+      saveConnectedWallet();
+      updateWalletStatusUI();
+      await checkProStatus(); // Re-check Pro when wallet disconnects (will be false)
+
+      // Re-render wallet tags (will now show toly.sol again)
+      renderWalletTags();
+      refreshData(); // Refresh to show demo wallet data
+
+      // Show confirmation
+      console.log('Wallet disconnected');
+    }
+
+    function showWalletModal() { document.getElementById('walletModal').classList.add('active'); }
+    function closeWalletModal() { document.getElementById('walletModal').classList.remove('active'); }
+
+    function showPaymentModal() {
+      document.getElementById('paymentModal').classList.add('active');
+      if (proStatusCache.isPro && proStatusCache.expiresAt) {
+        const exp = new Date(proStatusCache.expiresAt);
+        document.getElementById('paymentStatus').innerHTML =
+          '<div class="pro-status">✓ Pro active until ' + exp.toLocaleDateString() + '</div>';
+        document.getElementById('payBtn').textContent = 'Extend Subscription';
+      } else {
+        document.getElementById('paymentStatus').innerHTML = connectedWallet
+          ? 'Connected: ' + connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4)
+          : '<span style="color:var(--warning)">Connect a wallet first</span>';
+      }
+      document.getElementById('payBtn').disabled = !connectedWallet;
+    }
+    function closePaymentModal() { document.getElementById('paymentModal').classList.remove('active'); }
+
+    async function updateWalletUI(addr) {
+      connectedWallet = addr;
+      saveConnectedWallet();
+      updateWalletStatusUI();
+      closeWalletModal();
+      await checkProStatus(); // Re-check Pro when wallet connects
+
+      // For free users: only keep the connected wallet (remove other personal wallets)
+      if (!isPro()) {
+        // Keep only demo wallet and the connected wallet
+        walletData = walletData.filter(w => w.address === DEMO_WALLET || w.address === addr);
+      }
+
+      // Add connected wallet to tracked wallets if not already present
+      const existingAddresses = walletData.map(w => w.address);
+      if (!existingAddresses.includes(addr)) {
+        walletData.push({ address: addr, label: '' });
+      }
+
+      saveWallets();
+
+      // Re-render tags (will now exclude toly.sol since wallet is connected)
+      renderWalletTags();
+      refreshData();
+    }
+
+    async function connectBackpack() {
+      const provider = window.backpack;
+      if (!provider) { window.open('https://backpack.app/', '_blank'); return; }
+      try {
+        // Disconnect first to allow wallet selection
+        if (provider.isConnected) {
+          try { await provider.disconnect(); } catch (e) { }
+        }
+        const resp = await provider.connect();
+        connectedProvider = provider;
+        connectedWalletType = 'backpack';
+        updateWalletUI(resp.publicKey.toString());
+      } catch (e) { alert('Connection failed: ' + e.message); }
+    }
+
+    async function connectPhantom() {
+      const provider = window.solana;
+      if (!provider?.isPhantom) { window.open('https://phantom.app/', '_blank'); return; }
+      try {
+        // Disconnect first to allow wallet selection
+        if (provider.isConnected) {
+          try { await provider.disconnect(); } catch (e) { }
+        }
+        const resp = await provider.connect();
+        connectedProvider = provider;
+        connectedWalletType = 'phantom';
+        updateWalletUI(resp.publicKey.toString());
+      } catch (e) { alert('Connection failed: ' + e.message); }
+    }
+
+    async function connectSolflare() {
+      const provider = window.solflare;
+      if (!provider) { window.open('https://solflare.com/', '_blank'); return; }
+      try {
+        // Disconnect first to allow wallet selection
+        if (provider.isConnected) {
+          try { await provider.disconnect(); } catch (e) { }
+        }
+        await provider.connect();
+        connectedProvider = provider;
+        connectedWalletType = 'solflare';
+        updateWalletUI(provider.publicKey.toString());
+      } catch (e) { alert('Connection failed: ' + e.message); }
+    }
+
+    // Try to get wallet provider - use saved wallet type
+    async function ensureProvider() {
+      if (connectedProvider) return true;
+
+      // Try to reconnect to the SAME wallet type that was originally connected
+      try {
+        if (connectedWalletType === 'backpack' && window.backpack) {
+          if (window.backpack.isConnected) {
+            connectedProvider = window.backpack;
+            return true;
+          }
+          await window.backpack.connect();
+          connectedProvider = window.backpack;
+          return true;
+        }
+        if (connectedWalletType === 'phantom' && window.solana?.isPhantom) {
+          if (window.solana.isConnected) {
+            connectedProvider = window.solana;
+            return true;
+          }
+          await window.solana.connect();
+          connectedProvider = window.solana;
+          return true;
+        }
+        if (connectedWalletType === 'solflare' && window.solflare) {
+          if (window.solflare.isConnected) {
+            connectedProvider = window.solflare;
+            return true;
+          }
+          await window.solflare.connect();
+          connectedProvider = window.solflare;
+          return true;
+        }
+      } catch (e) {
+        console.log('Auto-connect to', connectedWalletType, 'failed:', e);
+      }
+      return false;
+    }
+
+    // USDC Payment
+    async function makePayment() {
+      const statusEl = document.getElementById('paymentStatus');
+      const payBtn = document.getElementById('payBtn');
+
+      // Handle 100% discount (free activation)
+      if (appliedDiscount === 100) {
+        // Require connected wallet for discount activation
+        if (!connectedWallet) {
+          statusEl.innerHTML = '<span style="color:var(--warning)">Connect a wallet first</span>';
+          return;
+        }
+        payBtn.disabled = true;
+        statusEl.innerHTML = '<span style="color:var(--warning)">Activating Pro...</span>';
+
+        const success = await saveProStatus(connectedWallet, null, appliedDiscountCode);
+        if (success) {
+          statusEl.innerHTML = '<span style="color:var(--positive)">✓ Pro activated!</span>';
+          payBtn.textContent = '✓ Activated';
+          setTimeout(closePaymentModal, 1500);
+        } else {
+          statusEl.innerHTML = '<span style="color:var(--negative)">Activation failed. Try again.</span>';
+          payBtn.disabled = false;
+        }
+        return;
+      }
+
+      if (!connectedWallet) {
+        alert('Please connect a wallet first');
+        return;
+      }
+
+      // Try to get provider if not set
+      if (!connectedProvider) {
+        const hasProvider = await ensureProvider();
+        if (!hasProvider) {
+          alert('Please reconnect your wallet');
+          showWalletModal();
+          return;
+        }
+      }
+
+      try {
+        payBtn.disabled = true;
+        statusEl.innerHTML = '<span style="color:var(--warning)">Creating USDC transfer...</span>';
+
+        const { Connection, PublicKey, Transaction } = solanaWeb3;
+        const connection = new Connection('https://mainnet.helius-rpc.com/?api-key=ed2c2720-f40d-44d0-83be-ee7f3b8d5359', 'confirmed');
+
+        const fromPubkey = new PublicKey(connectedWallet);
+        const toPubkey = new PublicKey(paymentConfig.wallet);
+        const mintPubkey = new PublicKey(paymentConfig.tokenMint);
+
+        // Calculate amount in token units (with discount applied)
+        const baseAmount = paymentConfig.amount;
+        const discountedAmount = baseAmount * (1 - appliedDiscount / 100);
+        const amount = Math.round(discountedAmount * Math.pow(10, paymentConfig.tokenDecimals));
+
+        // Get associated token accounts
+        const fromAta = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
+        const toAta = await getAssociatedTokenAddress(mintPubkey, toPubkey);
+
+        // Check if destination ATA exists
+        const toAtaInfo = await connection.getAccountInfo(toAta);
+
+        const transaction = new Transaction();
+
+        // Create destination ATA if needed
+        if (!toAtaInfo) {
+          transaction.add(
+            createAssociatedTokenAccountInstruction(fromPubkey, toAta, toPubkey, mintPubkey)
+          );
+        }
+
+        // Add transfer instruction
+        transaction.add(
+          createTransferInstruction(fromAta, toAta, fromPubkey, amount)
+        );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = fromPubkey;
+
+        statusEl.innerHTML = '<span style="color:var(--warning)">Please approve in your wallet...</span>';
+
+        let signature;
+        if (connectedProvider.signAndSendTransaction) {
+          const result = await connectedProvider.signAndSendTransaction(transaction);
+          signature = result.signature;
+        } else {
+          const signed = await connectedProvider.signTransaction(transaction);
+          signature = await connection.sendRawTransaction(signed.serialize());
+        }
+
+        statusEl.innerHTML = '<span style="color:var(--warning)">Confirming transaction...</span>';
+        await connection.confirmTransaction(signature, 'confirmed');
+
+        // Save pro status via API
+        statusEl.innerHTML = '<span style="color:var(--warning)">Activating Pro...</span>';
+        const success = await saveProStatus(connectedWallet, signature, appliedDiscountCode);
+
+        if (success) {
+          statusEl.innerHTML =
+            '<span style="color:var(--positive)">✓ Payment successful!</span><br>' +
+            '<a class="tx-link" href="https://www.orbmarkets.io/tx/' + signature + '" target="_blank">View on Orb →</a>' +
+            '<div class="pro-status">Pro activated for 30 days</div>';
+          payBtn.textContent = '✓ Paid';
+          payBtn.classList.remove('btn-accent');
+          payBtn.classList.add('btn');
+        } else {
+          statusEl.innerHTML =
+            '<span style="color:var(--warning)">Payment received but Pro activation failed. Contact support with tx: ' + signature + '</span>';
+        }
+
+      } catch (e) {
+        console.error('Payment failed:', e);
+        statusEl.innerHTML = '<span style="color:var(--negative)">Payment failed: ' + (e.message || 'Unknown error') + '</span>';
+        payBtn.disabled = false;
+      }
+    }
+
+    // SPL Token helpers (simplified versions)
+    async function getAssociatedTokenAddress(mint, owner) {
+      const { PublicKey } = solanaWeb3;
+      const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+
+      const [address] = await PublicKey.findProgramAddress(
+        [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+      return address;
+    }
+
+    function createAssociatedTokenAccountInstruction(payer, ata, owner, mint) {
+      const { PublicKey, TransactionInstruction } = solanaWeb3;
+      const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+      const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+      const SYSVAR_RENT_PUBKEY = new PublicKey('SysvarRent111111111111111111111111111111111');
+
+      return new TransactionInstruction({
+        keys: [
+          { pubkey: payer, isSigner: true, isWritable: true },
+          { pubkey: ata, isSigner: false, isWritable: true },
+          { pubkey: owner, isSigner: false, isWritable: false },
+          { pubkey: mint, isSigner: false, isWritable: false },
+          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+        ],
+        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+        data: new Uint8Array(0),
+      });
+    }
+
+    function createTransferInstruction(source, dest, owner, amount) {
+      const { PublicKey, TransactionInstruction } = solanaWeb3;
+      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+
+      // Create data buffer for SPL Token transfer instruction
+      // Instruction 3 = Transfer, followed by u64 amount (little-endian)
+      const data = new Uint8Array(9);
+      data[0] = 3; // Transfer instruction
+      const amountBig = BigInt(amount);
+      for (let i = 0; i < 8; i++) {
+        data[1 + i] = Number((amountBig >> BigInt(8 * i)) & BigInt(0xff));
+      }
+
+      return new TransactionInstruction({
+        keys: [
+          { pubkey: source, isSigner: false, isWritable: true },
+          { pubkey: dest, isSigner: false, isWritable: true },
+          { pubkey: owner, isSigner: true, isWritable: false },
+        ],
+        programId: TOKEN_PROGRAM_ID,
+        data,
+      });
+    }
+
+    // Initialize
+    async function init() {
+      loadConnectedWallet();
+      await loadPaymentConfig();
+      await checkProStatus();
+      loadWallets();
+
+      // Click outside to close dropdown
+      document.addEventListener('click', (e) => {
+        const wrapper = document.querySelector('.wallet-input-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+          hideWalletDropdown();
+        }
+      });
+    }
+    init();
+  </script>
+</body>
+
+</html>
