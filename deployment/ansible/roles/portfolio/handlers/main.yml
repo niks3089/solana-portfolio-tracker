@@ -1,0 +1,7 @@
+---
+- name: Restart portfolio service
+  systemd:
+    name: portfolio
+    state: restarted
+    daemon_reload: yes
+

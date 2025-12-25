@@ -1,0 +1,42 @@
+---
+- name: Deploy Portfolio Dashboard
+  hosts: portfolio_servers
+  become: yes
+  become_method: sudo
+  become_user: root
+  vars_files:
+    - "{{ playbook_dir }}/vars/prod.yml"
+    - "{{ playbook_dir }}/vars/vault.yml"
+
+  pre_tasks:
+    - name: Debug deployment info
+      debug:
+        msg:
+          - "Deploying to: {{ inventory_hostname }}"
+          - "Server: {{ server_name }}"
+          - "Location: {{ server_location }}"
+
+  roles:
+    - ansible/roles/portfolio
+
+  post_tasks:
+    - name: Verify portfolio service is running
+      systemd:
+        name: portfolio
+        state: started
+      register: service_status
+
+    - name: Check service health
+      uri:
+        url: "http://localhost:{{ app_port }}/api/payment-config"
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 5
+      until: health_check.status == 200
+
+    - name: Display deployment success
+      debug:
+        msg: "Portfolio Dashboard deployed successfully on {{ server_name }}!"
+

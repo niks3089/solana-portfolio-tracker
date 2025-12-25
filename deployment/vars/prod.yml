@@ -1,0 +1,19 @@
+---
+# Application
+app_user: portfolio
+app_dir: /home/portfolio/app
+app_port: 3000
+
+# PostgreSQL
+postgres_db: portfolio_dashboard
+postgres_user: portfolio
+postgres_password: "{{ vault_postgres_password }}"
+
+# API Keys
+birdeye_api_key: "e4303524dbf9450188bc9d92e1d21b72"
+dialect_api_key: "sk_usjjgv83q3jrlvqg2fwilsi7"
+lambda_p2p_api_key: "feMLcQShh5WNpbgE4zgAAz3iWDAzvoCL"
+
+# Payment
+payment_wallet: "2P2QaYCyjXiSqygKxrN4mREnTENTL4oQ64kN5nx4XPaX"
+

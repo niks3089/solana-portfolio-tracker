@@ -1,0 +1,206 @@
+---
+- name: Update and upgrade apt packages
+  apt:
+    upgrade: true
+    update_cache: true
+
+# PostgreSQL 17 Installation
+- name: Install prerequisites for PostgreSQL
+  apt:
+    name:
+      - wget
+      - gnupg2
+      - lsb-release
+      - curl
+      - ca-certificates
+      - acl
+      - python3-psycopg2
+    state: present
+
+- name: Add PostgreSQL APT repository key
+  apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+
+- name: Add PostgreSQL APT repository
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    filename: pgdg
+
+- name: Install PostgreSQL 17
+  apt:
+    name:
+      - postgresql-17
+      - postgresql-contrib-17
+      - libpq-dev
+    state: present
+    update_cache: true
+
+- name: Ensure PostgreSQL is started and enabled
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create portfolio database
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    state: present
+
+- name: Create portfolio database user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ postgres_user }}"
+    password: "{{ postgres_password }}"
+    state: present
+
+- name: Grant all privileges on database
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    db: "{{ postgres_db }}"
+    privs: ALL
+    type: database
+    role: "{{ postgres_user }}"
+
+- name: Grant schema privileges
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    db: "{{ postgres_db }}"
+    privs: ALL
+    type: schema
+    objs: public
+    role: "{{ postgres_user }}"
+
+# Node.js Installation
+- name: Install Node.js prerequisites
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+
+- name: Install n (Node.js version manager)
+  npm:
+    name: n
+    global: yes
+
+- name: Install Node.js 20 LTS
+  command: n 20
+
+# Application setup
+- name: Create application user
+  user:
+    name: "{{ app_user }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Create application directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+
+- name: Sync portfolio code
+  synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ app_dir }}"
+    delete: yes
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=.git"
+      - "--exclude=.env"
+      - "--exclude=deployment"
+
+- name: Set correct ownership for application directory
+  file:
+    path: "{{ app_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+    recurse: yes
+
+- name: Install application dependencies
+  npm:
+    path: "{{ app_dir }}"
+    state: present
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create environment file
+  template:
+    src: portfolio.env.j2
+    dest: "{{ app_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+  notify: Restart portfolio service
+
+- name: Initialize database tables
+  command: npm run db:init
+  args:
+    chdir: "{{ app_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    DATABASE_URL: "postgresql://{{ postgres_user }}:{{ postgres_password }}@localhost:5432/{{ postgres_db }}"
+
+# Systemd service
+- name: Create systemd service file
+  template:
+    src: portfolio.service.j2
+    dest: /etc/systemd/system/portfolio.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart portfolio service
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start portfolio service
+  systemd:
+    name: portfolio
+    state: started
+    enabled: yes
+
+# UFW Firewall
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: '22'
+
+- name: Allow HTTP
+  ufw:
+    rule: allow
+    port: '80'
+
+- name: Allow HTTPS
+  ufw:
+    rule: allow
+    port: '443'
+
+- name: Allow application port
+  ufw:
+    rule: allow
+    port: "{{ app_port }}"
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+

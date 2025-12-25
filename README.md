@@ -12,38 +12,76 @@ A minimalistic multi-wallet portfolio tracker for Solana.
 ## Local Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Initialize the database (requires PostgreSQL)
-npm run db:init
-
-# Start the server
-npm start
-
-# Or with hot reload
 npm run dev
 ```
 
-## Environment Variables
+## Deployment
 
-Create a `.env` file:
+### First Time Setup
 
-```env
-DATABASE_URL=postgres://user:password@localhost:5432/portfolio
-PORT=3000
+```bash
+# Install Ansible collections
+make setup
+
+# Encrypt the vault (set a password)
+make vault-encrypt
 ```
 
-## Deployment (DigitalOcean App Platform)
+### Deploy
 
-This app is configured for deployment on DigitalOcean App Platform.
+```bash
+# Deploy to production
+make deploy
 
-1. Go to [DigitalOcean App Platform](https://cloud.digitalocean.com/apps)
-2. Click "Create App"
-3. Select GitHub and choose this repository
-4. DigitalOcean will auto-detect the `.do/app.yaml` configuration
-5. Add the `DATABASE_URL` secret in the app settings
-6. Deploy!
+# Dry run
+make deploy-dry-run
+```
 
-The app will auto-deploy on every push to `main`.
+### Server Management
 
+```bash
+make ssh        # SSH to server
+make logs       # View logs
+make status     # Check service status
+make restart    # Restart service
+```
+
+### GitHub Actions
+
+Push to `main` branch triggers automatic deployment.
+
+**Required Secrets:**
+- `DEPLOY_KEY` - SSH private key for server access
+- `VAULT_PASSWORD` - Ansible vault password
+
+## Project Structure
+
+```
+portfolio/
+├── public/              # Frontend
+├── scripts/             # DB scripts
+├── server.js            # Express server
+├── package.json
+├── Makefile             # Shortcuts
+└── deployment/          # Ansible deployment
+    ├── ansible.cfg
+    ├── deploy.yml       # Main playbook
+    ├── requirements.yml # Ansible collections
+    ├── inventory/
+    │   └── prod.yml     # Server inventory
+    ├── vars/
+    │   ├── prod.yml     # Environment vars
+    │   └── vault.yml    # Encrypted secrets
+    └── ansible/roles/portfolio/
+        ├── tasks/main.yml
+        ├── templates/
+        └── handlers/
+```
+
+## Infrastructure
+
+- **Server**: 207.148.27.173 (Vultr)
+- **Database**: PostgreSQL 17
+- **Process Manager**: systemd
+- **Service Name**: `portfolio`

@@ -1,0 +1,55 @@
+name: Deploy Portfolio Dashboard
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploymentDescription:
+        type: string
+        description: 'Deployment description'
+        required: false
+  push:
+    branches:
+      - main
+    paths:
+      - 'deployment/**'
+      - 'server.js'
+      - 'public/**'
+      - 'scripts/**'
+      - 'package.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VAULT_PASSWORD: ${{ secrets.VAULT_PASSWORD }}
+      ANSIBLE_HOST_KEY_CHECKING: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible and dependencies
+        run: |
+          pip install ansible
+          cd deployment
+          ansible-galaxy collection install -r requirements.yml
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Create vault password file
+        run: echo "$VAULT_PASSWORD" > .vault_password
+
+      - name: Run Ansible Playbook
+        run: |
+          cd deployment
+          ansible-playbook deploy.yml --vault-password-file ../.vault_password
+
+      - name: Clean up vault password file
+        if: always()
+        run: rm -f .vault_password
+

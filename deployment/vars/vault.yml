@@ -1,0 +1,4 @@
+---
+# Encrypt this file with: ansible-vault encrypt deployment/vars/vault.yml
+vault_postgres_password: "portfolio_secure_password_change_me"
+
