@@ -4017,10 +4017,28 @@
     function renderLabelWallets(labelId) {
       const container = document.getElementById('labelWalletsList');
       const label = labelId ? userLabels.find(l => l.id === labelId) : null;
-      const labelWalletAddrs = label ? (label.wallets || []).map(w => w.address) : [];
+      const labelWallets = label ? (label.wallets || []) : [];
+      const labelWalletAddrs = labelWallets.map(w => w.address);
 
-      // Get all wallets (excluding demo)
-      const allWallets = walletData.filter(w => w.address !== DEMO_WALLET);
+      // Get all wallets from search box (excluding demo)
+      const searchBoxWallets = walletData.filter(w => w.address !== DEMO_WALLET);
+      
+      // Merge: include wallets from search box AND any saved portfolio wallets not in search box
+      const allWalletsMap = new Map();
+      
+      // Add search box wallets first
+      searchBoxWallets.forEach(w => {
+        allWalletsMap.set(w.address, { address: w.address, name: w.label || '' });
+      });
+      
+      // Add portfolio wallets that aren't in search box
+      labelWallets.forEach(w => {
+        if (!allWalletsMap.has(w.address)) {
+          allWalletsMap.set(w.address, { address: w.address, name: w.name || '' });
+        }
+      });
+      
+      const allWallets = Array.from(allWalletsMap.values());
 
       if (allWallets.length === 0) {
         container.innerHTML = '<div class="labels-empty">No wallets added yet. Add wallets above first.</div>';
@@ -4030,12 +4048,13 @@
       container.innerHTML = allWallets.map(w => {
         const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
         const checked = labelWalletAddrs.includes(w.address) ? 'checked' : '';
-        const name = w.label || shortAddr;
+        const name = w.name || shortAddr;
+        const isFromPortfolio = !searchBoxWallets.some(sw => sw.address === w.address);
         return `
-          <div class="label-wallet-item">
+          <div class="label-wallet-item${isFromPortfolio ? ' from-portfolio' : ''}">
             <input type="checkbox" id="lw_${w.address}" value="${w.address}" ${checked}>
             <div>
-              <div class="label-wallet-name">${escapeHtml(name)}</div>
+              <div class="label-wallet-name">${escapeHtml(name)}${isFromPortfolio ? ' <span style="color:var(--text-muted);font-size:0.75rem">(saved)</span>' : ''}</div>
               <div class="label-wallet-addr">${shortAddr}</div>
             </div>
           </div>
@@ -4061,12 +4080,18 @@
 
       // Get selected wallets
       const checkboxes = document.querySelectorAll('#labelWalletsList input[type="checkbox"]:checked');
+      const existingLabel = editingLabelId ? userLabels.find(l => l.id === editingLabelId) : null;
+      const existingWallets = existingLabel ? (existingLabel.wallets || []) : [];
+      
       const wallets = Array.from(checkboxes).map(cb => {
+        // First check walletData (current search box)
         const walletInfo = walletData.find(w => w.address === cb.value);
-        return {
-          address: cb.value,
-          name: walletInfo?.label || ''
-        };
+        if (walletInfo) {
+          return { address: cb.value, name: walletInfo.label || '' };
+        }
+        // Fall back to existing portfolio wallet info
+        const existingWallet = existingWallets.find(w => w.address === cb.value);
+        return { address: cb.value, name: existingWallet?.name || '' };
       });
 
       try {
