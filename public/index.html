@@ -2530,11 +2530,11 @@
 
       // If it looks like a search term (not an address), just ignore
       if (input.length < 32) {
-        // If dropdown is showing results, don't alert - user is searching
-        if (input.length > 0 && input.length < 32) return;
         return;
       }
-      if (walletData.some(w => w.address === input)) return; // Silently ignore duplicates
+      if (walletData.some(w => w.address === input)) {
+        return; // Silently ignore duplicates
+      }
 
       // Free plan restrictions for regular addresses
       if (!isPro()) {
@@ -3619,6 +3619,9 @@
       userLabels = [];
       activeLabelId = null;
       renderLabels();
+
+      // Clear search bar
+      document.getElementById('walletInput').value = '';
 
       // Re-render wallet tags (will now show toly.sol again)
       renderWalletTags();
