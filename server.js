@@ -280,6 +280,25 @@ async function getLambdaPositions(wallet) {
 }
 
 // Get combined DeFi positions
+// Fast DeFi - Lambda only (instant, ~500ms)
+async function getDefiPositionsFast(wallet) {
+  const lambdaPos = await getLambdaPositions(wallet);
+
+  let totalDeposits = 0;
+  let totalBorrows = 0;
+  for (const pos of lambdaPos) {
+    if (pos.type === 'borrow') totalBorrows += pos.value;
+    else totalDeposits += pos.value;
+  }
+
+  return {
+    positions: lambdaPos.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+    totalDeposits,
+    totalBorrows,
+  };
+}
+
+// Full DeFi - Lambda + Dialect (slower, includes rewards)
 async function getDefiPositions(wallet) {
   const [dialectPos, lambdaPos] = await Promise.all([
     getDialectPositions(wallet),
@@ -409,7 +428,115 @@ app.get('/api/resolve/:domain', async (req, res) => {
   res.json(result);
 });
 
-// Get full portfolio for a wallet
+// Get FAST portfolio (Lambda DeFi only, no P&L, no Dialect) - ~1-2 seconds
+app.get('/api/portfolio/fast/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    const start = Date.now();
+
+    // Fetch holdings and Lambda DeFi in parallel (skip Dialect + P&L for speed)
+    const [holdings, defi] = await Promise.all([
+      getTokenHoldings(wallet),
+      getDefiPositionsFast(wallet),  // Lambda only - fast!
+    ]);
+
+    const totalTokens = holdings.totalUsd;
+    const totalAssets = totalTokens + defi.totalDeposits;
+    const totalNetWorth = totalAssets - defi.totalBorrows;
+
+    console.log(`⚡ Fast portfolio for ${wallet.slice(0, 8)}... in ${Date.now() - start}ms`);
+
+    res.json({
+      wallet,
+      summary: {
+        totalNetWorth,
+        totalAssets,
+        totalTokens,
+        defiDeposits: defi.totalDeposits,
+        defiBorrows: defi.totalBorrows,
+        totalPnL: null, // Will be loaded separately
+      },
+      tokens: holdings.tokens,
+      defiPositions: defi.positions,
+    });
+  } catch (error) {
+    console.error('Fast portfolio error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get P&L for wallets (slow, load separately)
+app.post('/api/portfolio/pnl', async (req, res) => {
+  try {
+    const { wallets } = req.body;
+    if (!wallets?.length) {
+      return res.status(400).json({ error: 'No wallets provided' });
+    }
+
+    const start = Date.now();
+    let totalPnL = 0;
+    const tokenPnLs = [];
+
+    // Process each wallet
+    for (const wallet of wallets) {
+      // Get token holdings first
+      const holdings = await getTokenHoldings(wallet);
+      const significantTokens = holdings.tokens.filter(t => t.value > 1);
+
+      // Get P&L for significant tokens
+      const pnlResults = await Promise.all(
+        significantTokens.map(t => getTokenPnL(t.address, wallet))
+      );
+
+      for (const pnl of pnlResults) {
+        if (pnl) {
+          totalPnL += pnl.totalPnL || 0;
+          tokenPnLs.push({ ...pnl, wallet });
+        }
+      }
+    }
+
+    console.log(`📊 P&L for ${wallets.length} wallet(s) in ${Date.now() - start}ms`);
+
+    res.json({ totalPnL, tokenPnLs });
+  } catch (error) {
+    console.error('P&L error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get Dialect DeFi positions (for background loading - slow)
+app.post('/api/portfolio/dialect', async (req, res) => {
+  try {
+    const { wallets } = req.body;
+    if (!wallets?.length) {
+      return res.status(400).json({ error: 'No wallets provided' });
+    }
+
+    const start = Date.now();
+    const allPositions = [];
+
+    for (const wallet of wallets) {
+      const positions = await getDialectPositions(wallet);
+      const walletShort = wallet.slice(0, 4) + '...' + wallet.slice(-4);
+      for (const pos of positions) {
+        allPositions.push({ ...pos, wallet, walletShort });
+      }
+    }
+
+    console.log(`🗣️ Dialect for ${wallets.length} wallet(s) in ${Date.now() - start}ms (${allPositions.length} positions)`);
+
+    res.json({
+      positions: allPositions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+      totalRewards: allPositions.filter(p => p.type === 'reward').reduce((sum, p) => sum + (p.value || 0), 0),
+    });
+  } catch (error) {
+    console.error('Dialect error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get full portfolio for a wallet (includes P&L - slower)
 app.get('/api/portfolio/:wallet', async (req, res) => {
   try {
     const { wallet } = req.params;
@@ -460,7 +587,72 @@ app.get('/api/portfolio/:wallet', async (req, res) => {
   }
 });
 
-// Get aggregated portfolio for multiple wallets
+// Get FAST aggregated portfolio (no P&L) - ~3-5 seconds
+app.post('/api/portfolio/aggregate/fast', async (req, res) => {
+  try {
+    const { wallets } = req.body;
+    if (!wallets?.length) {
+      return res.status(400).json({ error: 'No wallets provided' });
+    }
+
+    const start = Date.now();
+
+    // Fetch all fast portfolios in parallel
+    const portfolios = await Promise.all(
+      wallets.map(async wallet => {
+        const response = await fetch(`http://localhost:${CONFIG.PORT}/api/portfolio/fast/${wallet}`);
+        return response.json();
+      })
+    );
+
+    // Aggregate (same logic as full aggregate)
+    const aggregate = {
+      totalNetWorth: 0,
+      totalAssets: 0,
+      totalTokens: 0,
+      defiDeposits: 0,
+      defiBorrows: 0,
+      totalPnL: null, // Will be loaded separately
+    };
+
+    const tokenMap = new Map();
+    const allDefiPositions = [];
+
+    for (const p of portfolios) {
+      if (p.error || !p.summary) continue;
+      const walletShort = p.wallet ? p.wallet.slice(0, 4) + '...' + p.wallet.slice(-4) : '?';
+
+      aggregate.totalNetWorth += p.summary.totalNetWorth || 0;
+      aggregate.totalAssets += p.summary.totalAssets || 0;
+      aggregate.totalTokens += p.summary.totalTokens || 0;
+      aggregate.defiDeposits += p.summary.defiDeposits || 0;
+      aggregate.defiBorrows += p.summary.defiBorrows || 0;
+
+      for (const token of p.tokens || []) {
+        const key = `${token.symbol}_${p.wallet}`;
+        tokenMap.set(key, { ...token, wallet: p.wallet, walletShort });
+      }
+
+      for (const pos of p.defiPositions || []) {
+        allDefiPositions.push({ ...pos, wallet: p.wallet, walletShort });
+      }
+    }
+
+    console.log(`⚡ Fast aggregate for ${wallets.length} wallet(s) in ${Date.now() - start}ms`);
+
+    res.json({
+      wallets,
+      aggregate,
+      tokens: Array.from(tokenMap.values()).sort((a, b) => b.value - a.value),
+      defiPositions: allDefiPositions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+    });
+  } catch (error) {
+    console.error('Fast aggregate error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get aggregated portfolio for multiple wallets (full, includes P&L)
 app.post('/api/portfolio/aggregate', async (req, res) => {
   try {
     const { wallets } = req.body;

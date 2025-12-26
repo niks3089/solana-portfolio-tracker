@@ -780,6 +780,23 @@
       color: var(--text-secondary);
     }
 
+    .loading-text {
+      color: var(--text-secondary);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.4;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
     .badge {
       padding: 0.2rem 0.6rem;
       border-radius: 4px;
@@ -2454,25 +2471,48 @@
         return;
       }
 
-      document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading...</div>';
-      document.getElementById('defiContent').innerHTML = '<div class="loading">Loading...</div>';
+      // Show loading states
+      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading tokens...</div>';
+      document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
 
       try {
-        const res = await fetch('/api/portfolio/aggregate', {
+        // STEP 1: Fast load (tokens + DeFi, no P&L) - ~3-5 seconds
+        const fastRes = await fetch('/api/portfolio/aggregate/fast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ wallets })
         });
-        const data = await res.json();
+        const data = await fastRes.json();
         if (data.error) throw new Error(data.error);
 
+        // Show fast data immediately
+        renderFastData(data, wallets);
+
+        // STEP 2: Load P&L and Dialect in background (parallel)
+        loadPnLInBackground(wallets, data);
+        loadDialectInBackground(wallets);
+
+      } catch (error) {
+        console.error('Refresh error:', error);
+        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">Error loading data. Try again.</div>';
+      }
+    }
+
+    function renderFastData(data, wallets) {
+      try {
         const a = data.aggregate || {};
         document.getElementById('statAssets').textContent = fmtUsd(a.totalAssets);
         document.getElementById('statNetWorth').textContent = fmtUsd(a.totalNetWorth);
 
+        // P&L shows loading state until background fetch completes
         const pnlEl = document.getElementById('statPnL');
-        pnlEl.textContent = (a.totalPnL >= 0 ? '+' : '') + fmtUsd(a.totalPnL);
-        pnlEl.className = 'stat-value ' + (a.totalPnL >= 0 ? 'positive' : 'negative');
+        pnlEl.innerHTML = '<span class="loading-text" style="font-size:0.9em">Loading P&L...</span>';
+        pnlEl.className = 'stat-value';
+
         document.getElementById('statDeposits').textContent = fmtUsd(a.defiDeposits);
 
         // Blur P&L and DeFi cards for free users (unless viewing demo)
@@ -2512,6 +2552,82 @@
         console.error(err);
         document.getElementById('tokensContent').innerHTML = '<div class="loading">Error: ' + err.message + '</div>';
         document.getElementById('defiContent').innerHTML = '<div class="loading">Error: ' + err.message + '</div>';
+      }
+    }
+
+    async function loadPnLInBackground(wallets, fastData) {
+      try {
+        const pnlRes = await fetch('/api/portfolio/pnl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallets })
+        });
+        const pnlData = await pnlRes.json();
+
+        // Update P&L display
+        const pnlEl = document.getElementById('statPnL');
+        const totalPnL = pnlData.totalPnL || 0;
+        pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + fmtUsd(totalPnL);
+        pnlEl.className = 'stat-value ' + (totalPnL >= 0 ? 'positive' : 'negative');
+
+        // Update token P&L in the list
+        if (pnlData.tokenPnLs) {
+          const pnlMap = new Map();
+          for (const p of pnlData.tokenPnLs) {
+            pnlMap.set(`${p.address}_${p.wallet}`, p);
+          }
+
+          // Update allTokens with P&L data
+          allTokens = allTokens.map(token => {
+            const pnl = pnlMap.get(`${token.address}_${token.wallet}`);
+            return pnl ? { ...token, pnl } : token;
+          });
+
+          // Re-render tokens with P&L
+          renderTokensPage();
+        }
+      } catch (err) {
+        console.error('P&L load error:', err);
+        // Show error state but don't break the UI
+        const pnlEl = document.getElementById('statPnL');
+        pnlEl.textContent = '—';
+        pnlEl.className = 'stat-value';
+      }
+    }
+
+    async function loadDialectInBackground(wallets) {
+      try {
+        const dialectRes = await fetch('/api/portfolio/dialect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallets })
+        });
+        const dialectData = await dialectRes.json();
+
+        if (dialectData.positions && dialectData.positions.length > 0) {
+          // Merge Dialect positions with existing DeFi positions
+          // Dedupe by protocol|token|type key
+          const existingKeys = new Set(
+            allDefiPositions.map(p => `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`)
+          );
+
+          const newPositions = dialectData.positions.filter(p => {
+            const key = `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`;
+            return !existingKeys.has(key);
+          });
+
+          if (newPositions.length > 0) {
+            allDefiPositions = [...allDefiPositions, ...newPositions]
+              .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+
+            // Re-render DeFi with rewards
+            renderDefiPage();
+            console.log(`Added ${newPositions.length} Dialect positions (rewards)`);
+          }
+        }
+      } catch (err) {
+        console.error('Dialect load error:', err);
+        // Silent fail - Lambda data is already showing
       }
     }
 
