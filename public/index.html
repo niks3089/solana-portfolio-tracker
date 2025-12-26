@@ -3642,16 +3642,31 @@
       hiddenLabelWallets = [];
       renderLabels();
 
+      // Clear ALL wallet data - reset everything
+      walletData = [];
+      searchHistory = [];
+      localStorage.removeItem('portfolioWallets');
+      localStorage.removeItem('walletSearchHistory');
+
       // Clear search bar and reset placeholder
       document.getElementById('walletInput').value = '';
       document.getElementById('walletInput').placeholder = 'Add wallet';
 
-      // Re-render wallet tags (will now show toly.sol again)
-      renderWalletTags();
-      refreshData(); // Refresh to show demo wallet data
+      // Clear wallet tags
+      document.getElementById('walletTags').innerHTML = '';
+
+      // Reset all stats to $0
+      document.getElementById('statAssets').textContent = '$0';
+      document.getElementById('statNetWorth').textContent = '$0';
+      document.getElementById('statPnL').textContent = '$0';
+      document.getElementById('statPnL').className = 'stat-value';
+      document.getElementById('statDeposits').textContent = '$0';
+      document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
+      document.getElementById('defiContent').innerHTML = '<div class="loading">No DeFi positions</div>';
+      renderDonutChart([], 0);
 
       // Show confirmation
-      console.log('Wallet disconnected');
+      console.log('Wallet disconnected - all data cleared');
     }
 
     function showWalletModal() { document.getElementById('walletModal').classList.add('active'); }
