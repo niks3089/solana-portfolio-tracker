@@ -16,6 +16,22 @@
       debug:
         msg: "🚀 Deploying to {{ deploy_environment | default('unknown') }} ({{ ansible_host }})"
 
+    - name: Debug - show source path
+      debug:
+        msg: "Source path: {{ playbook_dir }}/../ -> will sync to {{ app_dir }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Debug - list source files
+      shell: ls -la "{{ playbook_dir }}/../" | head -20
+      delegate_to: localhost
+      become: no
+      register: source_files
+
+    - name: Show source files
+      debug:
+        var: source_files.stdout_lines
+
     - name: Sync portfolio code
       ansible.posix.synchronize:
         src: "{{ playbook_dir }}/../"
@@ -26,7 +42,13 @@
           - "--exclude=deployment"
           - "--exclude=.github"
           - "--exclude=.vault_pass"
+          - "-v"
         delete: yes
+      register: sync_result
+
+    - name: Show sync result
+      debug:
+        var: sync_result
 
     - name: Set correct ownership
       file:
