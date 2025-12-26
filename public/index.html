@@ -1983,22 +1983,17 @@
             saveWallets();
           }
         }
-        // In free mode, don't force demo wallet
-        // In paid mode, ensure demo wallet is present (for when disconnected)
+        // In paid mode (not free), ensure demo wallet is present for demo purposes
+        // In free mode, don't auto-add demo wallet - let users add what they want
         if (!freeMode && !walletData.some(w => w.address === DEMO_WALLET)) {
           walletData.push({ address: DEMO_WALLET, label: 'toly.sol', group: '' });
-          saveWallets();
-        }
-        // In free mode, remove demo wallet if it's the only one or user has their own wallets
-        if (freeMode) {
-          walletData = walletData.filter(w => w.address !== DEMO_WALLET);
           saveWallets();
         }
         // Load search history
         const hist = localStorage.getItem('walletSearchHistory');
         searchHistory = hist ? JSON.parse(hist) : [];
       } catch (e) {
-        walletData = freeMode ? [] : [{ address: DEMO_WALLET, label: 'toly.sol', group: '' }];
+        walletData = [];
       }
       renderWalletTags();
       refreshData();

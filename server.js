@@ -99,12 +99,36 @@ async function initDatabase() {
 // API Helpers
 // ============================================================================
 
-async function fetchJSON(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: { 'accept': 'application/json', ...options.headers },
-  });
-  return response.json();
+async function fetchJSON(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const startTime = Date.now();
+  const urlHost = new URL(url).hostname;
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: { 'accept': 'application/json', ...options.headers },
+      signal: controller.signal,
+    });
+    const elapsed = Date.now() - startTime;
+    if (elapsed > 5000) {
+      console.log(`⚠️ Slow API: ${urlHost} took ${elapsed}ms`);
+    }
+    return response.json();
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    if (err.name === 'AbortError') {
+      console.error(`❌ TIMEOUT: ${urlHost} did not respond in ${timeoutMs}ms`);
+      console.error(`   → This usually means the external API is down or overloaded`);
+      console.error(`   → The request will be retried on next user action`);
+    } else {
+      console.error(`❌ API Error: ${urlHost} failed after ${elapsed}ms - ${err.message}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // Native SOL address needs to be mapped to Wrapped SOL for P&L lookup
@@ -504,6 +528,35 @@ app.post('/api/portfolio/aggregate', async (req, res) => {
     console.error('Aggregate error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+  const checks = { status: 'ok', timestamp: new Date().toISOString(), checks: {} };
+
+  // Check Birdeye API
+  try {
+    const start = Date.now();
+    await fetchJSON('https://public-api.birdeye.so/defi/price?address=So11111111111111111111111111111111111111112',
+      { headers: { 'x-chain': 'solana', 'X-API-KEY': CONFIG.BIRDEYE_API_KEY } }, 5000);
+    checks.checks.birdeye = { status: 'ok', latency: Date.now() - start };
+  } catch (e) {
+    checks.checks.birdeye = { status: 'error', error: e.message };
+    checks.status = 'degraded';
+  }
+
+  // Check Lambda API
+  try {
+    const start = Date.now();
+    await fetchJSON('https://api.lambda.p2p.org/api/v1/chains',
+      { headers: { 'Authorization': CONFIG.LAMBDA_P2P_API_KEY } }, 5000);
+    checks.checks.lambda = { status: 'ok', latency: Date.now() - start };
+  } catch (e) {
+    checks.checks.lambda = { status: 'error', error: e.message };
+    checks.status = 'degraded';
+  }
+
+  res.status(checks.status === 'ok' ? 200 : 503).json(checks);
 });
 
 // Payment config - $1/month in USDC (launch offer, normally $3)
