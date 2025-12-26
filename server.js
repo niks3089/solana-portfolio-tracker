@@ -9,8 +9,36 @@ import { dirname, join } from 'path';
 import pg from 'pg';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { LRUCache } from 'lru-cache';
 
 const { Pool } = pg;
+
+// ============================================================================
+// LRU Cache - 5 minute TTL, 100k max entries
+// ============================================================================
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cache for individual wallet data (reusable across aggregates)
+const holdingsCache = new LRUCache({ max: 100000, ttl: CACHE_TTL });
+const lambdaDefiCache = new LRUCache({ max: 100000, ttl: CACHE_TTL });
+const dialectDefiCache = new LRUCache({ max: 100000, ttl: CACHE_TTL });
+const pnlCache = new LRUCache({ max: 100000, ttl: CACHE_TTL }); // key: wallet:tokenAddress
+
+// Cache stats
+let cacheStats = { hits: 0, misses: 0 };
+
+function getCacheKey(wallets) {
+  // Sort wallets to ensure consistent key regardless of order
+  return [...wallets].sort().join('|');
+}
+
+function logCacheStats() {
+  const total = cacheStats.hits + cacheStats.misses;
+  if (total > 0 && total % 100 === 0) {
+    const hitRate = ((cacheStats.hits / total) * 100).toFixed(1);
+    console.log(`📦 Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses (${hitRate}% hit rate)`);
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -135,8 +163,17 @@ async function fetchJSON(url, options = {}, timeoutMs = 15000) {
 const NATIVE_SOL = 'So11111111111111111111111111111111111111111';
 const WRAPPED_SOL = 'So11111111111111111111111111111111111111112';
 
-// Get token holdings from Birdeye
+// Get token holdings from Birdeye (with cache)
 async function getTokenHoldings(wallet) {
+  // Check cache first
+  const cached = holdingsCache.get(wallet);
+  if (cached) {
+    cacheStats.hits++;
+    logCacheStats();
+    return cached;
+  }
+  cacheStats.misses++;
+
   const data = await fetchJSON(
     `https://public-api.birdeye.so/v1/wallet/token_list?wallet=${wallet}`,
     { headers: { 'x-chain': 'solana', 'X-API-KEY': CONFIG.BIRDEYE_API_KEY } }
@@ -144,7 +181,7 @@ async function getTokenHoldings(wallet) {
 
   if (!data.success) return { tokens: [], totalUsd: 0 };
 
-  return {
+  const result = {
     totalUsd: data.data.totalUsd,
     tokens: data.data.items.map(t => ({
       symbol: t.symbol,
@@ -157,20 +194,36 @@ async function getTokenHoldings(wallet) {
       address: t.address === NATIVE_SOL ? WRAPPED_SOL : t.address,
     })).filter(t => t.value > 0.01),
   };
+
+  holdingsCache.set(wallet, result);
+  return result;
 }
 
-// Get P&L for a token
+// Get P&L for a token (with cache)
 async function getTokenPnL(tokenAddress, wallet) {
+  const cacheKey = `${wallet}:${tokenAddress}`;
+
+  // Check cache first
+  const cached = pnlCache.get(cacheKey);
+  if (cached !== undefined) {
+    cacheStats.hits++;
+    return cached;
+  }
+  cacheStats.misses++;
+
   try {
     const data = await fetchJSON(
       `https://public-api.birdeye.so/wallet/v2/pnl/multiple?token_address=${tokenAddress}&wallets=${wallet}`,
       { headers: { 'x-chain': 'solana', 'X-API-KEY': CONFIG.BIRDEYE_API_KEY } }
     );
 
-    if (!data.data?.data?.[wallet]) return null;
+    if (!data.data?.data?.[wallet]) {
+      pnlCache.set(cacheKey, null);
+      return null;
+    }
 
     const d = data.data.data[wallet];
-    return {
+    const result = {
       address: tokenAddress,
       symbol: data.data.token_metadata?.symbol,
       invested: d.cashflow_usd?.total_invested || 0,
@@ -181,24 +234,38 @@ async function getTokenPnL(tokenAddress, wallet) {
       totalPnLPercent: (d.pnl?.total_percent || 0) * 100,
       avgBuyPrice: d.pricing?.avg_buy_cost || 0,
     };
+
+    pnlCache.set(cacheKey, result);
+    return result;
   } catch (e) {
     return null;
   }
 }
 
-// Get DeFi positions from Dialect
+// Get DeFi positions from Dialect (with cache)
 async function getDialectPositions(wallet) {
+  // Check cache first
+  const cached = dialectDefiCache.get(wallet);
+  if (cached) {
+    cacheStats.hits++;
+    return cached;
+  }
+  cacheStats.misses++;
+
   try {
     const data = await fetchJSON(
       `https://markets.dial.to/api/v0/positions/owners?walletAddresses=${wallet}`,
       { headers: { 'x-dialect-api-key': CONFIG.DIALECT_API_KEY } }
     );
-    if (!data.positions) return [];
+    if (!data.positions) {
+      dialectDefiCache.set(wallet, []);
+      return [];
+    }
 
     // Stablecoins where 1 token ≈ $1
     const stablecoins = ['USDC', 'USDT', 'PYUSD', 'DAI', 'USDH', 'USH', 'UXD'];
 
-    return data.positions.map(pos => {
+    const result = data.positions.map(pos => {
       const amount = pos.amount || 0;
       const symbol = pos.market?.token?.symbol || '';
       // Calculate value: use amountUsd if available, otherwise estimate for stablecoins
@@ -219,21 +286,35 @@ async function getDialectPositions(wallet) {
         source: 'dialect',
       };
     });
+
+    dialectDefiCache.set(wallet, result);
+    return result;
   } catch (e) {
     console.error('Dialect error:', e.message);
     return [];
   }
 }
 
-// Get DeFi positions from Lambda P2P (covers Drift, etc.)
+// Get DeFi positions from Lambda P2P (with cache)
 async function getLambdaPositions(wallet) {
+  // Check cache first
+  const cached = lambdaDefiCache.get(wallet);
+  if (cached) {
+    cacheStats.hits++;
+    return cached;
+  }
+  cacheStats.misses++;
+
   try {
     const data = await fetchJSON(
       `https://api.lambda.p2p.org/api/v1/chains/solana/wallets/${wallet}/balances`,
       { headers: { 'Authorization': CONFIG.LAMBDA_P2P_API_KEY } }
     );
 
-    if (!data.data?.assets) return [];
+    if (!data.data?.assets) {
+      lambdaDefiCache.set(wallet, []);
+      return [];
+    }
 
     const positions = [];
     for (const asset of data.data.assets) {
@@ -272,6 +353,8 @@ async function getLambdaPositions(wallet) {
         });
       }
     }
+
+    lambdaDefiCache.set(wallet, positions);
     return positions;
   } catch (e) {
     console.error('Lambda P2P error:', e.message);
