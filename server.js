@@ -1468,11 +1468,13 @@ app.get('/api/labels/:id/portfolio', async (req, res) => {
       }
     }
 
-    const totalNetWorth = totalTokens + defiDeposits - defiBorrows;
+    const totalAssets = totalTokens + defiDeposits;
+    const totalNetWorth = totalAssets - defiBorrows;
 
     res.json({
       label,
       portfolio: {
+        totalAssets,
         totalNetWorth,
         totalTokens,
         defiDeposits,

@@ -2832,7 +2832,8 @@
 
         // Update stats
         const p = data.portfolio;
-        document.getElementById('statAssets').textContent = fmtUsd(p.totalAssets || p.totalTokens);
+        const totalAssets = p.totalAssets || (p.totalTokens + p.defiDeposits);
+        document.getElementById('statAssets').textContent = fmtUsd(totalAssets);
         document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
         document.getElementById('statPnL').textContent = '$0'; // P&L not available for labels yet
         document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits);
@@ -2847,7 +2848,7 @@
         let tokenTotal = 0;
         for (const t of allTokens) tokenTotal += t.value || 0;
         if (tokenTotal > 0) protocolTotals['Tokens'] = tokenTotal;
-        
+
         allDefiPositions = data.defiPositions || [];
         for (const dp of allDefiPositions) {
           if (dp.type !== 'borrow') {
