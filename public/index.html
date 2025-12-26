@@ -2832,7 +2832,7 @@
 
         // Update stats
         const p = data.portfolio;
-        document.getElementById('statAssets').textContent = fmtUsd(p.totalTokens);
+        document.getElementById('statAssets').textContent = fmtUsd(p.totalAssets || p.totalTokens);
         document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
         document.getElementById('statPnL').textContent = '$0'; // P&L not available for labels yet
         document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits);
@@ -2841,11 +2841,27 @@
         tokenPage = 0;
         allTokens = data.tokens || [];
         renderTokensPage();
-        renderDonutChart(allTokens, p.totalTokens);
+
+        // Build chart segments (same logic as renderFastData)
+        const protocolTotals = {};
+        let tokenTotal = 0;
+        for (const t of allTokens) tokenTotal += t.value || 0;
+        if (tokenTotal > 0) protocolTotals['Tokens'] = tokenTotal;
+        
+        allDefiPositions = data.defiPositions || [];
+        for (const dp of allDefiPositions) {
+          if (dp.type !== 'borrow') {
+            const proto = dp.protocol || 'Other';
+            protocolTotals[proto] = (protocolTotals[proto] || 0) + (dp.value || 0);
+          }
+        }
+        const chartSegments = Object.entries(protocolTotals)
+          .map(([label, value]) => ({ label, value }))
+          .sort((a, b) => b.value - a.value).slice(0, 6);
+        renderDonutChart(chartSegments, p.totalAssets || (tokenTotal + p.defiDeposits));
 
         // Render DeFi (reset pagination)
         defiPage = 0;
-        allDefiPositions = data.defiPositions || [];
         renderDefiPage();
 
       } catch (e) {
