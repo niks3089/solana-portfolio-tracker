@@ -2842,8 +2842,14 @@
         const totalAssets = p.totalAssets || (p.totalTokens + p.defiDeposits);
         document.getElementById('statAssets').textContent = fmtUsd(totalAssets);
         document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
-        document.getElementById('statPnL').textContent = '$0'; // P&L not available for labels yet
+        document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
         document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits);
+
+        // Load P&L in background for label wallets
+        const labelWallets = (label.wallets || []).map(w => w.address);
+        if (labelWallets.length > 0) {
+          loadPnLInBackground(labelWallets, { tokens: data.tokens });
+        }
 
         // Render tokens (reset pagination)
         tokenPage = 0;
@@ -2902,16 +2908,21 @@
       const label = userLabels.find(l => l.id === labelId);
       if (!label) return;
 
-      // Just remove from local view (not saved to database)
-      const remainingWallets = (label.wallets || []).filter(w => w.address !== walletAddress);
+      // Add to hidden wallets list
+      if (!hiddenLabelWallets.includes(walletAddress)) {
+        hiddenLabelWallets.push(walletAddress);
+      }
+
+      // Get visible wallets (excluding hidden ones)
+      const visibleWallets = (label.wallets || []).filter(w => !hiddenLabelWallets.includes(w.address));
 
       // Update just the display
-      renderLabelWalletTags({ ...label, wallets: remainingWallets });
+      renderLabelWalletTags({ ...label, wallets: visibleWallets });
 
       // Reload portfolio data with remaining wallets
-      if (remainingWallets.length > 0) {
+      if (visibleWallets.length > 0) {
         // Fetch data for remaining wallets only
-        const walletAddrs = remainingWallets.map(w => w.address);
+        const walletAddrs = visibleWallets.map(w => w.address);
         refreshDataForWallets(walletAddrs);
       } else {
         // No wallets left in view - show empty state
@@ -3238,7 +3249,9 @@
 
     function renderTokensPage() {
       const tokens = allTokens;
-      const showWalletCol = getActiveWallets().length > 1;
+      // Show wallet column if multiple wallets OR if viewing a label with multiple wallets
+      const labelWalletCount = activeLabelId ? (userLabels.find(l => l.id === activeLabelId)?.wallets?.length || 0) : 0;
+      const showWalletCol = getActiveWallets().length > 1 || labelWalletCount > 1;
       const hasProView = shouldShowProView();
 
       if (tokens.length === 0) {
@@ -3507,7 +3520,9 @@
 
     function renderDefiPage() {
       const positions = allDefiPositions;
-      const showWalletCol = getActiveWallets().length > 1;
+      // Show wallet column if multiple wallets OR if viewing a label with multiple wallets
+      const labelWalletCount = activeLabelId ? (userLabels.find(l => l.id === activeLabelId)?.wallets?.length || 0) : 0;
+      const showWalletCol = getActiveWallets().length > 1 || labelWalletCount > 1;
       const hasProView = shouldShowProView();
 
       if (positions.length === 0) {
@@ -3619,6 +3634,7 @@
       // Clear portfolios (they belong to the connected wallet)
       userLabels = [];
       activeLabelId = null;
+      hiddenLabelWallets = [];
       renderLabels();
 
       // Clear search bar
@@ -3949,6 +3965,7 @@
     let editingLabelId = null;
     let selectedLabelColor = '#00d4aa';
     let activeLabelId = null; // For filtering by label
+    let hiddenLabelWallets = []; // Wallets hidden from current portfolio view
 
     async function loadLabels() {
       // Portfolios require a connected wallet (to store per-user) AND Pro status
@@ -4227,12 +4244,14 @@
       if (activeLabelId === labelId) {
         // Clear filter - show all wallets
         activeLabelId = null;
+        hiddenLabelWallets = []; // Reset hidden wallets
         document.getElementById('walletInput').value = '';
         renderLabels();
         renderWalletTags(); // Restore normal wallet tags
         refreshData();
       } else {
         activeLabelId = labelId;
+        hiddenLabelWallets = []; // Reset hidden wallets when switching
         renderLabels();
         loadLabelPortfolio(labelId);
       }
