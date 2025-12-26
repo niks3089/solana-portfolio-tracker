@@ -2893,6 +2893,11 @@
       const label = userLabels.find(l => l.id === labelId);
       if (!label) return;
 
+      // Confirm before removing
+      if (!confirm('Remove this wallet from the "' + label.name + '" portfolio?')) {
+        return;
+      }
+
       // Remove wallet from the label's wallets array
       const updatedWallets = (label.wallets || []).filter(w => w.address !== walletAddress);
 
@@ -4125,6 +4130,13 @@
         const existingWallet = existingWallets.find(w => w.address === cb.value);
         return { address: cb.value, name: existingWallet?.name || '' };
       });
+
+      // Warn if no wallets selected
+      if (wallets.length === 0) {
+        const statusEl = document.getElementById('labelModalStatus');
+        statusEl.innerHTML = '<span style="color:var(--warning)">⚠️ Select at least one wallet to track</span>';
+        return;
+      }
 
       try {
         let res;
