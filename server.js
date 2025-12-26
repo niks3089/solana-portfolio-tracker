@@ -1234,20 +1234,23 @@ app.post('/api/labels', async (req, res) => {
       return res.status(400).json({ error: 'owner_wallet and name are required' });
     }
 
-    // Check if user has active payment (paid users only)
-    const paymentCheck = await pool.query(`
-      SELECT * FROM payments
-      WHERE wallet = $1
-        AND status = 'active'
-        AND expires_at > NOW()
-      LIMIT 1
-    `, [owner_wallet]);
+    // In free mode, skip Pro check - all features available
+    if (!CONFIG.FREE_MODE) {
+      // Check if user has active payment (paid users only)
+      const paymentCheck = await pool.query(`
+        SELECT * FROM payments
+        WHERE wallet = $1
+          AND status = 'active'
+          AND expires_at > NOW()
+        LIMIT 1
+      `, [owner_wallet]);
 
-    if (paymentCheck.rows.length === 0) {
-      return res.status(403).json({
-        error: 'Labels are a Pro feature. Please upgrade to create labels.',
-        code: 'PRO_REQUIRED'
-      });
+      if (paymentCheck.rows.length === 0) {
+        return res.status(403).json({
+          error: 'Portfolios are a Pro feature. Please upgrade to create portfolios.',
+          code: 'PRO_REQUIRED'
+        });
+      }
     }
 
     // Ensure user exists first
