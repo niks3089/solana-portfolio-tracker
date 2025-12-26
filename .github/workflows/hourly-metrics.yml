@@ -16,7 +16,7 @@ jobs:
         run: |
           # Fetch metrics from production
           METRICS=$(curl -s "https://saul.run/api/metrics?secret=${{ secrets.METRICS_SECRET }}" || echo '{"error":"failed"}')
-          
+
           # Parse metrics
           UPTIME=$(echo "$METRICS" | jq -r '.uptime // "N/A"')
           CACHE_HIT_RATE=$(echo "$METRICS" | jq -r '.cache.hitRate // "N/A"')
@@ -24,18 +24,18 @@ jobs:
           CACHE_MISSES=$(echo "$METRICS" | jq -r '.cache.misses // 0')
           WALLETS_CACHED=$(echo "$METRICS" | jq -r '.uniqueWalletsTracked // 0')
           TOTAL_REQUESTS=$(echo "$METRICS" | jq -r '.requests.total // 0')
-          
+
           # API stats
           BIRDEYE_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.calls // 0')
           BIRDEYE_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.errors // 0')
           BIRDEYE_LATENCY=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.avgLatencyMs // 0')
-          
+
           LAMBDA_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.lambda.calls // 0')
           LAMBDA_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.lambda.errors // 0')
-          
+
           DIALECT_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.dialect.calls // 0')
           DIALECT_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.dialect.errors // 0')
-          
+
           # Store for next step
           echo "uptime=$UPTIME" >> $GITHUB_OUTPUT
           echo "cache_hit_rate=$CACHE_HIT_RATE" >> $GITHUB_OUTPUT
@@ -51,26 +51,29 @@ jobs:
 
       - name: Collect Cloudflare Analytics
         id: cloudflare
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ZONE_ID != '' }}
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        if: env.CF_TOKEN != '' && env.CF_ZONE != ''
         run: |
           # Get analytics for the last hour
           END_TIME=$(date -u +"%Y-%m-%dT%H:00:00Z")
           START_TIME=$(date -u -d "1 hour ago" +"%Y-%m-%dT%H:00:00Z" 2>/dev/null || date -u -v-1H +"%Y-%m-%dT%H:00:00Z")
-          
+
           # Cloudflare GraphQL API for analytics
           CF_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/graphql" \
-            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" \
             --data '{
-              "query": "query { viewer { zones(filter: {zoneTag: \"${{ secrets.CLOUDFLARE_ZONE_ID }}\"}) { httpRequests1hGroups(limit: 1, filter: {datetime_geq: \"'$START_TIME'\", datetime_lt: \"'$END_TIME'\"}) { sum { requests pageViews threats bytes browserMap { pageViews uaBrowserFamily } countryMap { requests clientCountryName } } uniq { uniques } } } } }"
+              "query": "query { viewer { zones(filter: {zoneTag: \"'"$CF_ZONE"'\"}) { httpRequests1hGroups(limit: 1, filter: {datetime_geq: \"'"$START_TIME"'\", datetime_lt: \"'"$END_TIME"'\"}) { sum { requests pageViews threats bytes } uniq { uniques } } } } }"
             }' 2>/dev/null || echo '{}')
-          
+
           # Parse Cloudflare stats
           CF_REQUESTS=$(echo "$CF_RESPONSE" | jq -r '.data.viewer.zones[0].httpRequests1hGroups[0].sum.requests // 0' 2>/dev/null || echo "N/A")
           CF_PAGEVIEWS=$(echo "$CF_RESPONSE" | jq -r '.data.viewer.zones[0].httpRequests1hGroups[0].sum.pageViews // 0' 2>/dev/null || echo "N/A")
           CF_UNIQUES=$(echo "$CF_RESPONSE" | jq -r '.data.viewer.zones[0].httpRequests1hGroups[0].uniq.uniques // 0' 2>/dev/null || echo "N/A")
           CF_THREATS=$(echo "$CF_RESPONSE" | jq -r '.data.viewer.zones[0].httpRequests1hGroups[0].sum.threats // 0' 2>/dev/null || echo "0")
-          
+
           echo "cf_requests=$CF_REQUESTS" >> $GITHUB_OUTPUT
           echo "cf_pageviews=$CF_PAGEVIEWS" >> $GITHUB_OUTPUT
           echo "cf_uniques=$CF_UNIQUES" >> $GITHUB_OUTPUT
@@ -97,7 +100,7 @@ jobs:
           MESSAGE+="• Birdeye: ${{ steps.metrics.outputs.birdeye_calls }} calls (~${{ steps.metrics.outputs.birdeye_latency }}ms)%0A"
           MESSAGE+="• Lambda: ${{ steps.metrics.outputs.lambda_calls }} calls%0A"
           MESSAGE+="• Dialect: ${{ steps.metrics.outputs.dialect_calls }} calls%0A"
-          
+
           # Add Cloudflare stats if available
           if [ -n "${{ steps.cloudflare.outputs.cf_requests }}" ] && [ "${{ steps.cloudflare.outputs.cf_requests }}" != "N/A" ]; then
             MESSAGE+="%0A"
@@ -106,7 +109,7 @@ jobs:
             MESSAGE+="• Unique Visitors: ${{ steps.cloudflare.outputs.cf_uniques }}%0A"
             MESSAGE+="• Threats Blocked: ${{ steps.cloudflare.outputs.cf_threats }}%0A"
           fi
-          
+
           # Send to Telegram
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
