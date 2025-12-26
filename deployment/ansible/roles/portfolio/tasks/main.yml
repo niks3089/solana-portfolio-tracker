@@ -1,10 +1,17 @@
 ---
+# ============================================================================
+# Portfolio Dashboard - Full Server Setup
+# Works for both staging (no SSL) and production (with SSL)
+# ============================================================================
+
 - name: Update and upgrade apt packages
   apt:
     upgrade: true
     update_cache: true
 
+# ============================================================================
 # PostgreSQL 17 Installation
+# ============================================================================
 - name: Install prerequisites for PostgreSQL
   apt:
     name:
@@ -77,7 +84,9 @@
     objs: public
     role: "{{ postgres_user }}"
 
+# ============================================================================
 # Node.js Installation
+# ============================================================================
 - name: Install Node.js prerequisites
   apt:
     name:
@@ -93,7 +102,9 @@
 - name: Install Node.js 20 LTS
   command: n 20
 
+# ============================================================================
 # Application setup
+# ============================================================================
 - name: Create application user
   user:
     name: "{{ app_user }}"
@@ -153,7 +164,9 @@
   environment:
     DATABASE_URL: "postgresql://{{ postgres_user }}:{{ postgres_password }}@localhost:5432/{{ postgres_db }}"
 
+# ============================================================================
 # Systemd service
+# ============================================================================
 - name: Create systemd service file
   template:
     src: portfolio.service.j2
@@ -173,7 +186,9 @@
     state: started
     enabled: yes
 
+# ============================================================================
 # UFW Firewall
+# ============================================================================
 - name: Install UFW
   apt:
     name: ufw
@@ -204,35 +219,46 @@
     state: enabled
     policy: deny
 
-# Nginx reverse proxy
+# ============================================================================
+# Nginx (always installed, SSL conditional)
+# ============================================================================
 - name: Install Nginx
   apt:
     name: nginx
     state: present
 
+# ============================================================================
+# SSL Certificate (PRODUCTION ONLY)
+# ============================================================================
 - name: Install Certbot
   apt:
     name:
       - certbot
       - python3-certbot-nginx
     state: present
+  when: enable_ssl | default(false)
 
 - name: Create certbot webroot directory
   file:
     path: /var/www/certbot
     state: directory
     mode: '0755'
+  when: enable_ssl | default(false)
 
 - name: Check if SSL certificate exists
   stat:
     path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
   register: ssl_cert
+  when: enable_ssl | default(false)
 
 - name: Stop nginx for initial cert generation
   systemd:
     name: nginx
     state: stopped
-  when: not ssl_cert.stat.exists
+  when:
+    - enable_ssl | default(false)
+    - ssl_cert is defined
+    - not ssl_cert.stat.exists
 
 - name: Generate SSL certificate
   command: >
@@ -241,9 +267,15 @@
     --email {{ ssl_email }}
     --agree-tos
     --non-interactive
-  when: not ssl_cert.stat.exists
+  when:
+    - enable_ssl | default(false)
+    - ssl_cert is defined
+    - not ssl_cert.stat.exists
 
-- name: Configure Nginx
+# ============================================================================
+# Nginx Configuration
+# ============================================================================
+- name: Configure Nginx (with SSL)
   template:
     src: nginx.conf.j2
     dest: /etc/nginx/sites-available/portfolio
@@ -251,6 +283,17 @@
     group: root
     mode: '0644'
   notify: Restart nginx
+  when: enable_ssl | default(false)
+
+- name: Configure Nginx (without SSL - staging)
+  template:
+    src: nginx-nossl.conf.j2
+    dest: /etc/nginx/sites-available/portfolio
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart nginx
+  when: not (enable_ssl | default(false))
 
 - name: Enable Nginx site
   file:
@@ -277,4 +320,4 @@
     minute: "0"
     hour: "3"
     job: "certbot renew --quiet && systemctl reload nginx"
-
+  when: enable_ssl | default(false)

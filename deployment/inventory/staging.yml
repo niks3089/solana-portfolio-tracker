@@ -1,0 +1,11 @@
+---
+all:
+  children:
+    portfolio_servers:
+      hosts:
+        portfolio_staging:
+          ansible_host: 45.76.155.10
+          ansible_user: ubuntu
+          server_name: portfolio-staging
+          server_location: VULTR
+

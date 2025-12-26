@@ -1,39 +1,49 @@
 ---
-# Quick deploy - only sync code and restart service
-- name: Deploy Portfolio Dashboard (Code Only)
+# ============================================================================
+# Deploy Portfolio Dashboard
+# Works for both staging and production - uses inventory to determine target
+# ============================================================================
+- name: Deploy Portfolio Dashboard
   hosts: portfolio_servers
   become: yes
-  become_method: sudo
-  become_user: root
   vars_files:
-    - "{{ playbook_dir }}/vars/prod.yml"
-    - "{{ playbook_dir }}/vars/vault.yml"
+    - vars/base.yml
+    - vars/vault.yml
+    # Environment-specific vars loaded via command line: -e @vars/staging.yml or -e @vars/prod.yml
 
   tasks:
+    - name: Display deployment target
+      debug:
+        msg: "🚀 Deploying to {{ environment | default('unknown') }} ({{ ansible_host }})"
+
     - name: Sync portfolio code
-      synchronize:
-        src: "{{ playbook_dir }}/../"
-        dest: "{{ app_dir }}"
-        delete: yes
+      ansible.posix.synchronize:
+        src: ../
+        dest: "{{ app_dir }}/"
         rsync_opts:
           - "--exclude=node_modules"
           - "--exclude=.git"
-          - "--exclude=.env"
           - "--exclude=deployment"
+        delete: yes
 
     - name: Set correct ownership
       file:
         path: "{{ app_dir }}"
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
-        mode: '0755'
         recurse: yes
 
+    - name: Update environment file
+      template:
+        src: ansible/roles/portfolio/templates/portfolio.env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart portfolio
+
     - name: Install dependencies
-      npm:
-        path: "{{ app_dir }}"
-        state: present
-      become: true
+      shell: cd {{ app_dir }} && npm install --production
       become_user: "{{ app_user }}"
 
     - name: Restart portfolio service
@@ -42,17 +52,25 @@
         state: restarted
         daemon_reload: yes
 
+    - name: Wait for service to start
+      wait_for:
+        port: "{{ app_port }}"
+        delay: 2
+        timeout: 30
+
     - name: Check service health
       uri:
         url: "http://localhost:{{ app_port }}/api/payment-config"
-        method: GET
-        status_code: 200
+        return_content: yes
       register: health_check
-      retries: 5
-      delay: 5
-      until: health_check.status == 200
+      failed_when: health_check.status != 200
 
     - name: Display success
       debug:
-        msg: "Deployed successfully! https://{{ domain_name }}"
+        msg: "✅ Deployed to {{ environment | default('unknown') }} successfully!"
 
+  handlers:
+    - name: restart portfolio
+      systemd:
+        name: portfolio
+        state: restarted

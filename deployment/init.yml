@@ -1,21 +1,26 @@
 ---
+# ============================================================================
 # Full initialization - PostgreSQL, Node.js, Nginx, SSL, App
+# Works for both staging and production
+# ============================================================================
 - name: Initialize Portfolio Dashboard (Full Setup)
   hosts: portfolio_servers
   become: yes
   become_method: sudo
   become_user: root
   vars_files:
-    - "{{ playbook_dir }}/vars/prod.yml"
+    - "{{ playbook_dir }}/vars/base.yml"
     - "{{ playbook_dir }}/vars/vault.yml"
+    # Environment-specific vars loaded via command line: -e @vars/staging.yml or -e @vars/prod.yml
 
   pre_tasks:
-    - name: Debug deployment info
+    - name: Display initialization target
       debug:
         msg:
-          - "Initializing: {{ inventory_hostname }}"
-          - "Server: {{ server_name }}"
-          - "Domain: {{ domain_name }}"
+          - "🔧 Initializing: {{ inventory_hostname }}"
+          - "   Environment: {{ environment | default('unknown') }}"
+          - "   Domain: {{ domain_name }}"
+          - "   SSL: {{ enable_ssl | default(false) }}"
 
   roles:
     - role: ansible/roles/portfolio
@@ -37,7 +42,12 @@
       delay: 5
       until: health_check.status == 200
 
-    - name: Display success
+    - name: Display success (with SSL)
+      when: enable_ssl | default(false)
       debug:
-        msg: "Portfolio Dashboard initialized successfully at https://{{ domain_name }}"
+        msg: "✅ Portfolio Dashboard initialized at https://{{ domain_name }}"
 
+    - name: Display success (without SSL)
+      when: not (enable_ssl | default(false))
+      debug:
+        msg: "✅ Portfolio Dashboard initialized at http://{{ domain_name }}:{{ app_port }}"

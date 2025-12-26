@@ -24,20 +24,78 @@ const lambdaDefiCache = new LRUCache({ max: 100000, ttl: CACHE_TTL });
 const dialectDefiCache = new LRUCache({ max: 100000, ttl: CACHE_TTL });
 const pnlCache = new LRUCache({ max: 100000, ttl: CACHE_TTL }); // key: wallet:tokenAddress
 
-// Cache stats
-let cacheStats = { hits: 0, misses: 0 };
+// ============================================================================
+// Metrics tracking
+// ============================================================================
+const metrics = {
+  startTime: Date.now(),
+
+  // Cache stats
+  cache: {
+    hits: 0,
+    misses: 0,
+    holdings: { size: 0 },
+    lambdaDefi: { size: 0 },
+    dialectDefi: { size: 0 },
+    pnl: { size: 0 },
+  },
+
+  // API call stats per provider
+  api: {
+    birdeye: { calls: 0, errors: 0, timeouts: 0, totalLatencyMs: 0, latencies: [] },
+    lambda: { calls: 0, errors: 0, timeouts: 0, totalLatencyMs: 0, latencies: [] },
+    dialect: { calls: 0, errors: 0, timeouts: 0, totalLatencyMs: 0, latencies: [] },
+  },
+
+  // Request stats
+  requests: {
+    total: 0,
+    byEndpoint: {},
+  },
+
+  // Unique wallets seen
+  uniqueWallets: new Set(),
+};
+
+function getApiProvider(url) {
+  if (url.includes('birdeye.so')) return 'birdeye';
+  if (url.includes('lambda.p2p.org')) return 'lambda';
+  if (url.includes('dial.to')) return 'dialect';
+  return null;
+}
+
+function recordApiCall(provider, latencyMs, error = null, isTimeout = false) {
+  if (!metrics.api[provider]) return;
+
+  const stats = metrics.api[provider];
+  stats.calls++;
+  stats.totalLatencyMs += latencyMs;
+
+  // Keep last 100 latencies for percentile calculation
+  stats.latencies.push(latencyMs);
+  if (stats.latencies.length > 100) stats.latencies.shift();
+
+  if (isTimeout) stats.timeouts++;
+  else if (error) stats.errors++;
+}
+
+function updateCacheSizes() {
+  metrics.cache.holdings.size = holdingsCache.size;
+  metrics.cache.lambdaDefi.size = lambdaDefiCache.size;
+  metrics.cache.dialectDefi.size = dialectDefiCache.size;
+  metrics.cache.pnl.size = pnlCache.size;
+}
+
+function getPercentile(arr, p) {
+  if (!arr.length) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = Math.ceil((p / 100) * sorted.length) - 1;
+  return sorted[Math.max(0, idx)];
+}
 
 function getCacheKey(wallets) {
   // Sort wallets to ensure consistent key regardless of order
   return [...wallets].sort().join('|');
-}
-
-function logCacheStats() {
-  const total = cacheStats.hits + cacheStats.misses;
-  if (total > 0 && total % 100 === 0) {
-    const hitRate = ((cacheStats.hits / total) * 100).toFixed(1);
-    console.log(`📦 Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses (${hitRate}% hit rate)`);
-  }
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -132,6 +190,7 @@ async function fetchJSON(url, options = {}, timeoutMs = 15000) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startTime = Date.now();
   const urlHost = new URL(url).hostname;
+  const provider = getApiProvider(url);
 
   try {
     const response = await fetch(url, {
@@ -140,13 +199,22 @@ async function fetchJSON(url, options = {}, timeoutMs = 15000) {
       signal: controller.signal,
     });
     const elapsed = Date.now() - startTime;
+
+    // Record successful API call
+    if (provider) recordApiCall(provider, elapsed);
+
     if (elapsed > 5000) {
       console.log(`⚠️ Slow API: ${urlHost} took ${elapsed}ms`);
     }
     return response.json();
   } catch (err) {
     const elapsed = Date.now() - startTime;
-    if (err.name === 'AbortError') {
+    const isTimeout = err.name === 'AbortError';
+
+    // Record failed API call
+    if (provider) recordApiCall(provider, elapsed, err, isTimeout);
+
+    if (isTimeout) {
       console.error(`❌ TIMEOUT: ${urlHost} did not respond in ${timeoutMs}ms`);
       console.error(`   → This usually means the external API is down or overloaded`);
       console.error(`   → The request will be retried on next user action`);
@@ -168,11 +236,10 @@ async function getTokenHoldings(wallet) {
   // Check cache first
   const cached = holdingsCache.get(wallet);
   if (cached) {
-    cacheStats.hits++;
-    logCacheStats();
+    metrics.cache.hits++;
     return cached;
   }
-  cacheStats.misses++;
+  metrics.cache.misses++;
 
   const data = await fetchJSON(
     `https://public-api.birdeye.so/v1/wallet/token_list?wallet=${wallet}`,
@@ -206,10 +273,10 @@ async function getTokenPnL(tokenAddress, wallet) {
   // Check cache first
   const cached = pnlCache.get(cacheKey);
   if (cached !== undefined) {
-    cacheStats.hits++;
+    metrics.cache.hits++;
     return cached;
   }
-  cacheStats.misses++;
+  metrics.cache.misses++;
 
   try {
     const data = await fetchJSON(
@@ -247,10 +314,10 @@ async function getDialectPositions(wallet) {
   // Check cache first
   const cached = dialectDefiCache.get(wallet);
   if (cached) {
-    cacheStats.hits++;
+    metrics.cache.hits++;
     return cached;
   }
-  cacheStats.misses++;
+  metrics.cache.misses++;
 
   try {
     const data = await fetchJSON(
@@ -300,10 +367,10 @@ async function getLambdaPositions(wallet) {
   // Check cache first
   const cached = lambdaDefiCache.get(wallet);
   if (cached) {
-    cacheStats.hits++;
+    metrics.cache.hits++;
     return cached;
   }
-  cacheStats.misses++;
+  metrics.cache.misses++;
 
   try {
     const data = await fetchJSON(
@@ -556,6 +623,10 @@ app.post('/api/portfolio/pnl', async (req, res) => {
       return res.status(400).json({ error: 'No wallets provided' });
     }
 
+    // Track metrics
+    metrics.requests.total++;
+    metrics.requests.byEndpoint['/api/portfolio/pnl'] = (metrics.requests.byEndpoint['/api/portfolio/pnl'] || 0) + 1;
+
     const start = Date.now();
     let totalPnL = 0;
     const tokenPnLs = [];
@@ -595,6 +666,10 @@ app.post('/api/portfolio/dialect', async (req, res) => {
     if (!wallets?.length) {
       return res.status(400).json({ error: 'No wallets provided' });
     }
+
+    // Track metrics
+    metrics.requests.total++;
+    metrics.requests.byEndpoint['/api/portfolio/dialect'] = (metrics.requests.byEndpoint['/api/portfolio/dialect'] || 0) + 1;
 
     const start = Date.now();
     const allPositions = [];
@@ -677,6 +752,11 @@ app.post('/api/portfolio/aggregate/fast', async (req, res) => {
     if (!wallets?.length) {
       return res.status(400).json({ error: 'No wallets provided' });
     }
+
+    // Track metrics
+    metrics.requests.total++;
+    metrics.requests.byEndpoint['/api/portfolio/aggregate/fast'] = (metrics.requests.byEndpoint['/api/portfolio/aggregate/fast'] || 0) + 1;
+    wallets.forEach(w => metrics.uniqueWallets.add(w));
 
     const start = Date.now();
 
@@ -1018,6 +1098,71 @@ app.get('/api/discount/:code', (req, res) => {
   } else {
     res.json({ valid: false, code });
   }
+});
+
+// ============================================================================
+// Metrics endpoint (protected by secret)
+// Access: /api/metrics?secret=YOUR_METRICS_SECRET
+// ============================================================================
+const METRICS_SECRET = process.env.METRICS_SECRET || 'saul_metrics_2024';
+
+app.get('/api/metrics', (req, res) => {
+  // Check secret
+  const providedSecret = req.query.secret || req.headers['x-metrics-secret'];
+  if (providedSecret !== METRICS_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Update cache sizes
+  updateCacheSizes();
+
+  // Calculate derived metrics
+  const uptimeMs = Date.now() - metrics.startTime;
+  const uptimeHours = (uptimeMs / 1000 / 60 / 60).toFixed(2);
+
+  const cacheHitRate = metrics.cache.hits + metrics.cache.misses > 0
+    ? ((metrics.cache.hits / (metrics.cache.hits + metrics.cache.misses)) * 100).toFixed(1)
+    : 0;
+
+  // Build API stats with percentiles
+  const apiStats = {};
+  for (const [provider, stats] of Object.entries(metrics.api)) {
+    const avgLatency = stats.calls > 0 ? (stats.totalLatencyMs / stats.calls).toFixed(0) : 0;
+    apiStats[provider] = {
+      calls: stats.calls,
+      errors: stats.errors,
+      timeouts: stats.timeouts,
+      errorRate: stats.calls > 0 ? ((stats.errors / stats.calls) * 100).toFixed(1) + '%' : '0%',
+      avgLatencyMs: parseInt(avgLatency),
+      p50LatencyMs: getPercentile(stats.latencies, 50),
+      p95LatencyMs: getPercentile(stats.latencies, 95),
+      p99LatencyMs: getPercentile(stats.latencies, 99),
+    };
+  }
+
+  res.json({
+    status: 'ok',
+    uptime: `${uptimeHours} hours`,
+    uptimeMs,
+
+    cache: {
+      hits: metrics.cache.hits,
+      misses: metrics.cache.misses,
+      hitRate: `${cacheHitRate}%`,
+      walletsCached: {
+        holdings: metrics.cache.holdings.size,
+        lambdaDefi: metrics.cache.lambdaDefi.size,
+        dialectDefi: metrics.cache.dialectDefi.size,
+        pnl: metrics.cache.pnl.size,
+      },
+    },
+
+    externalAPIs: apiStats,
+
+    uniqueWalletsTracked: metrics.uniqueWallets.size,
+
+    requests: metrics.requests,
+  });
 });
 
 // Start server

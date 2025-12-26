@@ -5,7 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       full_init:
-        description: 'Run full initialization (includes PostgreSQL, Nginx, SSL)'
+        description: 'Run full initialization (PostgreSQL, Nginx, SSL)'
+        required: false
+        type: boolean
+        default: false
+      skip_staging:
+        description: 'Skip staging and deploy directly to prod (DANGEROUS)'
         required: false
         type: boolean
         default: false
@@ -20,8 +25,76 @@ on:
       - 'package.json'
 
 jobs:
-  deploy:
+  # ============================================================================
+  # STAGE 1: Deploy to Staging
+  # ============================================================================
+  deploy-staging:
     runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_staging }}
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: false
+    outputs:
+      staging_url: ${{ steps.staging-info.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible
+        run: |
+          pip install ansible
+          cd deployment
+          ansible-galaxy collection install -r requirements.yml
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Create vault password file
+        run: echo "${{ secrets.VAULT_PASSWORD }}" > deployment/.vault_pass
+
+      - name: Deploy to Staging
+        run: |
+          cd deployment
+          echo "🚀 Deploying to STAGING..."
+          ansible-playbook -i inventory/staging.yml deploy.yml -e @vars/staging.yml --vault-password-file .vault_pass
+
+      - name: Cleanup vault password
+        if: always()
+        run: rm -f deployment/.vault_pass
+
+      - name: Set staging URL
+        id: staging-info
+        run: echo "url=http://45.76.155.10:3000" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # STAGE 2: Run Sanity Tests on Staging
+  # ============================================================================
+  sanity-tests:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: ${{ !inputs.skip_staging }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for staging to stabilize
+        run: sleep 5
+
+      - name: Run sanity tests on staging
+        run: |
+          chmod +x scripts/sanity-test.sh
+          ./scripts/sanity-test.sh "${{ needs.deploy-staging.outputs.staging_url }}"
+
+  # ============================================================================
+  # STAGE 3: Deploy to Production (only if staging tests pass)
+  # ============================================================================
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, sanity-tests]
+    if: ${{ always() && (needs.sanity-tests.result == 'success' || inputs.skip_staging) }}
     env:
       ANSIBLE_HOST_KEY_CHECKING: false
     steps:
@@ -32,7 +105,7 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Ansible and dependencies
+      - name: Install Ansible
         run: |
           pip install ansible
           cd deployment
@@ -42,14 +115,49 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.DEPLOY_KEY }}
 
-      - name: Deploy (code only)
+      - name: Create vault password file
+        run: echo "${{ secrets.VAULT_PASSWORD }}" > deployment/.vault_pass
+
+      - name: Deploy to Production (code only)
         if: ${{ !inputs.full_init }}
         run: |
           cd deployment
-          ansible-playbook deploy.yml
+          echo "🚀 Deploying to PRODUCTION..."
+          ansible-playbook -i inventory/prod.yml deploy.yml -e @vars/prod.yml --vault-password-file .vault_pass
 
-      - name: Full initialization
+      - name: Full initialization (Production)
         if: ${{ inputs.full_init }}
         run: |
           cd deployment
-          ansible-playbook init.yml
+          echo "🔧 Full initialization on PRODUCTION..."
+          ansible-playbook -i inventory/prod.yml init.yml -e @vars/prod.yml --vault-password-file .vault_pass
+
+      - name: Cleanup vault password
+        if: always()
+        run: rm -f deployment/.vault_pass
+
+      - name: Run sanity tests on Production
+        run: |
+          sleep 5
+          chmod +x scripts/sanity-test.sh
+          ./scripts/sanity-test.sh "https://saul.run"
+
+  # ============================================================================
+  # Notify on failure
+  # ============================================================================
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, sanity-tests, deploy-prod]
+    if: failure()
+    steps:
+      - name: Send Telegram alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+              -d chat_id="$TELEGRAM_CHAT_ID" \
+              -d text="🚨 Portfolio deployment FAILED! Check GitHub Actions." \
+              -d parse_mode="Markdown"
+          fi
