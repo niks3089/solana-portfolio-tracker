@@ -3592,6 +3592,11 @@
       updateWalletStatusUI();
       await checkProStatus(); // Re-check Pro when wallet disconnects (will be false)
 
+      // Clear portfolios (they belong to the connected wallet)
+      userLabels = [];
+      activeLabelId = null;
+      renderLabels();
+
       // Re-render wallet tags (will now show toly.sol again)
       renderWalletTags();
       refreshData(); // Refresh to show demo wallet data
