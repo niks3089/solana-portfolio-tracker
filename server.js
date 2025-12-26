@@ -17,21 +17,34 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
+// Trust proxy (Nginx) for rate limiting
+app.set('trust proxy', 1);
+
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for inline scripts
 }));
 
-// Rate limiting: 10 requests per minute per IP
+// Rate limiting: 60 requests per minute per IP
 app.use('/api/', rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 60,
   message: { success: false, message: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 }));
 
 app.use(express.json());
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public'), {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Config
 const CONFIG = {
@@ -249,9 +262,16 @@ async function getDefiPositions(wallet) {
     getLambdaPositions(wallet),
   ]);
 
-  // Deduplicate: Lambda positions for protocols not in Dialect
-  const dialectProtocols = new Set(dialectPos.map(p => p.protocol.toLowerCase()));
-  const uniqueLambdaPos = lambdaPos.filter(p => !dialectProtocols.has(p.protocol.toLowerCase()));
+  // Deduplicate by exact (protocol, token, type) - not just protocol
+  // This allows Lambda deposits + Dialect rewards for same protocol
+  const dialectKeys = new Set(
+    dialectPos.map(p => `${p.protocol.toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`)
+  );
+
+  const uniqueLambdaPos = lambdaPos.filter(p => {
+    const key = `${p.protocol.toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`;
+    return !dialectKeys.has(key);
+  });
 
   const allPositions = [...dialectPos, ...uniqueLambdaPos];
 
@@ -264,7 +284,7 @@ async function getDefiPositions(wallet) {
   }
 
   return {
-    positions: allPositions.sort((a, b) => b.value - a.value),
+    positions: allPositions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
     totalDeposits,
     totalBorrows,
   };
@@ -446,7 +466,7 @@ app.post('/api/portfolio/aggregate', async (req, res) => {
     const allDefiPositions = [];
 
     for (const p of portfolios) {
-      if (p.error) continue;
+      if (p.error || !p.summary) continue;
 
       const walletShort = p.wallet ? p.wallet.slice(0, 4) + '...' + p.wallet.slice(-4) : '?';
 
