@@ -2427,9 +2427,13 @@
       let input = (addrInput.value || '').trim();
 
       // If viewing a portfolio and input looks like an address, clear portfolio view first
+      // If viewing a portfolio and user enters a wallet, exit portfolio view first
       if (activeLabelId && input.length >= 32) {
         activeLabelId = null;
+        hiddenLabelWallets = [];
+        document.getElementById('walletInput').placeholder = 'Add wallet';
         renderLabels();
+        renderWalletTags(); // Restore main wallet tags
       }
 
       // Free plan restrictions (always allow toly.sol / demo wallet)
@@ -2815,8 +2819,9 @@
       const label = userLabels.find(l => l.id === labelId);
       if (!label) return;
 
-      // Update search bar to show portfolio name
-      document.getElementById('walletInput').value = label.name;
+      // Clear the search bar (don't fill with portfolio name - keeps it usable for adding wallets)
+      document.getElementById('walletInput').value = '';
+      document.getElementById('walletInput').placeholder = 'Add wallet to ' + label.name + '...';
 
       // Show the wallets in this label as tags
       renderLabelWalletTags(label);
@@ -3637,8 +3642,9 @@
       hiddenLabelWallets = [];
       renderLabels();
 
-      // Clear search bar
+      // Clear search bar and reset placeholder
       document.getElementById('walletInput').value = '';
+      document.getElementById('walletInput').placeholder = 'Add wallet';
 
       // Re-render wallet tags (will now show toly.sol again)
       renderWalletTags();
@@ -4246,6 +4252,7 @@
         activeLabelId = null;
         hiddenLabelWallets = []; // Reset hidden wallets
         document.getElementById('walletInput').value = '';
+        document.getElementById('walletInput').placeholder = 'Add wallet';
         renderLabels();
         renderWalletTags(); // Restore normal wallet tags
         refreshData();
