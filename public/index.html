@@ -589,6 +589,7 @@
       align-items: center;
       gap: 0.5rem;
       background: var(--bg-tertiary);
+      border: 1px solid var(--border);
       padding: 0.5rem 0.75rem;
       border-radius: 6px;
       font-size: 0.85rem;
@@ -597,6 +598,11 @@
     .wallet-tag-name {
       color: var(--accent);
       font-weight: 500;
+      cursor: pointer;
+    }
+
+    .wallet-tag-name:hover {
+      text-decoration: underline;
     }
 
     .wallet-tag-addr {
@@ -604,12 +610,47 @@
       font-family: monospace;
       font-size: 0.75rem;
       margin-left: 0.5rem;
+      cursor: pointer;
+    }
+
+    .wallet-tag-addr:hover {
+      color: var(--text-primary);
     }
 
     .wallet-tag-remove {
       cursor: pointer;
       color: var(--text-secondary);
-      font-size: 1rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-left: 0.5rem;
+      padding: 0 0.25rem;
+      line-height: 1;
+    }
+
+    .wallet-tag-remove:hover {
+      color: var(--negative);
+    }
+
+    /* Copy toast */
+    .copy-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--accent);
+      color: var(--bg-primary);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.2s ease;
+      z-index: 9999;
+    }
+
+    .copy-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     .wallet-tag-remove:hover {
@@ -702,6 +743,38 @@
       text-align: center;
     }
 
+    .wallet-dropdown-section {
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--bg-tertiary);
+    }
+
+    .wallet-dropdown-divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    .wallet-dropdown-item.label-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .wallet-dropdown-item.label-item .label-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .wallet-dropdown-item.label-item.active {
+      background: rgba(0, 212, 170, 0.1);
+    }
+
     .label-editor {
       display: none;
       position: fixed;
@@ -772,6 +845,267 @@
     .btn-small {
       padding: 0.5rem 1rem;
       font-size: 0.85rem;
+    }
+
+    /* Labels Section (Pro Feature) */
+    .labels-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .labels-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .labels-title {
+      font-weight: 600;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .labels-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .label-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+
+    .label-chip:hover {
+      border-color: var(--accent);
+      background: rgba(0, 212, 170, 0.1);
+    }
+
+    .label-chip.active {
+      border-color: var(--accent);
+      background: rgba(0, 212, 170, 0.15);
+    }
+
+    .label-chip .label-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .label-chip .label-name {
+      color: var(--text-primary);
+    }
+
+    .label-chip .label-count {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .label-chip .label-edit {
+      color: var(--text-secondary);
+      margin-left: 0.25rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .label-chip:hover .label-edit {
+      opacity: 1;
+    }
+
+    .label-chip .label-edit:hover {
+      color: var(--accent);
+    }
+
+    .btn-add-label {
+      padding: 0.4rem 0.75rem;
+      background: transparent;
+      border: 1px dashed var(--accent);
+      color: var(--accent);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn-add-label:hover {
+      background: var(--accent);
+      color: var(--bg-primary);
+    }
+
+    .labels-empty {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+    }
+
+    /* Label Modal */
+    .label-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .label-modal.active {
+      display: flex;
+    }
+
+    .label-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 480px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .label-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .label-modal-header h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .label-modal-close {
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .label-modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .label-form-group {
+      margin-bottom: 1rem;
+    }
+
+    .label-form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+    }
+
+    .label-form-input {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+    }
+
+    .label-form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .color-picker {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .color-option {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+
+    .color-option.selected {
+      border-color: white;
+      box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px currentColor;
+    }
+
+    .label-wallets-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .label-wallet-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .label-wallet-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+    }
+
+    .label-wallet-addr {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .label-wallet-name {
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    .label-modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
+    .label-modal-actions .btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .btn-danger {
+      background: transparent;
+      border-color: var(--negative);
+      color: var(--negative);
+    }
+
+    .btn-danger:hover {
+      background: var(--negative);
+      color: white;
     }
 
     .loading {
@@ -1427,6 +1761,57 @@
       <div class="wallet-tags" id="walletTags"></div>
     </div>
 
+    <!-- Labels Section (Pro Feature) -->
+    <div class="labels-section" id="labelsSection" style="display:none">
+      <div class="labels-header">
+        <div class="labels-title">
+          📁 Portfolios
+        </div>
+        <button class="btn-add-label" onclick="showLabelModal()">+ New Portfolio</button>
+      </div>
+      <div class="labels-list" id="labelsList">
+        <div class="labels-empty">Create portfolios to organize and track multiple wallets</div>
+      </div>
+    </div>
+
+    <!-- Label Modal -->
+    <div class="label-modal" id="labelModal">
+      <div class="label-modal-content">
+        <div class="label-modal-header">
+          <h3 id="labelModalTitle">Create Portfolio</h3>
+          <span class="label-modal-close" onclick="closeLabelModal()">&times;</span>
+        </div>
+        <div class="label-form-group">
+          <label>Portfolio Name</label>
+          <input type="text" class="label-form-input" id="labelNameInput" placeholder="e.g. DeFi, Trading, Long-term">
+        </div>
+        <div class="label-form-group">
+          <label>Color</label>
+          <div class="color-picker" id="colorPicker">
+            <div class="color-option selected" data-color="#00d4aa" style="background:#00d4aa"></div>
+            <div class="color-option" data-color="#ff4466" style="background:#ff4466"></div>
+            <div class="color-option" data-color="#ffaa00" style="background:#ffaa00"></div>
+            <div class="color-option" data-color="#4466ff" style="background:#4466ff"></div>
+            <div class="color-option" data-color="#aa44ff" style="background:#aa44ff"></div>
+            <div class="color-option" data-color="#44ffaa" style="background:#44ffaa"></div>
+            <div class="color-option" data-color="#ff6644" style="background:#ff6644"></div>
+            <div class="color-option" data-color="#44aaff" style="background:#44aaff"></div>
+          </div>
+        </div>
+        <div class="label-form-group">
+          <label>Wallets to Track</label>
+          <div class="label-wallets-list" id="labelWalletsList"></div>
+        </div>
+        <div id="labelModalStatus" style="margin-top:0.75rem;font-size:0.85rem;text-align:center"></div>
+        <div class="label-modal-actions">
+          <button class="btn btn-danger" id="deleteLabelBtn" onclick="deleteLabel()"
+            style="display:none">Delete</button>
+          <button class="btn" onclick="closeLabelModal()">Cancel</button>
+          <button class="btn btn-accent" onclick="saveLabel()">Save</button>
+        </div>
+      </div>
+    </div>
+
     <div class="top-section">
       <div class="stats-grid">
         <div class="stat-card">
@@ -1690,9 +2075,9 @@
       if (isPro) {
         document.getElementById('proStatusDisplay').style.display = 'flex';
         document.getElementById('upgradeBtn').style.display = 'none';
-        // Calculate days left
+        // Calculate days left (floor to show actual remaining full days)
         if (proStatusCache.expiresAt) {
-          const daysLeft = Math.ceil((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+          const daysLeft = Math.floor((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
           document.getElementById('proDaysLeft').textContent = daysLeft + 'd left';
         }
       } else {
@@ -1707,7 +2092,7 @@
           ? (proStatusCache.wallet.slice(0, 6) + '...' + proStatusCache.wallet.slice(-4))
           : 'Unknown';
         const expDate = new Date(proStatusCache.expiresAt).toLocaleDateString();
-        const daysLeft = Math.ceil((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+        const daysLeft = Math.floor((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
 
         // Create a nice tooltip/popover
         const existing = document.querySelector('.pro-details-popup');
@@ -1777,6 +2162,7 @@
 
         if (data.success) {
           await checkProStatus();
+          await loadLabels(); // Load labels for new Pro users
           refreshData();
           return true;
         } else {
@@ -1826,6 +2212,7 @@
           localStorage.setItem(trialKey, 'true');
           statusEl.innerHTML = '<span style="color:var(--positive)">🎉 Free trial activated! Enjoy 7 days of Pro.</span>';
           await checkProStatus();
+          await loadLabels(); // Show labels section for new Pro users
           closePaymentModal();
           refreshData();
         } else {
@@ -2219,10 +2606,35 @@
         const shortAddr = w.address.slice(0, 4) + '...' + w.address.slice(-4);
         const displayName = w.label || shortAddr;
         return '<div class="wallet-tag">' +
-          '<span class="wallet-tag-name">' + displayName + '</span>' +
-          '<span class="wallet-tag-addr">' + shortAddr + '</span>' +
-          '<span class="wallet-tag-remove" onclick="removeWallet(\'' + w.address + '\')">×</span></div>';
+          '<span class="wallet-tag-name" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + displayName + '</span>' +
+          '<span class="wallet-tag-addr" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + shortAddr + '</span>' +
+          '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWallet(\'' + w.address + '\')">×</span></div>';
       }).join('');
+    }
+
+    function copyWalletAddress(address) {
+      navigator.clipboard.writeText(address).then(() => {
+        showCopyToast('Copied!');
+      }).catch(err => {
+        console.error('Copy failed:', err);
+      });
+    }
+
+    function showCopyToast(message) {
+      // Remove existing toast
+      const existing = document.querySelector('.copy-toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = 'copy-toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 200);
+      }, 1500);
     }
 
     let editingWalletAddr = null;
@@ -2289,7 +2701,31 @@
         return;
       }
 
-      // Combine all known wallets (with safeguards), excluding demo wallet (we'll add it at end)
+      let html = '';
+
+      // SECTION 1: Portfolios (Pro feature)
+      if (isPro() && userLabels.length > 0) {
+        const filteredLabels = userLabels.filter(l => {
+          if (!input) return true;
+          return l.name.toLowerCase().includes(input);
+        });
+
+        if (filteredLabels.length > 0) {
+          html += '<div class="wallet-dropdown-section">📁 Portfolios</div>';
+          html += filteredLabels.map(l => {
+            const walletCount = (l.wallets || []).length;
+            const isActive = activeLabelId === l.id;
+            return '<div class="wallet-dropdown-item label-item' + (isActive ? ' active' : '') + '" onclick="selectLabelFromDropdown(' + l.id + ')">' +
+              '<span class="label-dot" style="background:' + (l.color || '#00d4aa') + '"></span>' +
+              '<span class="wallet-dropdown-label">' + escapeHtml(l.name) + '</span>' +
+              '<span class="wallet-dropdown-addr">(' + walletCount + ' wallets)</span>' +
+              (isActive ? '<span style="color:var(--accent);font-size:0.75rem;margin-left:auto">✓</span>' : '') +
+              '</div>';
+          }).join('');
+        }
+      }
+
+      // SECTION 2: Wallets
       const allWallets = [...(walletData || [])].filter(w => w.address !== DEMO_WALLET);
       for (const h of (searchHistory || [])) {
         if (h && h.address && h.address !== DEMO_WALLET && !allWallets.some(w => w.address === h.address)) {
@@ -2304,37 +2740,174 @@
         const labelMatch = w.label && w.label.toLowerCase().includes(input);
         const addrMatch = w.address.toLowerCase().includes(input);
         return labelMatch || addrMatch;
-      }).slice(0, 9); // Leave room for toly.sol
+      }).slice(0, 8);
 
       // Always show toly.sol in dropdown (for demo purposes)
       const tolyMatches = !input || 'toly.sol'.includes(input) || 'toly'.includes(input) || DEMO_WALLET.toLowerCase().includes(input);
       const tolyEntry = { address: DEMO_WALLET, label: 'toly.sol' };
-
-      if (filtered.length === 0 && !tolyMatches) {
-        if (input) {
-          dropdown.innerHTML = '<div class="wallet-dropdown-empty">No wallets match "' + input + '"</div>';
-        } else {
-          dropdown.innerHTML = '<div class="wallet-dropdown-empty">Paste a wallet address to start</div>';
-        }
-        return;
-      }
 
       // Always add toly.sol at end if it matches the search
       if (tolyMatches && !filtered.some(w => w.address === DEMO_WALLET)) {
         filtered.push(tolyEntry);
       }
 
-      dropdown.innerHTML = filtered.map(w => {
-        const label = w.label || '';
-        const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-6);
-        const isTracked = walletData.some(wd => wd.address === w.address);
-        const isToly = w.address === DEMO_WALLET;
-        return '<div class="wallet-dropdown-item' + (isToly ? ' toly-item' : '') + '" onclick="selectWalletFromDropdown(\'' + w.address + '\')">' +
-          '<span class="wallet-dropdown-label">' + (label || shortAddr) + '</span>' +
-          '<span class="wallet-dropdown-addr">' + shortAddr + '</span>' +
-          (isTracked ? '<span style="color:var(--accent);font-size:0.75rem;margin-left:auto">✓</span>' : '') +
+      if (filtered.length > 0) {
+        if (html) html += '<div class="wallet-dropdown-divider"></div>';
+        html += '<div class="wallet-dropdown-section">💳 Wallets</div>';
+        html += filtered.map(w => {
+          const label = w.label || '';
+          const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-6);
+          const isTracked = walletData.some(wd => wd.address === w.address);
+          const isToly = w.address === DEMO_WALLET;
+          return '<div class="wallet-dropdown-item' + (isToly ? ' toly-item' : '') + '" onclick="selectWalletFromDropdown(\'' + w.address + '\')">' +
+            '<span class="wallet-dropdown-label">' + (label || shortAddr) + '</span>' +
+            '<span class="wallet-dropdown-addr">' + shortAddr + '</span>' +
+            (isTracked ? '<span style="color:var(--accent);font-size:0.75rem;margin-left:auto">✓</span>' : '') +
+            '</div>';
+        }).join('');
+      }
+
+      if (!html) {
+        if (input) {
+          dropdown.innerHTML = '<div class="wallet-dropdown-empty">No matches for "' + input + '"</div>';
+        } else {
+          dropdown.innerHTML = '<div class="wallet-dropdown-empty">Paste a wallet address to start</div>';
+        }
+        return;
+      }
+
+      dropdown.innerHTML = html;
+    }
+
+    function selectLabelFromDropdown(labelId) {
+      hideWalletDropdown();
+
+      // Toggle the label filter
+      if (activeLabelId === labelId) {
+        activeLabelId = null;
+        document.getElementById('walletInput').value = '';
+        renderLabels();
+        renderWalletTags();
+        refreshData();
+      } else {
+        activeLabelId = labelId;
+        renderLabels();
+        loadLabelPortfolio(labelId);
+      }
+    }
+
+    async function loadLabelPortfolio(labelId) {
+      const label = userLabels.find(l => l.id === labelId);
+      if (!label) return;
+
+      // Update search bar to show portfolio name
+      document.getElementById('walletInput').value = label.name;
+
+      // Show the wallets in this label as tags
+      renderLabelWalletTags(label);
+
+      // Show loading states
+      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading ' + escapeHtml(label.name) + '...</div>';
+      document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
+
+      try {
+        const res = await fetch('/api/labels/' + labelId + '/portfolio');
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Update stats
+        const p = data.portfolio;
+        document.getElementById('statAssets').textContent = fmtUsd(p.totalTokens);
+        document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
+        document.getElementById('statPnL').textContent = '$0'; // P&L not available for labels yet
+        document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits);
+
+        // Render tokens (reset pagination)
+        tokenPage = 0;
+        allTokens = data.tokens || [];
+        renderTokensPage();
+        renderDonutChart(allTokens, p.totalTokens);
+
+        // Render DeFi (reset pagination)
+        defiPage = 0;
+        allDefiPositions = data.defiPositions || [];
+        renderDefiPage();
+
+      } catch (e) {
+        console.error('Load portfolio error:', e);
+        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">Error loading portfolio</div>';
+      }
+    }
+
+    function renderLabelWalletTags(label) {
+      const wallets = label.wallets || [];
+      if (wallets.length === 0) {
+        document.getElementById('walletTags').innerHTML = '<div style="color:var(--text-secondary);font-size:0.85rem">No wallets in this portfolio</div>';
+        return;
+      }
+
+      document.getElementById('walletTags').innerHTML = wallets.map(w => {
+        const shortAddr = w.address.slice(0, 4) + '...' + w.address.slice(-4);
+        const displayName = w.name || shortAddr;
+        return '<div class="wallet-tag" style="background:' + (label.color || 'var(--bg-tertiary)') + '22;border-color:' + (label.color || 'var(--border)') + '">' +
+          '<span class="wallet-tag-name" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy" style="color:' + (label.color || 'var(--accent)') + '">' + displayName + '</span>' +
+          '<span class="wallet-tag-addr" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + shortAddr + '</span>' +
+          '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWalletFromPortfolio(' + label.id + ',\'' + w.address + '\')">×</span>' +
           '</div>';
       }).join('');
+    }
+
+    async function removeWalletFromPortfolio(labelId, walletAddress) {
+      const label = userLabels.find(l => l.id === labelId);
+      if (!label) return;
+
+      // Remove wallet from the label's wallets array
+      const updatedWallets = (label.wallets || []).filter(w => w.address !== walletAddress);
+
+      try {
+        const res = await fetch('/api/labels/' + labelId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner_wallet: connectedWallet,
+            wallets: updatedWallets
+          })
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          console.error('Failed to remove wallet from portfolio:', data.error);
+          return;
+        }
+
+        // Update local state
+        label.wallets = updatedWallets;
+        renderLabels();
+
+        // Reload portfolio with remaining wallets
+        if (updatedWallets.length > 0) {
+          loadLabelPortfolio(labelId);
+        } else {
+          // No wallets left - show empty state
+          renderLabelWalletTags(label);
+          document.getElementById('statAssets').textContent = '$0';
+          document.getElementById('statNetWorth').textContent = '$0';
+          document.getElementById('statPnL').textContent = '$0';
+          document.getElementById('statDeposits').textContent = '$0';
+          document.getElementById('tokensContent').innerHTML = '<div class="loading">No wallets in this portfolio</div>';
+          document.getElementById('defiContent').innerHTML = '';
+          renderDonutChart([], 0);
+        }
+      } catch (e) {
+        console.error('Remove wallet from portfolio error:', e);
+      }
     }
 
     function editWalletFromDropdown(addr) {
@@ -3044,6 +3617,7 @@
       updateWalletStatusUI();
       closeWalletModal();
       await checkProStatus(); // Re-check Pro when wallet connects
+      await loadLabels(); // Load labels for Pro users
 
       // For free users: only keep the connected wallet (remove other personal wallets)
       if (!isPro()) {
@@ -3328,12 +3902,266 @@
       });
     }
 
+    // ============================================================================
+    // Labels Management (Pro Feature)
+    // ============================================================================
+    let userLabels = [];
+    let editingLabelId = null;
+    let selectedLabelColor = '#00d4aa';
+    let activeLabelId = null; // For filtering by label
+
+    async function loadLabels() {
+      if (!connectedWallet || !isPro()) {
+        document.getElementById('labelsSection').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('labelsSection').style.display = 'block';
+
+      try {
+        const res = await fetch('/api/labels/' + connectedWallet);
+        const data = await res.json();
+        userLabels = data.labels || [];
+        renderLabels();
+      } catch (e) {
+        console.error('Failed to load labels:', e);
+        userLabels = [];
+        renderLabels();
+      }
+    }
+
+    function renderLabels() {
+      const container = document.getElementById('labelsList');
+
+      if (userLabels.length === 0) {
+        container.innerHTML = '<div class="labels-empty">Create portfolios to organize and track multiple wallets</div>';
+        return;
+      }
+
+      container.innerHTML = userLabels.map(label => {
+        const walletCount = (label.wallets || []).length;
+        const isActive = activeLabelId === label.id;
+        return `
+          <div class="label-chip ${isActive ? 'active' : ''}" onclick="toggleLabelFilter(${label.id})">
+            <span class="label-dot" style="background:${label.color || '#00d4aa'}"></span>
+            <span class="label-name">${escapeHtml(label.name)}</span>
+            <span class="label-count">(${walletCount})</span>
+            <span class="label-edit" onclick="event.stopPropagation();editLabel(${label.id})">✎</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showLabelModal(labelId = null) {
+      editingLabelId = labelId;
+      const modal = document.getElementById('labelModal');
+      const titleEl = document.getElementById('labelModalTitle');
+      const nameInput = document.getElementById('labelNameInput');
+      const deleteBtn = document.getElementById('deleteLabelBtn');
+
+      if (labelId) {
+        const label = userLabels.find(l => l.id === labelId);
+        if (label) {
+          titleEl.textContent = 'Edit Portfolio';
+          nameInput.value = label.name;
+          selectedLabelColor = label.color || '#00d4aa';
+          deleteBtn.style.display = 'block';
+        }
+      } else {
+        titleEl.textContent = 'Create Portfolio';
+        nameInput.value = '';
+        selectedLabelColor = '#00d4aa';
+        deleteBtn.style.display = 'none';
+      }
+
+      // Update color picker selection
+      document.querySelectorAll('.color-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.color === selectedLabelColor);
+      });
+
+      // Render wallet checkboxes
+      renderLabelWallets(labelId);
+
+      modal.classList.add('active');
+      nameInput.focus();
+    }
+
+    function renderLabelWallets(labelId) {
+      const container = document.getElementById('labelWalletsList');
+      const label = labelId ? userLabels.find(l => l.id === labelId) : null;
+      const labelWalletAddrs = label ? (label.wallets || []).map(w => w.address) : [];
+
+      // Get all wallets (excluding demo)
+      const allWallets = walletData.filter(w => w.address !== DEMO_WALLET);
+
+      if (allWallets.length === 0) {
+        container.innerHTML = '<div class="labels-empty">No wallets added yet. Add wallets above first.</div>';
+        return;
+      }
+
+      container.innerHTML = allWallets.map(w => {
+        const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
+        const checked = labelWalletAddrs.includes(w.address) ? 'checked' : '';
+        const name = w.label || shortAddr;
+        return `
+          <div class="label-wallet-item">
+            <input type="checkbox" id="lw_${w.address}" value="${w.address}" ${checked}>
+            <div>
+              <div class="label-wallet-name">${escapeHtml(name)}</div>
+              <div class="label-wallet-addr">${shortAddr}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function closeLabelModal() {
+      document.getElementById('labelModal').classList.remove('active');
+      editingLabelId = null;
+    }
+
+    function editLabel(labelId) {
+      showLabelModal(labelId);
+    }
+
+    async function saveLabel() {
+      const name = document.getElementById('labelNameInput').value.trim();
+      if (!name) {
+        alert('Please enter a portfolio name');
+        return;
+      }
+
+      // Get selected wallets
+      const checkboxes = document.querySelectorAll('#labelWalletsList input[type="checkbox"]:checked');
+      const wallets = Array.from(checkboxes).map(cb => {
+        const walletInfo = walletData.find(w => w.address === cb.value);
+        return {
+          address: cb.value,
+          name: walletInfo?.label || ''
+        };
+      });
+
+      try {
+        let res;
+        if (editingLabelId) {
+          // Update existing label
+          res = await fetch('/api/labels/' + editingLabelId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              owner_wallet: connectedWallet,
+              name,
+              color: selectedLabelColor,
+              wallets
+            })
+          });
+        } else {
+          // Create new label
+          res = await fetch('/api/labels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              owner_wallet: connectedWallet,
+              name,
+              color: selectedLabelColor,
+              wallets
+            })
+          });
+        }
+
+        const data = await res.json();
+        if (data.error) {
+          const statusEl = document.getElementById('labelModalStatus');
+          if (data.code === 'PRO_REQUIRED') {
+            statusEl.innerHTML = '<span style="color:var(--warning)">⚡ Portfolios are a Pro feature. Please upgrade.</span>';
+          } else {
+            statusEl.innerHTML = '<span style="color:var(--negative)">' + escapeHtml(data.error) + '</span>';
+          }
+          return;
+        }
+
+        closeLabelModal();
+        await loadLabels();
+      } catch (e) {
+        console.error('Save portfolio error:', e);
+        alert('Failed to save portfolio');
+      }
+    }
+
+    async function deleteLabel() {
+      if (!editingLabelId) return;
+
+      if (!confirm('Are you sure you want to delete this portfolio? Historical data will be lost.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/labels/' + editingLabelId, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner_wallet: connectedWallet })
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+
+        // Clear filter if deleting active label
+        if (activeLabelId === editingLabelId) {
+          activeLabelId = null;
+        }
+
+        closeLabelModal();
+        await loadLabels();
+      } catch (e) {
+        console.error('Delete portfolio error:', e);
+        alert('Failed to delete portfolio');
+      }
+    }
+
+    function toggleLabelFilter(labelId) {
+      if (activeLabelId === labelId) {
+        // Clear filter - show all wallets
+        activeLabelId = null;
+        document.getElementById('walletInput').value = '';
+        renderLabels();
+        renderWalletTags(); // Restore normal wallet tags
+        refreshData();
+      } else {
+        activeLabelId = labelId;
+        renderLabels();
+        loadLabelPortfolio(labelId);
+      }
+    }
+
+    // Color picker event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.color-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+          opt.classList.add('selected');
+          selectedLabelColor = opt.dataset.color;
+        });
+      });
+    });
+
+    // ============================================================================
     // Initialize
+    // ============================================================================
     async function init() {
       loadConnectedWallet();
       await loadPaymentConfig();
       await checkProStatus();
       loadWallets();
+      await loadLabels(); // Load labels after pro status check
 
       // Click outside to close dropdown
       document.addEventListener('click', (e) => {

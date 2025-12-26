@@ -27,3 +27,6 @@ free_mode: "true"
 # SSL email for Let's Encrypt
 ssl_email: ratio_hunter_10@proton.me
 
+# Snapshot secret for daily cron
+snapshot_secret: "snapshot_s3cr3t_2024"
+
