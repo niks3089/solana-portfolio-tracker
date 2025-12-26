@@ -2884,59 +2884,54 @@
         return '<div class="wallet-tag" style="background:' + (label.color || 'var(--bg-tertiary)') + '22;border-color:' + (label.color || 'var(--border)') + '">' +
           '<span class="wallet-tag-name" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy" style="color:' + (label.color || 'var(--accent)') + '">' + displayName + '</span>' +
           '<span class="wallet-tag-addr" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + shortAddr + '</span>' +
-          '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWalletFromPortfolio(' + label.id + ',\'' + w.address + '\')">×</span>' +
+          '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWalletFromPortfolioView(' + label.id + ',\'' + w.address + '\')" title="Hide from view (does not save)">×</span>' +
           '</div>';
       }).join('');
     }
 
-    async function removeWalletFromPortfolio(labelId, walletAddress) {
+    function removeWalletFromPortfolioView(labelId, walletAddress) {
+      // This only removes from the CURRENT VIEW, not from the saved portfolio
+      // To permanently remove, user must edit the portfolio via the modal
       const label = userLabels.find(l => l.id === labelId);
       if (!label) return;
 
-      // Confirm before removing
-      if (!confirm('Remove this wallet from the "' + label.name + '" portfolio?')) {
-        return;
-      }
+      // Just remove from local view (not saved to database)
+      const remainingWallets = (label.wallets || []).filter(w => w.address !== walletAddress);
 
-      // Remove wallet from the label's wallets array
-      const updatedWallets = (label.wallets || []).filter(w => w.address !== walletAddress);
+      // Update just the display
+      renderLabelWalletTags({ ...label, wallets: remainingWallets });
+
+      // Reload portfolio data with remaining wallets
+      if (remainingWallets.length > 0) {
+        // Fetch data for remaining wallets only
+        const walletAddrs = remainingWallets.map(w => w.address);
+        refreshDataForWallets(walletAddrs);
+      } else {
+        // No wallets left in view - show empty state
+        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statPnL').textContent = '$0';
+        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('tokensContent').innerHTML = '<div class="loading">All wallets hidden. Click portfolio again to reset.</div>';
+        document.getElementById('defiContent').innerHTML = '';
+        renderDonutChart([], 0);
+      }
+    }
+
+    async function refreshDataForWallets(wallets) {
+      if (!wallets.length) return;
 
       try {
-        const res = await fetch('/api/labels/' + labelId, {
-          method: 'PUT',
+        const fastRes = await fetch('/api/portfolio/aggregate/fast', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            owner_wallet: connectedWallet,
-            wallets: updatedWallets
-          })
+          body: JSON.stringify({ wallets })
         });
-
-        const data = await res.json();
-        if (data.error) {
-          console.error('Failed to remove wallet from portfolio:', data.error);
-          return;
-        }
-
-        // Update local state
-        label.wallets = updatedWallets;
-        renderLabels();
-
-        // Reload portfolio with remaining wallets
-        if (updatedWallets.length > 0) {
-          loadLabelPortfolio(labelId);
-        } else {
-          // No wallets left - show empty state
-          renderLabelWalletTags(label);
-          document.getElementById('statAssets').textContent = '$0';
-          document.getElementById('statNetWorth').textContent = '$0';
-          document.getElementById('statPnL').textContent = '$0';
-          document.getElementById('statDeposits').textContent = '$0';
-          document.getElementById('tokensContent').innerHTML = '<div class="loading">No wallets in this portfolio</div>';
-          document.getElementById('defiContent').innerHTML = '';
-          renderDonutChart([], 0);
-        }
+        const data = await fastRes.json();
+        if (data.error) throw new Error(data.error);
+        renderFastData(data, wallets);
       } catch (e) {
-        console.error('Remove wallet from portfolio error:', e);
+        console.error('Refresh error:', e);
       }
     }
 
