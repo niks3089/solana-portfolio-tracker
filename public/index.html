@@ -2425,6 +2425,12 @@
       const addrInput = document.getElementById('walletInput');
       let input = (addrInput.value || '').trim();
 
+      // If viewing a portfolio and input looks like an address, clear portfolio view first
+      if (activeLabelId && input.length >= 32) {
+        activeLabelId = null;
+        renderLabels();
+      }
+
       // Free plan restrictions (always allow toly.sol / demo wallet)
       const isTolyDomain = input.toLowerCase() === 'toly.sol';
       if (!isPro() && !isTolyDomain) {
