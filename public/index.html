@@ -3953,7 +3953,22 @@
     }
 
     function renderLabels() {
+      const section = document.getElementById('labelsSection');
       const container = document.getElementById('labelsList');
+
+      // Hide section if no wallet connected
+      if (!connectedWallet) {
+        section.style.display = 'none';
+        return;
+      }
+
+      // In paid mode, require Pro status
+      if (!freeMode && !proStatusCache.isPro) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
 
       if (userLabels.length === 0) {
         container.innerHTML = '<div class="labels-empty">Create portfolios to organize and track multiple wallets</div>';
@@ -4022,22 +4037,22 @@
 
       // Get all wallets from search box (excluding demo)
       const searchBoxWallets = walletData.filter(w => w.address !== DEMO_WALLET);
-      
+
       // Merge: include wallets from search box AND any saved portfolio wallets not in search box
       const allWalletsMap = new Map();
-      
+
       // Add search box wallets first
       searchBoxWallets.forEach(w => {
         allWalletsMap.set(w.address, { address: w.address, name: w.label || '' });
       });
-      
+
       // Add portfolio wallets that aren't in search box
       labelWallets.forEach(w => {
         if (!allWalletsMap.has(w.address)) {
           allWalletsMap.set(w.address, { address: w.address, name: w.name || '' });
         }
       });
-      
+
       const allWallets = Array.from(allWalletsMap.values());
 
       if (allWallets.length === 0) {
@@ -4082,7 +4097,7 @@
       const checkboxes = document.querySelectorAll('#labelWalletsList input[type="checkbox"]:checked');
       const existingLabel = editingLabelId ? userLabels.find(l => l.id === editingLabelId) : null;
       const existingWallets = existingLabel ? (existingLabel.wallets || []) : [];
-      
+
       const wallets = Array.from(checkboxes).map(cb => {
         // First check walletData (current search box)
         const walletInfo = walletData.find(w => w.address === cb.value);
