@@ -11,4 +11,4 @@ enable_ssl: false
 metrics_secret: "staging_m3tr1cs_s3cr3t"
 
 # Environment identifier
-environment: staging
+deploy_environment: staging

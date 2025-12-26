@@ -11,4 +11,4 @@ enable_ssl: true
 metrics_secret: "saul_m3tr1cs_s3cr3t_2024"
 
 # Environment identifier
-environment: production
+deploy_environment: production

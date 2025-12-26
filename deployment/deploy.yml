@@ -14,16 +14,18 @@
   tasks:
     - name: Display deployment target
       debug:
-        msg: "🚀 Deploying to {{ environment | default('unknown') }} ({{ ansible_host }})"
+        msg: "🚀 Deploying to {{ deploy_environment | default('unknown') }} ({{ ansible_host }})"
 
     - name: Sync portfolio code
       ansible.posix.synchronize:
-        src: ../
+        src: "{{ playbook_dir }}/../"
         dest: "{{ app_dir }}/"
         rsync_opts:
           - "--exclude=node_modules"
           - "--exclude=.git"
           - "--exclude=deployment"
+          - "--exclude=.github"
+          - "--exclude=.vault_pass"
         delete: yes
 
     - name: Set correct ownership
@@ -43,7 +45,7 @@
       notify: restart portfolio
 
     - name: Install dependencies
-      shell: cd {{ app_dir }} && npm install --production
+      shell: cd {{ app_dir }} && npm install --omit=dev
       become_user: "{{ app_user }}"
 
     - name: Restart portfolio service
@@ -67,7 +69,7 @@
 
     - name: Display success
       debug:
-        msg: "✅ Deployed to {{ environment | default('unknown') }} successfully!"
+        msg: "✅ Deployed to {{ deploy_environment | default('unknown') }} successfully!"
 
   handlers:
     - name: restart portfolio
