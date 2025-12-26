@@ -3645,9 +3645,24 @@
       // Clear ALL wallet data - reset everything
       walletData = [];
       searchHistory = [];
+      allTokens = [];
+      allDefiPositions = [];
+      
+      // Clear ALL localStorage keys related to wallets
       localStorage.removeItem('portfolioWallets');
       localStorage.removeItem('portfolioWalletData');
       localStorage.removeItem('walletSearchHistory');
+      localStorage.removeItem('connectedWallet');
+      
+      // Force clear any potential cached data
+      try {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.startsWith('portfolio') || key.startsWith('wallet')) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (e) {}
 
       // Clear search bar and reset placeholder
       document.getElementById('walletInput').value = '';
