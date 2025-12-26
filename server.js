@@ -7,6 +7,8 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import pg from 'pg';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 
 const { Pool } = pg;
 
@@ -14,6 +16,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for inline scripts
+}));
+
+// Rate limiting: 10 requests per minute per IP
+app.use('/api/', rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+
 app.use(express.json());
 app.use(express.static(join(__dirname, 'public')));
 
@@ -142,17 +158,30 @@ async function getDialectPositions(wallet) {
     );
     if (!data.positions) return [];
 
-    return data.positions.map(pos => ({
-      protocol: pos.market?.provider?.name || 'Unknown',
-      protocolIcon: pos.market?.provider?.icon,
-      token: pos.market?.token?.symbol,
-      tokenIcon: pos.market?.token?.icon,
-      type: pos.side || pos.type || 'deposit',
-      amount: pos.amount || 0,
-      value: pos.amountUsd || 0,
-      apy: (pos.market?.depositApy || pos.market?.borrowApy || 0) * 100,
-      source: 'dialect',
-    }));
+    // Stablecoins where 1 token ≈ $1
+    const stablecoins = ['USDC', 'USDT', 'PYUSD', 'DAI', 'USDH', 'USH', 'UXD'];
+
+    return data.positions.map(pos => {
+      const amount = pos.amount || 0;
+      const symbol = pos.market?.token?.symbol || '';
+      // Calculate value: use amountUsd if available, otherwise estimate for stablecoins
+      let value = pos.amountUsd;
+      if (value === null || value === undefined) {
+        value = stablecoins.includes(symbol.toUpperCase()) ? amount : 0;
+      }
+
+      return {
+        protocol: pos.market?.provider?.name || 'Unknown',
+        protocolIcon: pos.market?.provider?.icon,
+        token: symbol,
+        tokenIcon: pos.market?.token?.icon,
+        type: pos.side || pos.type || 'deposit',
+        amount,
+        value,
+        apy: (pos.market?.depositApy || pos.market?.borrowApy || 0) * 100,
+        source: 'dialect',
+      };
+    });
   } catch (e) {
     console.error('Dialect error:', e.message);
     return [];
