@@ -157,10 +157,25 @@ const pool = new Pool({ connectionString: CONFIG.DATABASE_URL });
 // Initialize database tables on startup
 async function initDatabase() {
   try {
+    // ============================================================================
+    // Users table - central user identity (wallet as primary key)
+    // Created when user first connects wallet
+    // ============================================================================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        wallet VARCHAR(64) PRIMARY KEY,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // ============================================================================
+    // Payments table - tracks subscriptions (references users)
+    // ============================================================================
     await pool.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id SERIAL PRIMARY KEY,
-        wallet VARCHAR(64) NOT NULL,
+        wallet VARCHAR(64) NOT NULL REFERENCES users(wallet) ON DELETE CASCADE,
         tx_signature VARCHAR(128) UNIQUE,
         amount DECIMAL(10, 2) NOT NULL,
         currency VARCHAR(10) DEFAULT 'USDC',
@@ -175,7 +190,49 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_payments_expires_at ON payments(expires_at);
       CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
     `);
-    console.log('✓ Database tables initialized');
+
+    // ============================================================================
+    // Labels table - wallet groupings (references users)
+    // - 1 owner can have max 3 labels (enforced in app)
+    // - 1 label belongs to exactly 1 owner
+    // - name doesn't need to be unique
+    // ============================================================================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS labels (
+        id SERIAL PRIMARY KEY,
+        owner_wallet VARCHAR(64) NOT NULL REFERENCES users(wallet) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        color VARCHAR(7) DEFAULT '#00D18C',
+        wallets JSONB DEFAULT '[]',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_labels_owner ON labels(owner_wallet);
+    `);
+    // wallets JSONB format: [{"address": "5bAM...", "name": "Main"}, {"address": "86xC...", "name": "Trading"}]
+
+    // ============================================================================
+    // Label snapshots - historical portfolio data (time-series)
+    // Populated by daily cron job via /api/internal/snapshot
+    // ============================================================================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS label_snapshots (
+        id SERIAL PRIMARY KEY,
+        label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+        snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        total_net_worth DECIMAL(20, 2) DEFAULT 0,
+        total_tokens DECIMAL(20, 2) DEFAULT 0,
+        defi_deposits DECIMAL(20, 2) DEFAULT 0,
+        defi_borrows DECIMAL(20, 2) DEFAULT 0,
+        total_pnl DECIMAL(20, 2) DEFAULT 0,
+        wallet_count INTEGER DEFAULT 0,
+        UNIQUE(label_id, snapshot_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_snapshots_label ON label_snapshots(label_id);
+      CREATE INDEX IF NOT EXISTS idx_snapshots_date ON label_snapshots(snapshot_date DESC);
+    `);
+
+    console.log('✓ Database tables initialized (users, payments, labels, label_snapshots)');
   } catch (error) {
     console.error('⚠ Database initialization skipped (will work without persistence):', error.message);
   }
@@ -1097,6 +1154,435 @@ app.get('/api/discount/:code', (req, res) => {
     res.json({ valid: true, discount, code });
   } else {
     res.json({ valid: false, code });
+  }
+});
+
+// ============================================================================
+// Users API - Create/update user on wallet connect
+// ============================================================================
+
+// Upsert user (called when wallet connects)
+app.post('/api/users', async (req, res) => {
+  try {
+    const { wallet } = req.body;
+    if (!wallet) {
+      return res.status(400).json({ error: 'Wallet address required' });
+    }
+
+    const result = await pool.query(`
+      INSERT INTO users (wallet, last_seen_at)
+      VALUES ($1, NOW())
+      ON CONFLICT (wallet) DO UPDATE SET last_seen_at = NOW()
+      RETURNING *
+    `, [wallet]);
+
+    res.json({ success: true, user: result.rows[0] });
+  } catch (error) {
+    console.error('User upsert error:', error);
+    res.status(500).json({ error: 'Failed to create/update user' });
+  }
+});
+
+// Get user info
+app.get('/api/users/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+
+    const result = await pool.query(`
+      SELECT * FROM users WHERE wallet = $1
+    `, [wallet]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// ============================================================================
+// Labels API - CRUD for wallet labels
+// ============================================================================
+
+// Get all labels for a wallet
+app.get('/api/labels/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+
+    const result = await pool.query(`
+      SELECT * FROM labels
+      WHERE owner_wallet = $1
+      ORDER BY created_at DESC
+    `, [wallet]);
+
+    res.json({ labels: result.rows });
+  } catch (error) {
+    console.error('Get labels error:', error);
+    res.status(500).json({ error: 'Failed to get labels' });
+  }
+});
+
+// Create a new label (max 3 per wallet)
+app.post('/api/labels', async (req, res) => {
+  try {
+    const { owner_wallet, name, color, wallets } = req.body;
+
+    if (!owner_wallet || !name) {
+      return res.status(400).json({ error: 'owner_wallet and name are required' });
+    }
+
+    // Check if user has active payment (paid users only)
+    const paymentCheck = await pool.query(`
+      SELECT * FROM payments
+      WHERE wallet = $1
+        AND status = 'active'
+        AND expires_at > NOW()
+      LIMIT 1
+    `, [owner_wallet]);
+
+    if (paymentCheck.rows.length === 0) {
+      return res.status(403).json({
+        error: 'Labels are a Pro feature. Please upgrade to create labels.',
+        code: 'PRO_REQUIRED'
+      });
+    }
+
+    // Ensure user exists first
+    await pool.query(`
+      INSERT INTO users (wallet) VALUES ($1)
+      ON CONFLICT (wallet) DO NOTHING
+    `, [owner_wallet]);
+
+    // Check label count (max 3)
+    const countResult = await pool.query(`
+      SELECT COUNT(*) as count FROM labels WHERE owner_wallet = $1
+    `, [owner_wallet]);
+
+    if (parseInt(countResult.rows[0].count) >= 3) {
+      return res.status(400).json({ error: 'Maximum 3 labels allowed per wallet' });
+    }
+
+    // Create the label
+    const result = await pool.query(`
+      INSERT INTO labels (owner_wallet, name, color, wallets)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [owner_wallet, name, color || '#00D18C', JSON.stringify(wallets || [])]);
+
+    res.json({ success: true, label: result.rows[0] });
+  } catch (error) {
+    console.error('Create label error:', error);
+    res.status(500).json({ error: 'Failed to create label' });
+  }
+});
+
+// Update a label (ownership verified, works even if payment expired)
+app.put('/api/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { owner_wallet, name, color, wallets } = req.body;
+
+    if (!owner_wallet) {
+      return res.status(400).json({ error: 'owner_wallet required for verification' });
+    }
+
+    // Verify ownership
+    const existing = await pool.query(`
+      SELECT * FROM labels WHERE id = $1 AND owner_wallet = $2
+    `, [id, owner_wallet]);
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Label not found or not owned by this wallet' });
+    }
+
+    // Update the label
+    const result = await pool.query(`
+      UPDATE labels SET
+        name = COALESCE($1, name),
+        color = COALESCE($2, color),
+        wallets = COALESCE($3, wallets),
+        updated_at = NOW()
+      WHERE id = $4
+      RETURNING *
+    `, [name, color, wallets ? JSON.stringify(wallets) : null, id]);
+
+    res.json({ success: true, label: result.rows[0] });
+  } catch (error) {
+    console.error('Update label error:', error);
+    res.status(500).json({ error: 'Failed to update label' });
+  }
+});
+
+// Delete a label
+app.delete('/api/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { owner_wallet } = req.body;
+
+    if (!owner_wallet) {
+      return res.status(400).json({ error: 'owner_wallet required for verification' });
+    }
+
+    // Verify ownership and delete
+    const result = await pool.query(`
+      DELETE FROM labels
+      WHERE id = $1 AND owner_wallet = $2
+      RETURNING *
+    `, [id, owner_wallet]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Label not found or not owned by this wallet' });
+    }
+
+    res.json({ success: true, deleted: result.rows[0] });
+  } catch (error) {
+    console.error('Delete label error:', error);
+    res.status(500).json({ error: 'Failed to delete label' });
+  }
+});
+
+// Search labels by name (for search box)
+app.get('/api/labels/search/:wallet', async (req, res) => {
+  try {
+    const { wallet } = req.params;
+    const { q } = req.query; // search query
+
+    let query = `SELECT * FROM labels WHERE owner_wallet = $1`;
+    const params = [wallet];
+
+    if (q) {
+      query += ` AND LOWER(name) LIKE LOWER($2)`;
+      params.push(`%${q}%`);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, params);
+    res.json({ labels: result.rows });
+  } catch (error) {
+    console.error('Search labels error:', error);
+    res.status(500).json({ error: 'Failed to search labels' });
+  }
+});
+
+// Get label history (snapshots)
+app.get('/api/labels/:id/history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { days } = req.query; // optional: limit to last N days
+
+    let query = `
+      SELECT * FROM label_snapshots
+      WHERE label_id = $1
+    `;
+    const params = [id];
+
+    if (days) {
+      query += ` AND snapshot_date >= CURRENT_DATE - INTERVAL '${parseInt(days)} days'`;
+    }
+
+    query += ` ORDER BY snapshot_date DESC LIMIT 365`;
+
+    const result = await pool.query(query, params);
+    res.json({ history: result.rows });
+  } catch (error) {
+    console.error('Get label history error:', error);
+    res.status(500).json({ error: 'Failed to get label history' });
+  }
+});
+
+// Get aggregated portfolio for a label (live, not from snapshots)
+app.get('/api/labels/:id/portfolio', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the label
+    const labelResult = await pool.query(`
+      SELECT * FROM labels WHERE id = $1
+    `, [id]);
+
+    if (labelResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Label not found' });
+    }
+
+    const label = labelResult.rows[0];
+    const wallets = label.wallets || [];
+
+    if (wallets.length === 0) {
+      return res.json({
+        label,
+        portfolio: {
+          totalNetWorth: 0,
+          totalTokens: 0,
+          defiDeposits: 0,
+          defiBorrows: 0,
+        },
+        tokens: [],
+        defiPositions: [],
+      });
+    }
+
+    // Get wallet addresses from the JSONB array
+    const walletAddresses = wallets.map(w => w.address);
+
+    // Fetch portfolio data for all wallets
+    const portfolios = await Promise.all(
+      walletAddresses.map(async (wallet) => {
+        try {
+          const [holdings, defi] = await Promise.all([
+            getTokenHoldings(wallet),
+            getDefiPositionsFast(wallet),
+          ]);
+          return { wallet, holdings, defi };
+        } catch (e) {
+          console.error(`Error fetching portfolio for ${wallet}:`, e.message);
+          return { wallet, holdings: { tokens: [], totalUsd: 0 }, defi: { positions: [], totalDeposits: 0, totalBorrows: 0 } };
+        }
+      })
+    );
+
+    // Aggregate results
+    let totalTokens = 0;
+    let defiDeposits = 0;
+    let defiBorrows = 0;
+    const allTokens = [];
+    const allDefiPositions = [];
+
+    for (const p of portfolios) {
+      totalTokens += p.holdings.totalUsd || 0;
+      defiDeposits += p.defi.totalDeposits || 0;
+      defiBorrows += p.defi.totalBorrows || 0;
+
+      const walletShort = p.wallet.slice(0, 4) + '...' + p.wallet.slice(-4);
+      for (const t of p.holdings.tokens || []) {
+        allTokens.push({ ...t, wallet: p.wallet, walletShort });
+      }
+      for (const d of p.defi.positions || []) {
+        allDefiPositions.push({ ...d, wallet: p.wallet, walletShort });
+      }
+    }
+
+    const totalNetWorth = totalTokens + defiDeposits - defiBorrows;
+
+    res.json({
+      label,
+      portfolio: {
+        totalNetWorth,
+        totalTokens,
+        defiDeposits,
+        defiBorrows,
+      },
+      tokens: allTokens.sort((a, b) => b.value - a.value),
+      defiPositions: allDefiPositions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+    });
+  } catch (error) {
+    console.error('Get label portfolio error:', error);
+    res.status(500).json({ error: 'Failed to get label portfolio' });
+  }
+});
+
+// ============================================================================
+// Internal API - Daily snapshot cron (protected by secret)
+// Called by GitHub Action or external cron to capture daily portfolio values
+// ============================================================================
+
+const SNAPSHOT_SECRET = process.env.SNAPSHOT_SECRET || 'snapshot_s3cr3t_2024';
+
+app.post('/api/internal/snapshot', async (req, res) => {
+  try {
+    // Verify secret
+    const providedSecret = req.query.secret || req.headers['x-snapshot-secret'];
+    if (providedSecret !== SNAPSHOT_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get labels that haven't been snapshotted in the last 24 hours
+    // This spreads load when running hourly instead of processing all at once
+    const labelsResult = await pool.query(`
+      SELECT l.* FROM labels l
+      WHERE l.wallets IS NOT NULL AND jsonb_array_length(l.wallets) > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM label_snapshots s
+          WHERE s.label_id = l.id
+            AND s.created_at > NOW() - INTERVAL '24 hours'
+        )
+      ORDER BY l.updated_at ASC
+      LIMIT 50
+    `);
+
+    const labels = labelsResult.rows;
+    console.log(`📸 Taking snapshots for ${labels.length} stale labels (>24h since last snapshot)...`);
+
+    const results = [];
+    for (const label of labels) {
+      try {
+        const wallets = label.wallets || [];
+        const walletAddresses = wallets.map(w => w.address);
+
+        // Fetch portfolio data
+        let totalTokens = 0;
+        let defiDeposits = 0;
+        let defiBorrows = 0;
+
+        for (const wallet of walletAddresses) {
+          try {
+            const [holdings, defi] = await Promise.all([
+              getTokenHoldings(wallet),
+              getDefiPositionsFast(wallet),
+            ]);
+            totalTokens += holdings.totalUsd || 0;
+            defiDeposits += defi.totalDeposits || 0;
+            defiBorrows += defi.totalBorrows || 0;
+          } catch (e) {
+            console.error(`  Snapshot error for wallet ${wallet}:`, e.message);
+          }
+        }
+
+        const totalNetWorth = totalTokens + defiDeposits - defiBorrows;
+
+        // Insert or update snapshot for today
+        await pool.query(`
+          INSERT INTO label_snapshots (label_id, snapshot_date, total_net_worth, total_tokens, defi_deposits, defi_borrows, wallet_count)
+          VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
+          ON CONFLICT (label_id, snapshot_date)
+          DO UPDATE SET
+            total_net_worth = $2,
+            total_tokens = $3,
+            defi_deposits = $4,
+            defi_borrows = $5,
+            wallet_count = $6
+        `, [label.id, totalNetWorth, totalTokens, defiDeposits, defiBorrows, walletAddresses.length]);
+
+        results.push({
+          label_id: label.id,
+          name: label.name,
+          net_worth: totalNetWorth,
+          status: 'success',
+        });
+        console.log(`  ✓ ${label.name}: $${totalNetWorth.toFixed(2)}`);
+      } catch (e) {
+        results.push({
+          label_id: label.id,
+          name: label.name,
+          status: 'error',
+          error: e.message,
+        });
+        console.error(`  ✗ ${label.name}: ${e.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      date: new Date().toISOString().split('T')[0],
+      snapshots: results.length,
+      results,
+    });
+  } catch (error) {
+    console.error('Snapshot error:', error);
+    res.status(500).json({ error: 'Failed to take snapshots' });
   }
 });
 
