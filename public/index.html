@@ -1763,7 +1763,8 @@
       <div class="wallet-input-wrapper" style="margin-bottom:0.75rem;position:relative">
         <input type="text" class="wallet-input" id="walletInput" placeholder="Add wallet" autocomplete="off"
           onfocus="showWalletDropdown()" oninput="filterWalletDropdown()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();addWallet();hideWalletDropdown()}">
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addWallet();hideWalletDropdown()}"
+          onpaste="setTimeout(()=>{if(document.getElementById('walletInput').value.length>=32){addWallet();hideWalletDropdown()}},50)">
         <div class="wallet-dropdown" id="walletDropdown"></div>
       </div>
       <div class="wallet-tags" id="walletTags"></div>
@@ -2501,8 +2502,8 @@
             // Add with domain as label
             walletData.push({ address: input, label: domainLabel, group: '' });
 
-            // Add to search history
-            if (!searchHistory.some(h => h.address === input)) {
+            // Add to search history (except demo wallet)
+            if (input !== DEMO_WALLET && !searchHistory.some(h => h.address === input)) {
               searchHistory.unshift({ address: input, label: domainLabel });
               saveSearchHistory();
             }
@@ -2555,8 +2556,8 @@
       // Add without label
       walletData.push({ address: input, label: '', group: '' });
 
-      // Add to search history
-      if (!searchHistory.some(h => h.address === input)) {
+      // Add to search history (except demo wallet)
+      if (input !== DEMO_WALLET && !searchHistory.some(h => h.address === input)) {
         searchHistory.unshift({ address: input, label: '' });
         saveSearchHistory();
       }
@@ -2568,9 +2569,9 @@
     }
 
     function removeWallet(addr) {
-      // Keep label in search history before removing
+      // Keep label in search history before removing (except demo wallet)
       const wallet = walletData.find(w => w.address === addr);
-      if (wallet && !searchHistory.some(h => h.address === addr)) {
+      if (addr !== DEMO_WALLET && wallet && !searchHistory.some(h => h.address === addr)) {
         searchHistory.unshift({ address: addr, label: wallet.label || '' });
         saveSearchHistory();
       }
@@ -2993,7 +2994,7 @@
         }
 
         walletData.push({ address: addr, label: '', group: '' });
-        if (!searchHistory.some(h => h.address === addr)) {
+        if (addr !== DEMO_WALLET && !searchHistory.some(h => h.address === addr)) {
           searchHistory.unshift({ address: addr, label: '' });
           saveSearchHistory();
         }
