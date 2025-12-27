@@ -5250,6 +5250,8 @@
 
       // Check localStorage first (already subscribed before)
       const subscriptionKey = `dialect_subscribed_${connectedWallet}`;
+      const jwtKey = `dialect_jwt_${connectedWallet}`;
+
       if (localStorage.getItem(subscriptionKey) === 'true') {
         console.log('Already subscribed (cached)');
         return true;
@@ -5268,31 +5270,62 @@
         // Need to subscribe - show sign prompt
         statusEl.innerHTML = '<span class="loading-text">Sign to enable notifications (one-time)...</span>';
 
-        // Get nonce from Dialect
-        const nonceRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/auth/nonce?walletAddress=${connectedWallet}`, {
-          headers: { 'X-Dialect-Client-Key': DIALECT_CLIENT_KEY }
+        // Step 1: Prepare auth message from Dialect
+        const prepareRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/prepare', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
+          },
+          body: JSON.stringify({ walletAddress: connectedWallet })
         });
 
-        if (!nonceRes.ok) {
-          console.log('Could not get Dialect nonce');
-          // Allow creating alert anyway, notifications just won't work via Dialect
+        if (!prepareRes.ok) {
+          const err = await prepareRes.text();
+          console.log('Dialect prepare error:', err);
+          return true; // Continue anyway
+        }
+
+        const { message } = await prepareRes.json();
+        console.log('Dialect message to sign:', message);
+
+        // Step 2: User signs the message
+        const encodedMessage = new TextEncoder().encode(message);
+        const signResult = await window.solana.signMessage(encodedMessage, 'utf8');
+
+        // Convert signature to base58
+        const signatureBytes = signResult.signature;
+        const signatureBase58 = base58Encode(signatureBytes);
+
+        // Step 3: Verify signature with Dialect to get JWT
+        const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
+          },
+          body: JSON.stringify({
+            message: message,
+            signature: signatureBase58,
+            walletAddress: connectedWallet
+          })
+        });
+
+        if (!verifyRes.ok) {
+          const err = await verifyRes.text();
+          console.log('Dialect verify error:', err);
           return true;
         }
 
-        const { nonce } = await nonceRes.json();
+        const { token } = await verifyRes.json();
+        localStorage.setItem(jwtKey, token);
 
-        // Sign the nonce with user's wallet
-        const message = new TextEncoder().encode(`Sign to enable Saul.run notifications\n\nNonce: ${nonce}`);
-        const signature = await window.solana.signMessage(message, 'utf8');
-        const signatureBase64 = btoa(String.fromCharCode(...signature.signature));
-
-        // Subscribe to Dialect
+        // Step 4: Subscribe using the JWT
         const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
-            'Authorization': `Bearer ${signatureBase64}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             walletAddress: connectedWallet,
@@ -5306,19 +5339,31 @@
           return true;
         } else {
           const err = await subscribeRes.text();
-          console.log('Dialect subscription response:', err);
-          // Allow creating alert anyway
+          console.log('Dialect subscribe response:', err);
           return true;
         }
       } catch (error) {
         console.log('Dialect subscription error:', error.message);
-        // If user rejected signature, don't proceed
         if (error.message.includes('rejected') || error.message.includes('User rejected')) {
           return false;
         }
-        // For other errors, allow continuing
         return true;
       }
+    }
+
+    // Base58 encoding for Solana signatures
+    function base58Encode(bytes) {
+      const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      let result = '';
+      let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''));
+      while (num > 0) {
+        result = ALPHABET[Number(num % 58n)] + result;
+        num = num / 58n;
+      }
+      for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+        result = '1' + result;
+      }
+      return result || '1';
     }
 
     function updateAlertTargetOptions() {
