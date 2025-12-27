@@ -5320,13 +5320,24 @@
             return false;
           }
         }
-        console.log('Requesting signature from wallet...', provider);
+        console.log('Requesting signature from wallet...');
         const signResult = await provider.signMessage(encodedMessage, 'utf8');
-        console.log('Signature received');
+        console.log('Signature received:', signResult);
 
-        // Convert signature to base58
-        const signatureBytes = signResult.signature;
+        // Convert signature to base58 - handle different wallet formats
+        let signatureBytes;
+        if (signResult.signature) {
+          signatureBytes = signResult.signature;
+        } else if (signResult instanceof Uint8Array) {
+          signatureBytes = signResult;
+        } else if (Array.isArray(signResult)) {
+          signatureBytes = new Uint8Array(signResult);
+        } else {
+          console.error('Unknown signature format:', signResult);
+          return false;
+        }
         const signatureBase58 = base58Encode(signatureBytes);
+        console.log('Signature base58:', signatureBase58.slice(0, 20) + '...');
 
         // Step 3: Verify signature with Dialect to get JWT
         const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
