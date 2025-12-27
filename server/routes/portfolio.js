@@ -230,7 +230,7 @@ router.post('/aggregate/fast', async (req, res) => {
 
         res.json({
             wallet: 'aggregate',
-            summary: {
+            aggregate: {
                 totalNetWorth,
                 totalAssets: totalTokens + defiDeposits,
                 totalTokens,
