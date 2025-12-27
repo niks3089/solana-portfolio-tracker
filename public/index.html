@@ -3053,16 +3053,18 @@
           }
         }
 
-        walletData.push({ address: addr, label: '', group: '' });
+        // Add with label for toly.sol
+        const label = addr === DEMO_WALLET ? 'toly.sol' : '';
+        walletData.push({ address: addr, label: label, group: '' });
         if (addr !== DEMO_WALLET && !searchHistory.some(h => h.address === addr)) {
           searchHistory.unshift({ address: addr, label: '' });
           saveSearchHistory();
         }
         saveWallets();
-        renderWalletTags();
       }
 
-      // Refresh data immediately
+      // Always re-render tags and refresh data
+      renderWalletTags();
       refreshData();
     }
 
