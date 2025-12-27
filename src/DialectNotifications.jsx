@@ -70,21 +70,20 @@ const useCustomWalletAdapter = () => {
     return wallet;
 };
 
-// Custom green + button style
-const plusButtonStyle = {
+// Custom green bell button style
+const bellButtonStyle = {
     width: '32px',
     height: '32px',
     borderRadius: '6px',
-    backgroundColor: '#00d4aa',
-    border: 'none',
-    color: '#0a0a0f',
-    fontSize: '20px',
-    fontWeight: 'bold',
+    backgroundColor: 'transparent',
+    border: '1px solid #00d4aa',
+    color: '#00d4aa',
+    fontSize: '16px',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background-color 0.2s',
+    transition: 'all 0.2s',
 };
 
 const DialectNotificationsInner = () => {
@@ -112,12 +111,12 @@ const DialectNotificationsInner = () => {
                         <button
                             ref={ref}
                             onClick={() => setOpen(true)}
-                            style={plusButtonStyle}
-                            onMouseOver={(e) => e.target.style.backgroundColor = '#00b894'}
-                            onMouseOut={(e) => e.target.style.backgroundColor = '#00d4aa'}
+                            style={bellButtonStyle}
+                            onMouseOver={(e) => { e.target.style.backgroundColor = '#00d4aa'; e.target.style.color = '#0a0a0f'; }}
+                            onMouseOut={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = '#00d4aa'; }}
                             title="Alerts"
                         >
-                            +
+                            🔔
                         </button>
                     )}
                 </NotificationsButton>

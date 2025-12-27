@@ -99,3 +99,38 @@
 .dialect [class*="beta"] {
   display: none !important;
 }
+
+/* Replace gear icon with + */
+.dialect button[class*="Settings"],
+.dialect [class*="dt-h-8"][class*="dt-w-8"]:has(svg) {
+  font-size: 0 !important;
+}
+.dialect button[class*="Settings"]::after,
+.dialect svg[class*="Settings"] {
+  display: none !important;
+}
+.dialect button:has(svg[class*="Settings"]) {
+  font-size: 0 !important;
+}
+.dialect button:has(svg[class*="Settings"])::after {
+  content: "+" !important;
+  font-size: 20px !important;
+  font-weight: bold !important;
+  color: #00d4aa !important;
+}
+
+/* Hide ALL Dialect branding */
+.dialect [class*="Powered by"],
+.dialect [class*="3.0.0"],
+.dialect [class*="beta"],
+.dialect footer {
+  display: none !important;
+}
+.dialect div:has(> [class*="3.0.0-beta"]) {
+  display: none !important;
+}
+
+/* Hide version text at bottom */
+.dialect .dt-text-caption {
+  display: none !important;
+}
