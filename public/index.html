@@ -1326,10 +1326,6 @@
       margin-top: 0.5rem;
     }
 
-    .pct-value {
-      color: var(--accent);
-      font-weight: 600;
-    }
 
     .inline-slider {
       width: 100%;
@@ -2226,7 +2222,7 @@
           <div class="alert-type-option portfolio-change-box" id="portfolioChangeOption">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
               <div class="alert-type-label" onclick="toggleThresholdAlert()">
-                <strong>Portfolio Change <span class="pct-value">±<span id="threshold-val">5</span>%</span></strong>
+                <strong>Portfolio Change</strong>
                 <span>Notify on value swing</span>
               </div>
               <div class="alert-checkbox" id="check-threshold" onclick="toggleThresholdAlert()">✓</div>
@@ -5226,7 +5222,7 @@
       document.getElementById('check-activity').classList.remove('checked');
       document.getElementById('check-threshold').classList.remove('checked');
       document.getElementById('thresholdRange').value = 5;
-      document.getElementById('threshold-val').textContent = '5';
+      document.getElementById('thresholdCurrent').textContent = '5%';
 
       // Hide portfolio change option until a portfolio is selected
       document.getElementById('portfolioChangeOption').style.display = 'none';
@@ -5244,7 +5240,6 @@
     }
 
     function updateThresholdDisplay(val) {
-      document.getElementById('threshold-val').textContent = val;
       document.getElementById('thresholdCurrent').textContent = val + '%';
     }
 
