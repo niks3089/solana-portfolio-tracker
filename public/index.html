@@ -2204,8 +2204,7 @@
           <label>Telegram Username</label>
           <input type="text" class="label-form-input" id="telegramUsername" placeholder="@username">
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.4rem">
-            <a href="https://dial.to/subscribe?app=ffb32fc6-5e32-47ba-acdf-3c77ce999360" target="_blank"
-              style="color:var(--accent)">Subscribe to alerts</a> first to receive notifications
+            You'll sign a message to enable notifications
           </div>
         </div>
 
@@ -5243,6 +5242,66 @@
       document.getElementById('thresholdCurrent').textContent = val + '%';
     }
 
+    const DIALECT_APP_ID = 'ffb32fc6-5e32-47ba-acdf-3c77ce999360';
+    const DIALECT_CLIENT_KEY = 'pk_rjryqg4hkgb4tbxrhau62sdq';
+
+    async function subscribeToDialect(walletAddress, statusEl) {
+      try {
+        // Check if already subscribed
+        const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${walletAddress}`);
+        const checkData = await checkRes.json();
+        if (checkData.subscribed) {
+          console.log('Already subscribed to Dialect');
+          return true;
+        }
+
+        statusEl.innerHTML = '<span class="loading-text">Sign to enable notifications...</span>';
+
+        // Get nonce from Dialect
+        const nonceRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/auth/nonce?walletAddress=${walletAddress}`, {
+          headers: { 'X-Dialect-Client-Key': DIALECT_CLIENT_KEY }
+        });
+
+        if (!nonceRes.ok) {
+          console.log('Could not get Dialect nonce, continuing without subscription');
+          return false;
+        }
+
+        const { nonce } = await nonceRes.json();
+
+        // Sign the nonce with user's wallet
+        const message = new TextEncoder().encode(`Sign to enable notifications\n\nNonce: ${nonce}`);
+        const signature = await window.solana.signMessage(message, 'utf8');
+        const signatureBase64 = btoa(String.fromCharCode(...signature.signature));
+
+        // Subscribe to Dialect
+        const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+            'Authorization': `Bearer ${signatureBase64}`
+          },
+          body: JSON.stringify({
+            walletAddress: walletAddress,
+            channels: { telegram: true, email: false, inApp: true }
+          })
+        });
+
+        if (subscribeRes.ok) {
+          console.log('✓ Subscribed to Dialect');
+          return true;
+        } else {
+          const err = await subscribeRes.text();
+          console.log('Dialect subscription response:', err);
+          return false;
+        }
+      } catch (error) {
+        console.log('Dialect subscription skipped:', error.message);
+        return false;
+      }
+    }
+
     function updateAlertTargetOptions() {
       const target = document.getElementById('alertTargetSelect').value;
       const notificationSection = document.getElementById('notificationTypeSection');
@@ -5377,9 +5436,17 @@
         return;
       }
 
-      statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
+      statusEl.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
 
       try {
+        // Step 1: Subscribe to Dialect for notifications (requires wallet signature)
+        const walletsToSubscribe = baseType === 'label' ? selectedWallets : [baseId];
+        for (const wallet of walletsToSubscribe) {
+          await subscribeToDialect(wallet, statusEl);
+        }
+
+        statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
+
         // If portfolio with all wallets, create one portfolio alert
         // Otherwise create individual wallet alerts
         if (baseType === 'label' && allSelected) {

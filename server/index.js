@@ -19,6 +19,7 @@ import paymentsRoutes from './routes/payments.js';
 import usersRoutes from './routes/users.js';
 import labelsRoutes from './routes/labels.js';
 import alertsRoutes from './routes/alerts.js';
+import dialectRoutes from './routes/dialect.js';
 import internalRoutes from './routes/internal.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,6 +57,7 @@ app.use('/api', paymentsRoutes);  // payment-config, pro-status, payments, disco
 app.use('/api/users', usersRoutes);
 app.use('/api/labels', labelsRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/dialect', dialectRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api', internalRoutes);  // /api/health, /api/metrics
 
