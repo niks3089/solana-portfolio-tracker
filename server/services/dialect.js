@@ -1,9 +1,11 @@
 /**
- * Notification Sender
- * Sends alerts via Telegram bot (if configured) or logs for manual delivery
+ * Dialect Notification Sender
+ * Uses Dialect v2 API to send alerts to subscribed users
  */
 
 import { CONFIG } from '../config.js';
+
+const DIALECT_APP_ID = 'ffb32fc6-5e32-47ba-acdf-3c77ce999360';
 
 export async function sendDialectNotification(telegramUsername, message, wallet) {
     const username = telegramUsername.replace('@', '');
@@ -11,51 +13,34 @@ export async function sendDialectNotification(telegramUsername, message, wallet)
     console.log(`🔔 ALERT for @${username}: ${message}`);
     console.log(`   Wallet: ${wallet}`);
 
-    // Try direct Telegram bot if configured
-    if (CONFIG.TELEGRAM_BOT_TOKEN && CONFIG.TELEGRAM_CHAT_ID) {
-        try {
-            const telegramMsg = `🔔 *Saul.run Alert*\n\n${message}\n\n👤 User: @${username}\n💼 Wallet: \`${wallet.slice(0, 8)}...${wallet.slice(-4)}\``;
-
-            const response = await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: CONFIG.TELEGRAM_CHAT_ID,
-                    text: telegramMsg,
-                    parse_mode: 'Markdown'
-                })
-            });
-
-            if (response.ok) {
-                console.log(`✓ Telegram notification sent`);
-                return true;
-            } else {
-                const err = await response.text();
-                console.error(`Telegram API error: ${err}`);
-            }
-        } catch (error) {
-            console.error('Telegram error:', error.message);
-        }
-    }
-
-    // Try Dialect API
+    // Use Dialect v2 API
     if (CONFIG.DIALECT_API_KEY) {
         try {
-            const response = await fetch('https://alerts-api.dial.to/v1/messages', {
+            const response = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/send`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-dialect-api-key': CONFIG.DIALECT_API_KEY,
                 },
                 body: JSON.stringify({
-                    message: `${message}\n\n🔗 saul.run`,
-                    recipientWalletAddress: wallet,
+                    recipient: {
+                        type: 'subscriber',
+                        walletAddress: wallet
+                    },
+                    channels: ['IN_APP', 'TELEGRAM', 'EMAIL'],
+                    message: {
+                        title: '🔔 Saul.run Alert',
+                        body: message
+                    }
                 }),
             });
 
-            if (response.ok) {
-                console.log(`✓ Dialect notification sent`);
+            if (response.ok || response.status === 202) {
+                console.log(`✓ Dialect notification sent to ${wallet.slice(0, 8)}...`);
                 return true;
+            } else {
+                const error = await response.text();
+                console.error(`Dialect API error (${response.status}): ${error}`);
             }
         } catch (error) {
             console.error('Dialect error:', error.message);
