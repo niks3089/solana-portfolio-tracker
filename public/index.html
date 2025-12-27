@@ -1896,8 +1896,7 @@
     <!-- Portfolio Tracking Chart (Our snapshots - for portfolios/labels) -->
     <div class="section growth-section" id="trackingSection" style="display: none;">
       <div class="section-header">
-        <span id="trackingTitle">Portfolio Tracking</span>
-        <span class="tracking-badge">Daily Snapshots</span>
+        <span id="trackingTitle">Portfolio tracker</span>
       </div>
       <div class="growth-chart-container">
         <canvas id="trackingChart" width="800" height="200"></canvas>
@@ -3616,7 +3615,7 @@
             chartData.unshift({
               date: createdAt,
               value: createdValue,
-              label: 'Created'
+              label: (createdAt.getMonth() + 1) + '/' + createdAt.getDate()
             });
           }
         }
@@ -3646,8 +3645,8 @@
           return;
         }
 
-        // Update title with portfolio name
-        document.getElementById('trackingTitle').textContent = label.name + ' Tracker';
+        // Update title with portfolio name (lowercase tracker)
+        document.getElementById('trackingTitle').textContent = label.name + ' tracker';
 
         trackingSection.style.display = 'block';
         console.log('Tracking section set to block, rendering chart...');
@@ -3707,13 +3706,17 @@
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
 
-      // Add padding to Y range
-      const yPadding = (high - low) * 0.1 || currentValue * 0.05 || 100;
+      // Add padding to Y range - use larger padding if values are essentially the same
+      const valueRange = high - low;
+      const isFlat = valueRange < 1 || (high > 0 && valueRange / high < 0.001); // Less than 0.1% difference
+      const yPadding = isFlat ? (currentValue * 0.1 || 100) : (valueRange * 0.1 || 100);
       const yMin = Math.max(0, low - yPadding);
       const yMax = high + yPadding;
 
       const xScale = (i) => padding.left + (i / Math.max(1, chartData.length - 1)) * chartWidth;
       const yScale = (v) => {
+        // If values are essentially flat, draw in the middle
+        if (isFlat) return padding.top + chartHeight / 2;
         if (yMax === yMin) return padding.top + chartHeight / 2;
         return padding.top + chartHeight - ((v - yMin) / (yMax - yMin)) * chartHeight;
       };
@@ -3729,16 +3732,17 @@
         ctx.stroke();
       }
 
-      // Draw Y-axis labels - use more precision if range is small
+      // Draw Y-axis labels - skip duplicates when range is tiny
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '10px system-ui';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
       const yRange = yMax - yMin;
+      const shownLabels = new Set();
       for (let i = 0; i <= 3; i++) {
         const y = padding.top + (chartHeight / 3) * i;
         const val = yMax - (yRange / 3) * i;
-        // Use more decimal places if range is small
+        // Format label
         let label;
         if (yRange < 100) {
           label = '$' + val.toFixed(2);
@@ -3747,7 +3751,11 @@
         } else {
           label = fmtUsd(val);
         }
-        ctx.fillText(label, padding.left - 8, y);
+        // Skip if we already showed this label (prevents duplicates)
+        if (!shownLabels.has(label)) {
+          ctx.fillText(label, padding.left - 8, y);
+          shownLabels.add(label);
+        }
       }
 
       // Draw smooth line - green unless significant loss (>1%)
