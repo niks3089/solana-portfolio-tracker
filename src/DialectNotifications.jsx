@@ -89,8 +89,54 @@ const bellButtonStyle = {
     transition: 'all 0.2s',
 };
 
+// Hide unwanted Dialect UI elements
+const hideDialectElements = () => {
+    // Hide tabs
+    document.querySelectorAll('.dialect [role="tablist"]').forEach(el => el.style.display = 'none');
+
+    // Hide "Manage" buttons/links
+    document.querySelectorAll('.dialect').forEach(container => {
+        container.querySelectorAll('button, a, span').forEach(el => {
+            if (el.textContent?.includes('Manage')) {
+                el.style.display = 'none';
+                // Also hide parent if it's just a wrapper
+                if (el.parentElement?.children.length === 1) {
+                    el.parentElement.style.display = 'none';
+                }
+            }
+        });
+    });
+
+    // Hide email sections
+    document.querySelectorAll('.dialect input[type="email"]').forEach(el => {
+        let parent = el.parentElement;
+        while (parent && !parent.classList.contains('dialect')) {
+            if (parent.tagName === 'DIV') {
+                parent.style.display = 'none';
+                break;
+            }
+            parent = parent.parentElement;
+        }
+    });
+
+    // Hide version/footer text
+    document.querySelectorAll('.dialect').forEach(container => {
+        container.querySelectorAll('span, div').forEach(el => {
+            if (el.textContent?.includes('beta') || el.textContent?.includes('Powered by') || el.textContent?.match(/\d+\.\d+\.\d+/)) {
+                el.style.display = 'none';
+            }
+        });
+    });
+};
+
 const DialectNotificationsInner = () => {
     const wallet = useCustomWalletAdapter();
+
+    // Run hide function periodically when modal is open
+    useEffect(() => {
+        const interval = setInterval(hideDialectElements, 500);
+        return () => clearInterval(interval);
+    }, []);
 
     if (!wallet) {
         return null; // Don't show if wallet not connected
@@ -113,7 +159,7 @@ const DialectNotificationsInner = () => {
                     {({ setOpen, ref }) => (
                         <button
                             ref={ref}
-                            onClick={() => setOpen(true)}
+                            onClick={() => { setOpen(true); setTimeout(hideDialectElements, 100); }}
                             style={bellButtonStyle}
                             onMouseOver={(e) => { e.target.style.backgroundColor = '#00d4aa'; e.target.style.color = '#0a0a0f'; }}
                             onMouseOut={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = '#00d4aa'; }}

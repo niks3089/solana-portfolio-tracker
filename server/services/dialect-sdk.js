@@ -16,7 +16,7 @@ export async function initDialectSDK() {
         console.warn('⚠️ DIALECT_API_KEY not set, notifications disabled');
         return null;
     }
-    
+
     initialized = true;
     console.log('✓ Dialect notifications enabled');
     return true;
@@ -86,7 +86,7 @@ export async function sendNotification({ recipient, title, message, notification
 // Send wallet activity notification
 export async function sendWalletActivityNotification(walletAddress, txType, displayName) {
     let title, message;
-    
+
     if (txType === 'incoming') {
         title = '💰 Incoming Transaction';
         message = `Funds received on ${displayName}`;
@@ -108,12 +108,12 @@ export async function sendWalletActivityNotification(walletAddress, txType, disp
     });
 }
 
-// Send portfolio change notification  
+// Send portfolio change notification
 export async function sendPortfolioChangeNotification(walletAddress, percentChange, newValue) {
     const isPositive = percentChange >= 0;
     const emoji = isPositive ? '📈' : '📉';
     const direction = isPositive ? 'up' : 'down';
-    
+
     const title = `${emoji} Portfolio ${direction} ${Math.abs(percentChange).toFixed(1)}%`;
     const message = `Your portfolio is now worth $${newValue.toLocaleString()}.`;
 

@@ -134,3 +134,28 @@
 .dialect .dt-text-caption {
   display: none !important;
 }
+
+/* Hide Topics/Channels tabs - show as one list */
+.dialect [role="tablist"],
+.dialect nav:has([role="tab"]),
+.dialect div:has(> button[role="tab"]) {
+  display: none !important;
+}
+
+/* Hide "Manage" button and gear icon */
+.dialect button:has([class*="Manage"]),
+.dialect a:has([class*="Manage"]),
+.dialect [class*="Manage"] {
+  display: none !important;
+}
+
+/* Hide "Manage Topics" header text */
+.dialect h2:contains("Manage Topics"),
+.dialect [class*="dt-text-h2"]:has(+ p:contains("Choose your topics")) {
+  display: none !important;
+}
+
+/* Make notification types more prominent */
+.dialect [class*="dt-flex-col"][class*="dt-gap-2"] {
+  margin-top: 0 !important;
+}

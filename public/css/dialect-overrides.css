@@ -1,0 +1,89 @@
+/* Dialect UI Overrides for saul.run - Simplified view like Drift */
+
+/* Force dark theme on everything */
+.dialect {
+  --dt-bg-primary: #1b1b1c !important;
+  --dt-bg-secondary: #232324 !important;
+  --dt-bg-tertiary: #2a2a2b !important;
+  --dt-text-primary: #ffffff !important;
+  --dt-text-secondary: #c4c6c8 !important;
+  --dt-accent-brand: #00d4aa !important;
+  --dt-accent-success: #00d4aa !important;
+  --dt-input-checked: #00d4aa !important;
+  --dt-text-accent: #00d4aa !important;
+  --dt-stroke-primary: #323335 !important;
+  --dt-button-primary: #00d4aa !important;
+  --dt-button-secondary: #323335 !important;
+}
+
+/* Hide tabs completely */
+.dialect [role="tablist"] {
+  display: none !important;
+}
+
+/* Hide any tab buttons */
+.dialect button[role="tab"] {
+  display: none !important;
+}
+
+/* Hide "Manage" link/button - target by class patterns */
+.dialect a[href*="manage"],
+.dialect button[class*="manage" i] {
+  display: none !important;
+}
+
+/* Hide footer/version info */
+.dialect .dt-text-caption {
+  display: none !important;
+}
+
+/* Hide email input section - hide any form with email */
+.dialect input[type="email"],
+.dialect input[placeholder*="email" i] {
+  display: none !important;
+}
+
+/* Hide parent containers of email */
+.dialect div:has(> input[type="email"]),
+.dialect div:has(> input[placeholder*="email" i]) {
+  display: none !important;
+}
+
+/* Style the modal header green */
+.dialect .dt-text-h2 {
+  color: #00d4aa !important;
+}
+
+/* Make notification cards look better */
+.dialect .dt-rounded-\[--dt-border-radius-m\] {
+  background: rgba(0, 212, 170, 0.05) !important;
+  border-color: rgba(0, 212, 170, 0.2) !important;
+}
+
+/* Green toggle when checked */
+.dialect input:checked+div,
+.dialect .dt-bg-\[--dt-input-checked\] {
+  background-color: #00d4aa !important;
+}
+
+/* Style buttons green */
+.dialect .dt-bg-\[--dt-button-primary\] {
+  background-color: #00d4aa !important;
+  color: #0a0a0f !important;
+}
+
+.dialect .dt-bg-\[--dt-button-primary\]:hover {
+  background-color: #00b894 !important;
+}
+
+/* Hide "Using ledger?" */
+.dialect label:has(> input[type="checkbox"]) {
+  display: none !important;
+}
+
+/* Green text for links */
+.dialect a {
+  color: #00d4aa !important;
+}
+
+/* Hide the gear/settings icon in header, replace with + via parent component */

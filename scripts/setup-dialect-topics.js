@@ -1,61 +1,76 @@
 /**
  * Setup Dialect notification topics for saul.run
  * Run this once to register notification types
- * 
- * Usage: DIALECT_API_KEY=your_key node scripts/setup-dialect-topics.js
+ *
+ * Usage: DAPP_PRIVATE_KEY=your_dapp_private_key node scripts/setup-dialect-topics.js
  */
 
-const DIALECT_API_KEY = process.env.DIALECT_API_KEY;
-const DAPP_ID = process.env.DAPP_ID || 'ffb32fc6-5e32-47ba-acdf-3c77ce999360'; // saul.run app ID
+import { Dialect } from '@dialectlabs/sdk';
+import { NodeDialectSolanaWalletAdapter, SolanaSdkFactory } from '@dialectlabs/blockchain-sdk-solana';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 
-if (!DIALECT_API_KEY) {
-    console.error('❌ DIALECT_API_KEY environment variable required');
-    console.log('Usage: DIALECT_API_KEY=your_key node scripts/setup-dialect-topics.js');
-    process.exit(1);
-}
-
-const BASE_URL = 'https://alerts-api.dial.to/v2';
-
-async function apiCall(method, path, body = null) {
-    const options = {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${DIALECT_API_KEY}`,
-        },
-    };
-    if (body) options.body = JSON.stringify(body);
-    
-    const response = await fetch(`${BASE_URL}${path}`, options);
-    const text = await response.text();
-    
-    if (!response.ok) {
-        throw new Error(`API error ${response.status}: ${text}`);
-    }
-    
-    return text ? JSON.parse(text) : null;
-}
+const DAPP_PRIVATE_KEY = process.env.DAPP_PRIVATE_KEY; // Base58 encoded private key
 
 async function setupTopics() {
     console.log('🔧 Setting up Dialect notification topics for saul.run...\n');
-    console.log('App ID:', DAPP_ID);
+
+    if (!DAPP_PRIVATE_KEY) {
+        console.log('❌ DAPP_PRIVATE_KEY not set');
+        console.log('');
+        console.log('To create notification types, you need the private key of the dApp wallet.');
+        console.log('This is the wallet you used to register the dApp in Dialect.');
+        console.log('');
+        console.log('Export your wallet private key (base58) and run:');
+        console.log('  DAPP_PRIVATE_KEY=your_key node scripts/setup-dialect-topics.js');
+        console.log('');
+        process.exit(1);
+    }
 
     try {
-        // Get current dapp info
-        const dappInfo = await apiCall('GET', `/${DAPP_ID}`);
-        console.log('✓ Connected to dapp:', dappInfo?.name || 'saul');
+        // Create wallet from private key
+        const keypair = Keypair.fromSecretKey(bs58.decode(DAPP_PRIVATE_KEY));
+        console.log('✓ Wallet loaded:', keypair.publicKey.toBase58().slice(0, 8) + '...');
+
+        const wallet = NodeDialectSolanaWalletAdapter.create(keypair);
+
+        // Initialize SDK with Solana blockchain
+        const sdk = Dialect.sdk(
+            {
+                environment: 'production',
+            },
+            SolanaSdkFactory.create({
+                wallet,
+            })
+        );
+
+        // Find the dApp
+        const dapp = await sdk.dapps.find();
+
+        if (!dapp) {
+            console.error('❌ No dApp found for this wallet');
+            console.log('Make sure you registered the dApp first using this wallet.');
+            process.exit(1);
+        }
+
+        console.log('✓ Connected to dApp:', dapp.name);
+        console.log('  Address:', dapp.address);
 
         // Define notification topics
         const topics = [
             {
                 humanReadableId: 'wallet-activity',
                 name: 'Wallet Activity',
-                description: 'Get notified on incoming and outgoing transactions',
+                trigger: 'Get notified on incoming and outgoing transactions',
+                orderingPriority: 0,
+                defaultConfig: { enabled: true },
             },
             {
-                humanReadableId: 'portfolio-change', 
+                humanReadableId: 'portfolio-change',
                 name: 'Portfolio Change',
-                description: 'Alert when your portfolio value changes significantly',
+                trigger: 'Alert when your portfolio value changes significantly',
+                orderingPriority: 1,
+                defaultConfig: { enabled: true },
             },
         ];
 
@@ -63,15 +78,10 @@ async function setupTopics() {
 
         for (const topic of topics) {
             try {
-                await apiCall('POST', `/${DAPP_ID}/notification-types`, {
-                    humanReadableId: topic.humanReadableId,
-                    name: topic.name,
-                    description: topic.description,
-                    defaultConfig: { enabled: true },
-                });
+                await dapp.notificationTypes.create(topic);
                 console.log(`✓ Created: ${topic.name} (${topic.humanReadableId})`);
             } catch (error) {
-                if (error.message?.includes('already exists') || error.message?.includes('409')) {
+                if (error.message?.includes('already exists') || error.message?.includes('duplicate')) {
                     console.log(`⏭️ Already exists: ${topic.name} (${topic.humanReadableId})`);
                 } else {
                     console.error(`❌ Failed to create ${topic.name}:`, error.message);
@@ -80,19 +90,10 @@ async function setupTopics() {
         }
 
         // List all notification types
-        console.log('\n📋 Getting current notification types...');
-        try {
-            const types = await apiCall('GET', `/${DAPP_ID}/notification-types`);
-            console.log('Current notification types:');
-            if (Array.isArray(types)) {
-                for (const type of types) {
-                    console.log(`  - ${type.name} (${type.humanReadableId})`);
-                }
-            } else {
-                console.log('  Response:', JSON.stringify(types, null, 2));
-            }
-        } catch (e) {
-            console.log('  Could not list types:', e.message);
+        console.log('\n📋 Current notification types:');
+        const types = await dapp.notificationTypes.findAll();
+        for (const type of types) {
+            console.log(`  - ${type.name} (${type.humanReadableId})`);
         }
 
         console.log('\n✅ Setup complete!');
@@ -100,6 +101,7 @@ async function setupTopics() {
 
     } catch (error) {
         console.error('❌ Setup failed:', error.message);
+        console.error(error);
         process.exit(1);
     }
 }
