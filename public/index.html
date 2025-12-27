@@ -2105,18 +2105,33 @@
           <label>Telegram Username</label>
           <input type="text" class="label-form-input" id="telegramUsername" placeholder="@username">
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.4rem">
-            Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank" style="color:var(--accent)">this bot</a> on Telegram first
+            Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank"
+              style="color:var(--accent)">this bot</a> on Telegram first
           </div>
         </div>
 
         <div class="label-form-group">
           <label>Notification Type</label>
-          <div class="alert-type-option selected">
+          <div class="alert-type-option" onclick="document.getElementById('check-activity').classList.toggle('checked')">
             <div class="alert-type-label">
               <strong>Wallet Activity</strong>
-              <span>Alert on incoming or outgoing transactions</span>
+              <span>Alert on any incoming or outgoing transaction</span>
             </div>
             <div class="alert-checkbox checked" id="check-activity">✓</div>
+          </div>
+          <div class="alert-type-option" onclick="document.getElementById('check-threshold').classList.toggle('checked')">
+            <div class="alert-type-label">
+              <strong>Value Change</strong>
+              <span>Alert when portfolio changes by 5% or more</span>
+            </div>
+            <div class="alert-checkbox" id="check-threshold">✓</div>
+          </div>
+          <div class="alert-type-option" onclick="document.getElementById('check-large').classList.toggle('checked')">
+            <div class="alert-type-label">
+              <strong>Large Transaction</strong>
+              <span>Alert on transactions over $100</span>
+            </div>
+            <div class="alert-checkbox" id="check-large">✓</div>
           </div>
         </div>
 
@@ -5030,10 +5045,16 @@
 
       container.innerHTML = userAlerts.map(alert => {
         const targetName = alert.label_name || (alert.target_wallet ? alert.target_wallet.slice(0, 8) + '...' : 'Unknown');
+        const typeLabels = {
+          'any_tx': 'Activity',
+          'threshold': '5%+',
+          'large_tx': '$100+'
+        };
         return `
           <div class="alert-dropdown-item">
             <div class="alert-item-info">
               <span class="alert-item-target">${escapeHtml(targetName)}</span>
+              <span class="alert-item-type">${typeLabels[alert.alert_type] || 'Activity'}</span>
             </div>
             <div class="alert-item-actions">
               <div class="alert-toggle ${alert.enabled ? 'active' : ''}" onclick="toggleAlert(${alert.id}, ${!alert.enabled})"></div>
@@ -5095,8 +5116,10 @@
 
       targetSelect.innerHTML = options;
 
-      // Reset checkbox to checked
+      // Reset checkboxes - activity checked by default
       document.getElementById('check-activity').classList.add('checked');
+      document.getElementById('check-threshold').classList.remove('checked');
+      document.getElementById('check-large').classList.remove('checked');
 
       document.getElementById('alertModalStatus').textContent = '';
       modal.classList.add('active');
@@ -5118,6 +5141,11 @@
       const target = targetSelect.value;
       const telegram = telegramInput.value.trim().replace('@', '');
 
+      // Check which types are selected
+      const activityChecked = document.getElementById('check-activity').classList.contains('checked');
+      const thresholdChecked = document.getElementById('check-threshold').classList.contains('checked');
+      const largeChecked = document.getElementById('check-large').classList.contains('checked');
+
       if (!target) {
         statusEl.innerHTML = '<span style="color:var(--warning)">Please select what to monitor</span>';
         return;
@@ -5128,36 +5156,48 @@
         return;
       }
 
+      if (!activityChecked && !thresholdChecked && !largeChecked) {
+        statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one notification type</span>';
+        return;
+      }
+
       // Save telegram username for next time
       localStorage.setItem('telegramUsername', '@' + telegram);
 
       const [targetType, targetId] = target.split(':');
+      const alertTypes = [];
+      if (activityChecked) alertTypes.push({ type: 'any_tx' });
+      if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: 5.00 });
+      if (largeChecked) alertTypes.push({ type: 'large_tx' });
 
-      statusEl.innerHTML = '<span class="loading-text">Creating alert...</span>';
+      statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
 
       try {
-        const payload = {
-          owner_wallet: connectedWallet,
-          telegram_username: telegram,
-          alert_type: 'any_tx'
-        };
+        for (const alert of alertTypes) {
+          const payload = {
+            owner_wallet: connectedWallet,
+            telegram_username: telegram,
+            alert_type: alert.type,
+            threshold_percent: alert.threshold_percent || 5.00
+          };
 
-        if (targetType === 'label') {
-          payload.label_id = parseInt(targetId);
-        } else {
-          payload.target_wallet = targetId;
-        }
+          if (targetType === 'label') {
+            payload.label_id = parseInt(targetId);
+          } else {
+            payload.target_wallet = targetId;
+          }
 
-        const res = await fetch('/api/alerts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+          const res = await fetch('/api/alerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
 
-        const data = await res.json();
-        if (data.error) {
-          statusEl.innerHTML = `<span style="color:var(--negative)">${data.error}</span>`;
-          return;
+          const data = await res.json();
+          if (data.error) {
+            statusEl.innerHTML = `<span style="color:var(--negative)">${data.error}</span>`;
+            return;
+          }
         }
 
         closeAlertModal();
