@@ -128,23 +128,37 @@ class HeliusWebSocketManager {
 
     async resubscribeAll() {
         try {
-            const result = await pool.query(`
-        SELECT DISTINCT target_wallet FROM alert_settings
-        WHERE enabled = true AND target_wallet IS NOT NULL
-        UNION
-        SELECT DISTINCT jsonb_array_elements_text(l.wallets::jsonb->'address') as target_wallet
-        FROM alert_settings a
-        JOIN labels l ON a.label_id = l.id
-        WHERE a.enabled = true AND a.label_id IS NOT NULL
-      `);
+            // Get individual wallet alerts
+            const walletAlerts = await pool.query(`
+                SELECT DISTINCT target_wallet
+                FROM alert_settings
+                WHERE enabled = true AND target_wallet IS NOT NULL
+            `);
 
-            for (const row of result.rows) {
-                if (row.target_wallet) {
-                    await this.subscribeToWallet(row.target_wallet);
-                }
+            // Get label/portfolio alerts - extract wallet addresses from JSONB array
+            const labelAlerts = await pool.query(`
+                SELECT DISTINCT elem->>'address' as wallet_address
+                FROM alert_settings a
+                JOIN labels l ON a.label_id = l.id,
+                jsonb_array_elements(l.wallets) as elem
+                WHERE a.enabled = true AND a.label_id IS NOT NULL
+            `);
+
+            const walletsToSubscribe = new Set();
+
+            for (const row of walletAlerts.rows) {
+                if (row.target_wallet) walletsToSubscribe.add(row.target_wallet);
             }
 
-            console.log(`✓ Subscribed to ${result.rows.length} wallets for alerts`);
+            for (const row of labelAlerts.rows) {
+                if (row.wallet_address) walletsToSubscribe.add(row.wallet_address);
+            }
+
+            for (const wallet of walletsToSubscribe) {
+                await this.subscribeToWallet(wallet);
+            }
+
+            console.log(`✓ Subscribed to ${walletsToSubscribe.size} wallets for alerts`);
         } catch (error) {
             console.error('Failed to resubscribe:', error.message);
         }
