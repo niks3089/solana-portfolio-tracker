@@ -1504,7 +1504,7 @@ app.post('/api/internal/snapshot', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get labels that haven't been snapshotted in the last 24 hours
+    // Get labels that haven't been snapshotted today
     // This spreads load when running hourly instead of processing all at once
     const labelsResult = await pool.query(`
       SELECT l.* FROM labels l
@@ -1512,7 +1512,7 @@ app.post('/api/internal/snapshot', async (req, res) => {
         AND NOT EXISTS (
           SELECT 1 FROM label_snapshots s
           WHERE s.label_id = l.id
-            AND s.created_at > NOW() - INTERVAL '24 hours'
+            AND s.snapshot_date = CURRENT_DATE
         )
       ORDER BY l.updated_at ASC
       LIMIT 50
