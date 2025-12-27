@@ -19,10 +19,11 @@ on:
     branches:
       - main
     paths:
-      - 'server.js'
+      - 'server/**'
       - 'public/**'
       - 'scripts/**'
       - 'package.json'
+      - 'deployment/**'
 
 jobs:
   # ============================================================================
