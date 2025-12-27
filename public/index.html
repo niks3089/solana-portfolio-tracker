@@ -2066,11 +2066,7 @@
     // When connected: only show connected wallet (not demo)
     // When disconnected: show demo wallet
     function getActiveWallets() {
-      if (connectedWallet) {
-        // When connected, only return non-demo wallets (just the connected one)
-        return walletData.filter(w => w.address !== DEMO_WALLET).map(w => w.address);
-      }
-      // When disconnected, return all wallets (which should include demo)
+      // Return all tracked wallets (including toly.sol if user added it)
       if (activeGroup === 'all') return walletData.map(w => w.address);
       return walletData.filter(w => w.label === activeGroup).map(w => w.address);
     }
@@ -2653,10 +2649,8 @@
     }
 
     function renderWalletTags() {
-      // When connected, hide toly.sol from tags
-      const visibleWallets = connectedWallet
-        ? walletData.filter(w => w.address !== DEMO_WALLET)
-        : walletData;
+      // Show all wallets the user has added (including toly.sol if they want it)
+      const visibleWallets = walletData;
 
       if (visibleWallets.length === 0) {
         document.getElementById('walletTags').innerHTML = '';
