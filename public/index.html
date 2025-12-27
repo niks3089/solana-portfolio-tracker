@@ -4816,6 +4816,7 @@
         const res = await fetch('/api/labels/' + connectedWallet);
         const data = await res.json();
         userLabels = data.labels || [];
+        window.userLabels = userLabels; // Expose for React component
         renderLabels();
       } catch (e) {
         console.error('Failed to load labels:', e);
