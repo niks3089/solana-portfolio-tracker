@@ -55,6 +55,7 @@ const DialectNotificationsInner = () => {
                 }}
             >
                 <NotificationsButton
+                    theme="dark"
                     dialectId="dialect-notifications"
                     notifications={[
                         { name: 'Wallet Activity', detail: 'Get notified on wallet transactions' },
