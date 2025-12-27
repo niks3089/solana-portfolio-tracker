@@ -306,7 +306,8 @@
       padding: 1rem 1.5rem 1.5rem;
     }
 
-    #growthChart {
+    #growthChart,
+    #trackingChart {
       width: 100%;
       height: 180px;
       border-radius: 8px;
@@ -1530,7 +1531,8 @@
         padding: 0.75rem;
       }
 
-      #growthChart {
+      #growthChart,
+      #trackingChart {
         height: 150px;
       }
 
@@ -3553,7 +3555,7 @@
     // ============================================================================
     async function loadTrackingChart(labelId, currentNetWorth) {
       const trackingSection = document.getElementById('trackingSection');
-      
+
       if (!labelId) {
         trackingSection.style.display = 'none';
         return;
@@ -3569,17 +3571,17 @@
         // Fetch snapshot history from our database
         const res = await fetch('/api/labels/' + labelId + '/history?days=90');
         const data = await res.json();
-        
+
         let history = data.history || [];
-        
+
         // Build chart data points
         let chartData = [];
-        
+
         // If we have snapshots, use them
         if (history.length > 0) {
           // Sort by date ascending
           history = history.sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
-          
+
           for (const snap of history) {
             chartData.push({
               date: new Date(snap.snapshot_date),
@@ -3588,12 +3590,12 @@
             });
           }
         }
-        
+
         // If we only have 1 snapshot (or none), add the creation date as starting point
         if (chartData.length < 2) {
           const createdAt = label.created_at ? new Date(label.created_at) : new Date();
           const createdValue = chartData.length > 0 ? chartData[0].value : currentNetWorth;
-          
+
           // Only add if creation date is different from first snapshot
           if (chartData.length === 0 || chartData[0].date.toDateString() !== createdAt.toDateString()) {
             chartData.unshift({
@@ -3603,11 +3605,11 @@
             });
           }
         }
-        
+
         // Always add current live value as the last point if different from last snapshot
         const today = new Date();
         const lastSnapshotDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
-        
+
         if (!lastSnapshotDate || lastSnapshotDate.toDateString() !== today.toDateString()) {
           chartData.push({
             date: today,
@@ -3628,10 +3630,10 @@
 
         // Update title with portfolio name
         document.getElementById('trackingTitle').textContent = label.name + ' Tracking';
-        
+
         trackingSection.style.display = 'block';
         renderTrackingChart(chartData);
-        
+
       } catch (e) {
         console.error('Load tracking chart error:', e);
         trackingSection.style.display = 'none';
