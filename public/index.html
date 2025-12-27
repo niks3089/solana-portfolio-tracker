@@ -2161,10 +2161,9 @@
           </div>
         </div>
 
-        <div class="label-form-group">
+        <div class="label-form-group" id="notificationTypeSection" style="display:none">
           <label>Notification Type</label>
-          <div class="alert-type-option"
-            onclick="document.getElementById('check-activity').classList.toggle('checked')">
+          <div class="alert-type-option" onclick="document.getElementById('check-activity').classList.toggle('checked')">
             <div class="alert-type-label">
               <strong>Wallet Activity</strong>
               <span>Alert on any transaction</span>
@@ -2180,8 +2179,7 @@
               <div class="alert-checkbox" id="check-threshold" onclick="toggleThresholdAlert()">✓</div>
             </div>
             <div class="inline-slider" id="thresholdSlider" style="margin-top:0.5rem">
-              <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
-                oninput="document.getElementById('threshold-val').textContent = this.value">
+              <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange" oninput="document.getElementById('threshold-val').textContent = this.value">
               <div class="threshold-labels"><span>1%</span><span>25%</span></div>
             </div>
           </div>
@@ -5195,16 +5193,23 @@
 
     function updateAlertTargetOptions() {
       const target = document.getElementById('alertTargetSelect').value;
+      const notificationSection = document.getElementById('notificationTypeSection');
       const portfolioOption = document.getElementById('portfolioChangeOption');
       const checkThreshold = document.getElementById('check-threshold');
-
-      // Only show portfolio change option for portfolios (label:xxx), not individual wallets
-      if (target && target.startsWith('label:')) {
-        portfolioOption.style.display = 'flex';
+      
+      // Show notification type section only after target is selected
+      if (target) {
+        notificationSection.style.display = 'block';
+        
+        // Only show portfolio change option for portfolios (label:xxx), not individual wallets
+        if (target.startsWith('label:')) {
+          portfolioOption.style.display = 'flex';
+        } else {
+          portfolioOption.style.display = 'none';
+          checkThreshold.classList.remove('checked');
+        }
       } else {
-        portfolioOption.style.display = 'none';
-        // Uncheck threshold if switching away from portfolio
-        checkThreshold.classList.remove('checked');
+        notificationSection.style.display = 'none';
       }
     }
 
