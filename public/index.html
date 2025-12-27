@@ -2147,7 +2147,7 @@
             <div class="alert-dropdown" id="alertDropdown">
               <div class="alert-dropdown-header">
                 <span class="alert-dropdown-title">Alerts</span>
-                <span class="alert-dropdown-add" onclick="showAlertModal()">+ Add</span>
+                <span class="alert-dropdown-add" onclick="showAlertModal().catch(console.error)">+ Add</span>
               </div>
               <div class="alert-dropdown-list" id="alertDropdownList"></div>
             </div>
@@ -5187,13 +5187,22 @@
       }
     });
 
-    function showAlertModal() {
+    async function showAlertModal() {
       editingAlertId = null;
       selectedAlertType = 'any_tx';
       const modal = document.getElementById('alertModal');
       const titleEl = document.getElementById('alertModalTitle');
       const targetSelect = document.getElementById('alertTargetSelect');
       const telegramInput = document.getElementById('telegramUsername');
+
+      // First ensure Dialect subscription (one-time signature)
+      const statusDiv = document.createElement('div');
+      statusDiv.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
+      const subscribed = await ensureDialectSubscription(statusDiv);
+      if (!subscribed) {
+        // User rejected signature
+        return;
+      }
 
       titleEl.textContent = 'Create Alert';
       telegramInput.value = localStorage.getItem('telegramUsername') || '';
@@ -5289,9 +5298,13 @@
         const { message } = await prepareRes.json();
         console.log('Dialect message to sign:', message);
 
-        // Step 2: User signs the message
+        // Step 2: User signs the message using the connected wallet
         const encodedMessage = new TextEncoder().encode(message);
-        const signResult = await window.solana.signMessage(encodedMessage, 'utf8');
+        if (!connectedProvider) {
+          console.log('No wallet provider connected');
+          return true;
+        }
+        const signResult = await connectedProvider.signMessage(encodedMessage, 'utf8');
 
         // Convert signature to base58
         const signatureBytes = signResult.signature;
@@ -5500,17 +5513,9 @@
         return;
       }
 
-      statusEl.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
+      statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
 
       try {
-        // Step 1: Subscribe connected wallet to Dialect (one-time, requires signature)
-        const subscribed = await ensureDialectSubscription(statusEl);
-        if (!subscribed) {
-          statusEl.innerHTML = '<span style="color:var(--warning)">Please sign to enable notifications</span>';
-          return;
-        }
-
-        statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
 
         // If portfolio with all wallets, create one portfolio alert
         // Otherwise create individual wallet alerts
