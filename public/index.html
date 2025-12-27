@@ -2038,8 +2038,11 @@
             <span class="pro-days" id="proDaysLeft"></span>
           </span>
         </div>
-        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn">⚡ Upgrade</button>
+        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn" style="display:none">⚡ Upgrade</button>
         <div class="wallet-status-container">
+          <div id="walletStatus">
+            <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
+          </div>
           <div id="alertBell" style="display:none;position:relative">
             <div class="alert-bell" onclick="toggleAlertDropdown(event)">🔔</div>
             <div class="alert-dropdown" id="alertDropdown">
@@ -2053,9 +2056,6 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div id="walletStatus">
-            <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
           </div>
         </div>
       </div>
