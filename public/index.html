@@ -5160,21 +5160,40 @@
       // Add connected wallet
       if (connectedWallet) {
         const shortAddr = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
-        options += `<option value="wallet:${connectedWallet}">${shortAddr}</option>`;
+        options += `<option value="wallet:${connectedWallet}">My Wallet (${shortAddr})</option>`;
       }
 
-      // Add portfolios
+      // Add portfolios with their wallets as sub-options
       for (const label of userLabels) {
-        options += `<option value="label:${label.id}">${escapeHtml(label.name)} (${(label.wallets || []).length} wallets)</option>`;
+        const wallets = label.wallets || [];
+        options += `<optgroup label="${escapeHtml(label.name)}">`;
+        options += `<option value="label:${label.id}">📁 Entire Portfolio (${wallets.length} wallets)</option>`;
+        for (const w of wallets) {
+          const addr = w.address || w;
+          const shortAddr = addr.slice(0, 6) + '...' + addr.slice(-4);
+          const walletLabel = w.name || shortAddr;
+          options += `<option value="portfolio-wallet:${label.id}:${addr}">└ ${walletLabel}</option>`;
+        }
+        options += '</optgroup>';
       }
 
-      // Add tracked wallets (excluding connected wallet)
-      for (const w of walletData) {
-        if (w.address !== connectedWallet) {
+      // Add other tracked wallets (not in portfolios)
+      const portfolioWallets = new Set();
+      for (const label of userLabels) {
+        for (const w of (label.wallets || [])) {
+          portfolioWallets.add(w.address || w);
+        }
+      }
+      
+      const otherWallets = walletData.filter(w => w.address !== connectedWallet && !portfolioWallets.has(w.address));
+      if (otherWallets.length > 0) {
+        options += '<optgroup label="Other Wallets">';
+        for (const w of otherWallets) {
           const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
           const label = w.label || shortAddr;
           options += `<option value="wallet:${w.address}">${label}</option>`;
         }
+        options += '</optgroup>';
       }
 
       targetSelect.innerHTML = options;
@@ -5210,7 +5229,8 @@
       if (target) {
         notificationSection.style.display = 'block';
 
-        // Only show portfolio change option for portfolios (label:xxx), not individual wallets
+        // Only show portfolio change option for entire portfolios (label:xxx)
+        // Individual wallets within portfolios (portfolio-wallet:xxx) are treated as wallets
         if (target.startsWith('label:')) {
           portfolioOption.style.display = 'flex';
         } else {
@@ -5253,13 +5273,25 @@
       // Save telegram username for next time
       localStorage.setItem('telegramUsername', '@' + telegram);
 
-      const [targetType, targetId] = target.split(':');
+      // Parse target - handle portfolio-wallet:labelId:walletAddr format
+      let targetType, targetId, walletAddr;
+      if (target.startsWith('portfolio-wallet:')) {
+        const parts = target.split(':');
+        targetType = 'wallet';
+        targetId = parts[2]; // wallet address
+        walletAddr = parts[2];
+      } else {
+        const parts = target.split(':');
+        targetType = parts[0];
+        targetId = parts[1];
+      }
+
       const alertTypes = [];
       if (activityChecked) alertTypes.push({ type: 'any_tx' });
       if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: thresholdPercent });
 
       // Check for duplicates
-      const existingKey = targetType === 'label' ? `label:${targetId}` : `wallet:${targetId}`;
+      const existingKey = targetType === 'label' ? `label:${targetId}` : `wallet:${walletAddr || targetId}`;
       for (const alertToCreate of alertTypes) {
         const isDuplicate = userAlerts.some(existing => {
           const existingTargetKey = existing.label_id ? `label:${existing.label_id}` : `wallet:${existing.target_wallet}`;
@@ -5285,7 +5317,7 @@
           if (targetType === 'label') {
             payload.label_id = parseInt(targetId);
           } else {
-            payload.target_wallet = targetId;
+            payload.target_wallet = walletAddr || targetId;
           }
 
           const res = await fetch('/api/alerts', {
