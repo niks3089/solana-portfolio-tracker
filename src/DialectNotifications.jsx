@@ -46,21 +46,23 @@ const DialectNotificationsInner = () => {
     }
 
     return (
-        <DialectSolanaSdk
-            dappAddress={DAPP_ADDRESS}
-            customWalletAdapter={wallet}
-            config={{
-                environment: 'production',
-            }}
-        >
-            <NotificationsButton
-                dialectId="dialect-notifications"
-                notifications={[
-                    { name: 'Wallet Activity', detail: 'Get notified on wallet transactions' },
-                    { name: 'Portfolio Change', detail: 'Alert when portfolio value changes significantly' },
-                ]}
-            />
-        </DialectSolanaSdk>
+        <div className="dialect" data-theme="dark">
+            <DialectSolanaSdk
+                dappAddress={DAPP_ADDRESS}
+                customWalletAdapter={wallet}
+                config={{
+                    environment: 'production',
+                }}
+            >
+                <NotificationsButton
+                    dialectId="dialect-notifications"
+                    notifications={[
+                        { name: 'Wallet Activity', detail: 'Get notified on wallet transactions' },
+                        { name: 'Portfolio Change', detail: 'Alert when portfolio value changes significantly' },
+                    ]}
+                />
+            </DialectSolanaSdk>
+        </div>
     );
 };
 
