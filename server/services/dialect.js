@@ -24,10 +24,10 @@ export async function sendDialectNotification(telegramUsername, message, wallet)
                 },
                 body: JSON.stringify({
                     recipient: {
-                        type: 'subscribers',
-                        walletAddresses: [wallet]
+                        type: 'subscriber',
+                        walletAddress: wallet
                     },
-                    channels: ['TELEGRAM', 'IN_APP'],
+                    channels: ['IN_APP', 'TELEGRAM', 'EMAIL'],
                     message: {
                         title: '🔔 Saul.run Alert',
                         body: message

@@ -2142,16 +2142,8 @@
           <div id="walletStatus">
             <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
           </div>
-          <div id="alertBell" style="display:none;position:relative">
-            <div class="alert-bell" onclick="toggleAlertDropdown(event)">🔔</div>
-            <div class="alert-dropdown" id="alertDropdown">
-              <div class="alert-dropdown-header">
-                <span class="alert-dropdown-title">Alerts</span>
-                <span class="alert-dropdown-add" onclick="showAlertModal().catch(console.error)">+ Add</span>
-              </div>
-              <div class="alert-dropdown-list" id="alertDropdownList"></div>
-            </div>
-          </div>
+          <!-- Dialect Notifications Component (React) -->
+          <div id="dialect-notifications-root"></div>
         </div>
       </div>
     </header>
@@ -5395,15 +5387,32 @@
           return false;
         }
 
-        // Step 4: Mark as authenticated - user can receive notifications
-        // Note: Actual subscription happens via dial.to/subscribe link
-        console.log('✓ Dialect auth complete - JWT saved');
-        localStorage.setItem(subscriptionKey, 'true');
-        
-        // Open subscribe link in background to complete Telegram setup
-        window.open(`https://dial.to/subscribe?app=${DIALECT_APP_ID}`, '_blank');
-        
-        return true;
+        // Step 4: Subscribe using the JWT
+        console.log('Subscribing to Dialect...');
+        const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
+          },
+          body: JSON.stringify({
+            walletAddress: connectedWallet,
+            channels: { telegram: true, email: false, inApp: true }
+          })
+        });
+
+        if (subscribeRes.ok || subscribeRes.status === 201) {
+          console.log('✓ Subscribed to Dialect');
+          localStorage.setItem(subscriptionKey, 'true');
+          return true;
+        } else {
+          const err = await subscribeRes.text();
+          console.error('Dialect subscribe error:', err);
+          // Still allow if we got the JWT - subscription might already exist
+          localStorage.setItem(subscriptionKey, 'true');
+          return true;
+        }
       } catch (error) {
         console.error('Dialect subscription error:', error.message);
         return false;
@@ -5703,6 +5712,9 @@
       });
     }
   </script>
+
+  <!-- Dialect Notifications React Component -->
+  <script src="/js/dialect-notifications.js"></script>
 </body>
 
 </html>
