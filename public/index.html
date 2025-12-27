@@ -5374,7 +5374,7 @@
           console.log('Verify response status:', verifyRes.status);
           const verifyText = await verifyRes.text();
           console.log('Verify response text:', verifyText);
-          
+
           if (!verifyRes.ok) {
             console.error('Dialect verify failed:', verifyRes.status, verifyText);
             return false;
@@ -5382,12 +5382,12 @@
 
           const verifyData = JSON.parse(verifyText);
           token = verifyData.token;
-          
+
           if (!token) {
             console.error('No token in verify response:', verifyData);
             return false;
           }
-          
+
           localStorage.setItem(jwtKey, token);
           console.log('JWT token saved, length:', token.length);
         } catch (verifyError) {
@@ -5396,11 +5396,13 @@
         }
 
         // Step 4: Subscribe using the JWT
+        console.log('Subscribing to Dialect...');
         const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
           },
           body: JSON.stringify({
             walletAddress: connectedWallet,
