@@ -5321,7 +5321,22 @@
           }
         }
         console.log('Requesting signature from wallet...');
-        const signResult = await provider.signMessage(encodedMessage, 'utf8');
+        // Try different signMessage formats for different wallets
+        let signResult;
+        try {
+          // Backpack/Phantom format - just pass the bytes
+          signResult = await provider.signMessage(encodedMessage);
+        } catch (e1) {
+          console.log('First signMessage attempt failed:', e1.message);
+          try {
+            // Alternative format with display option
+            signResult = await provider.signMessage(encodedMessage, { display: 'utf8' });
+          } catch (e2) {
+            console.log('Second signMessage attempt failed:', e2.message);
+            // Last resort - try with utf8 string
+            signResult = await provider.signMessage(encodedMessage, 'utf8');
+          }
+        }
         console.log('Signature received:', signResult);
 
         // Convert signature to base58 - handle different wallet formats
