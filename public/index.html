@@ -1333,6 +1333,40 @@
       margin-top: 0.25rem;
     }
 
+    .alert-wallet-list {
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+    }
+
+    .alert-wallet-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .alert-wallet-item:last-child {
+      border-bottom: none;
+    }
+
+    .alert-wallet-item:hover {
+      background: var(--bg-primary);
+    }
+
+    .alert-wallet-item input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    .alert-wallet-item.all-wallets {
+      background: var(--accent-dim);
+      font-weight: 500;
+    }
+
     #alertModal .label-modal-content {
       border: 1px solid var(--accent);
     }
@@ -2160,10 +2194,8 @@
         </div>
 
         <div class="label-form-group" id="walletSelectGroup" style="display:none">
-          <label>Specific Wallet <span style="color:var(--text-secondary);font-weight:normal">(optional)</span></label>
-          <select class="label-form-input" id="alertWalletSelect" onchange="updateWalletSelection()">
-            <option value="">All wallets in portfolio</option>
-          </select>
+          <label>Select Wallets</label>
+          <div class="alert-wallet-list" id="alertWalletList"></div>
         </div>
 
         <div class="label-form-group">
@@ -5213,25 +5245,32 @@
       if (target) {
         notificationSection.style.display = 'block';
 
-        // If portfolio selected, show wallet dropdown
+        // If portfolio selected, show wallet checkboxes
         if (target.startsWith('label:')) {
           const labelId = parseInt(target.split(':')[1]);
           const label = userLabels.find(l => l.id === labelId);
-
+          
           if (label && (label.wallets || []).length > 0) {
-            let walletOptions = '<option value="">All wallets in portfolio</option>';
+            const walletList = document.getElementById('alertWalletList');
+            let html = `<label class="alert-wallet-item all-wallets">
+              <input type="checkbox" id="alertAllWallets" checked onchange="toggleAllWallets(this)">
+              <span>All wallets (${label.wallets.length})</span>
+            </label>`;
             for (const w of label.wallets) {
               const addr = w.address || w;
               const shortAddr = addr.slice(0, 4) + '...' + addr.slice(-4);
               const name = w.name || shortAddr;
-              walletOptions += `<option value="${addr}">${name}</option>`;
+              html += `<label class="alert-wallet-item">
+                <input type="checkbox" class="alert-wallet-check" value="${addr}" checked onchange="updateWalletSelection()">
+                <span>${escapeHtml(name)}</span>
+              </label>`;
             }
-            walletSelect.innerHTML = walletOptions;
+            walletList.innerHTML = html;
             walletSelectGroup.style.display = 'block';
           } else {
             walletSelectGroup.style.display = 'none';
           }
-
+          
           portfolioOption.style.display = 'flex';
         } else {
           walletSelectGroup.style.display = 'none';
@@ -5244,17 +5283,33 @@
       }
     }
 
+    function toggleAllWallets(checkbox) {
+      const checks = document.querySelectorAll('.alert-wallet-check');
+      checks.forEach(c => c.checked = checkbox.checked);
+      updateWalletSelection();
+    }
+
     function updateWalletSelection() {
-      const walletSelect = document.getElementById('alertWalletSelect');
+      const checks = document.querySelectorAll('.alert-wallet-check');
+      const allCheck = document.getElementById('alertAllWallets');
       const portfolioOption = document.getElementById('portfolioChangeOption');
       const checkThreshold = document.getElementById('check-threshold');
-
-      // If specific wallet selected, hide portfolio change option
-      if (walletSelect.value) {
+      
+      const checkedCount = Array.from(checks).filter(c => c.checked).length;
+      const totalCount = checks.length;
+      
+      // Update "All wallets" checkbox state
+      if (allCheck) {
+        allCheck.checked = checkedCount === totalCount;
+        allCheck.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+      }
+      
+      // Show portfolio change only if all wallets selected
+      if (checkedCount === totalCount) {
+        portfolioOption.style.display = 'flex';
+      } else {
         portfolioOption.style.display = 'none';
         checkThreshold.classList.remove('checked');
-      } else {
-        portfolioOption.style.display = 'flex';
       }
     }
 
@@ -5264,7 +5319,6 @@
       const telegramInput = document.getElementById('telegramUsername');
 
       const target = targetSelect.value;
-      const specificWallet = document.getElementById('alertWalletSelect').value;
       const telegram = telegramInput.value.trim().replace('@', '');
 
       // Check which types are selected
@@ -5290,59 +5344,82 @@
       // Save telegram username for next time
       localStorage.setItem('telegramUsername', '@' + telegram);
 
-      // Determine actual target - if specific wallet selected, use that instead of portfolio
-      let targetType, targetId;
-      if (specificWallet) {
-        targetType = 'wallet';
-        targetId = specificWallet;
-      } else {
-        [targetType, targetId] = target.split(':');
+      // Determine actual targets - check which wallets are selected
+      const [baseType, baseId] = target.split(':');
+      const selectedWallets = [];
+      
+      if (baseType === 'label') {
+        const checks = document.querySelectorAll('.alert-wallet-check:checked');
+        checks.forEach(c => selectedWallets.push(c.value));
       }
+      
+      // If all wallets selected in portfolio, treat as portfolio alert
+      const label = userLabels.find(l => l.id === parseInt(baseId));
+      const allSelected = label && selectedWallets.length === (label.wallets || []).length;
 
       const alertTypes = [];
       if (activityChecked) alertTypes.push({ type: 'any_tx' });
       if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: thresholdPercent });
 
-      // Check for duplicates
-      const existingKey = targetType === 'label' ? `label:${targetId}` : `wallet:${targetId}`;
-      for (const alertToCreate of alertTypes) {
-        const isDuplicate = userAlerts.some(existing => {
-          const existingTargetKey = existing.label_id ? `label:${existing.label_id}` : `wallet:${existing.target_wallet}`;
-          return existingTargetKey === existingKey && existing.alert_type === alertToCreate.type;
-        });
-        if (isDuplicate) {
-          statusEl.innerHTML = `<span style="color:var(--warning)">Alert already exists</span>`;
-          return;
-        }
+      // Validate wallet selection for portfolios
+      if (baseType === 'label' && selectedWallets.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one wallet</span>';
+        return;
       }
 
       statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
 
       try {
-        for (const alert of alertTypes) {
-          const payload = {
-            owner_wallet: connectedWallet,
-            telegram_username: telegram,
-            alert_type: alert.type,
-            threshold_percent: alert.threshold_percent || 5.00
-          };
-
-          if (targetType === 'label') {
-            payload.label_id = parseInt(targetId);
-          } else {
-            payload.target_wallet = targetId;
+        // If portfolio with all wallets, create one portfolio alert
+        // Otherwise create individual wallet alerts
+        if (baseType === 'label' && allSelected) {
+          for (const alert of alertTypes) {
+            const payload = {
+              owner_wallet: connectedWallet,
+              telegram_username: telegram,
+              alert_type: alert.type,
+              threshold_percent: alert.threshold_percent || 5.00,
+              label_id: parseInt(baseId)
+            };
+            await fetch('/api/alerts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
           }
-
-          const res = await fetch('/api/alerts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          const data = await res.json();
-          if (data.error) {
-            statusEl.innerHTML = `<span style="color:var(--negative)">${data.error}</span>`;
-            return;
+        } else if (baseType === 'label') {
+          // Create alerts for selected wallets only
+          for (const wallet of selectedWallets) {
+            for (const alert of alertTypes) {
+              const payload = {
+                owner_wallet: connectedWallet,
+                telegram_username: telegram,
+                alert_type: alert.type,
+                threshold_percent: alert.threshold_percent || 5.00,
+                target_wallet: wallet
+              };
+              await fetch('/api/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+            }
+          }
+        } else {
+          // Single wallet alert
+          for (const alert of alertTypes) {
+            const payload = {
+              owner_wallet: connectedWallet,
+              telegram_username: telegram,
+              alert_type: alert.type,
+              threshold_percent: alert.threshold_percent || 5.00,
+              target_wallet: baseId
+            };
+            await fetch('/api/alerts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
           }
         }
 
