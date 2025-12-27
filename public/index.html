@@ -1309,14 +1309,21 @@
       margin-top: 0.25rem;
     }
 
-    .threshold-badge {
-      display: inline-block;
-      background: var(--accent);
-      color: var(--bg-primary);
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      margin-left: 0.25rem;
+    .portfolio-change-box {
+      flex-direction: column;
+      align-items: stretch !important;
+    }
+
+    .portfolio-change-box .alert-type-label strong {
+      color: var(--accent);
+    }
+
+    .inline-slider {
+      width: 100%;
+    }
+
+    .inline-slider .threshold-slider {
+      margin-top: 0.25rem;
     }
 
     #alertModal .label-modal-content {
@@ -2160,21 +2167,23 @@
             onclick="document.getElementById('check-activity').classList.toggle('checked')">
             <div class="alert-type-label">
               <strong>Wallet Activity</strong>
-              <span>Alert on any incoming or outgoing transaction</span>
+              <span>Alert on any transaction</span>
             </div>
             <div class="alert-checkbox checked" id="check-activity">✓</div>
           </div>
-          <div class="alert-type-option" id="portfolioChangeOption" onclick="toggleThresholdAlert()">
-            <div class="alert-type-label">
-              <strong>Portfolio Change <span class="threshold-badge" id="threshold-val">5</span>%</strong>
-              <span>Notify on value swing</span>
+          <div class="alert-type-option portfolio-change-box" id="portfolioChangeOption">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
+              <div class="alert-type-label" onclick="toggleThresholdAlert()">
+                <strong>Portfolio Change ±<span id="threshold-val">5</span>%</strong>
+                <span>Notify on value swing</span>
+              </div>
+              <div class="alert-checkbox" id="check-threshold" onclick="toggleThresholdAlert()">✓</div>
             </div>
-            <div class="alert-checkbox" id="check-threshold">✓</div>
-          </div>
-          <div class="threshold-slider-container" id="thresholdSlider">
-            <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
-              oninput="document.getElementById('threshold-val').textContent = this.value">
-            <div class="threshold-labels"><span>1%</span><span>25%</span></div>
+            <div class="inline-slider" id="thresholdSlider" style="margin-top:0.5rem">
+              <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
+                oninput="document.getElementById('threshold-val').textContent = this.value">
+              <div class="threshold-labels"><span>1%</span><span>25%</span></div>
+            </div>
           </div>
         </div>
 
@@ -5169,9 +5178,8 @@
       document.getElementById('thresholdRange').value = 5;
       document.getElementById('threshold-val').textContent = '5';
 
-      // Hide portfolio change option and slider until a portfolio is selected
+      // Hide portfolio change option until a portfolio is selected
       document.getElementById('portfolioChangeOption').style.display = 'none';
-      document.getElementById('thresholdSlider').style.display = 'none';
 
       document.getElementById('alertModalStatus').textContent = '';
       modal.classList.add('active');
@@ -5188,16 +5196,13 @@
     function updateAlertTargetOptions() {
       const target = document.getElementById('alertTargetSelect').value;
       const portfolioOption = document.getElementById('portfolioChangeOption');
-      const thresholdSlider = document.getElementById('thresholdSlider');
       const checkThreshold = document.getElementById('check-threshold');
 
       // Only show portfolio change option for portfolios (label:xxx), not individual wallets
       if (target && target.startsWith('label:')) {
         portfolioOption.style.display = 'flex';
-        thresholdSlider.style.display = 'block';
       } else {
         portfolioOption.style.display = 'none';
-        thresholdSlider.style.display = 'none';
         // Uncheck threshold if switching away from portfolio
         checkThreshold.classList.remove('checked');
       }
