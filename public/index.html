@@ -2046,6 +2046,15 @@
 
     let paymentConfig = { wallet: '', amount: 1, originalAmount: 3, token: 'USDC', tokenMint: '', tokenDecimals: 6, durationDays: 30 };
 
+    // Helper to add connected wallet header to fetch requests
+    function getAuthHeaders(extraHeaders = {}) {
+      const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+      if (connectedWallet) {
+        headers['x-connected-wallet'] = connectedWallet;
+      }
+      return headers;
+    }
+
     // Pagination state
     const ITEMS_PER_PAGE = 10;
     let tokenPage = 0;
@@ -2988,7 +2997,7 @@
       try {
         const fastRes = await fetch('/api/portfolio/aggregate/fast', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
         const data = await fastRes.json();
@@ -3145,7 +3154,7 @@
         // STEP 1: Fast load (tokens + DeFi, no P&L) - ~3-5 seconds
         const fastRes = await fetch('/api/portfolio/aggregate/fast', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
         const data = await fastRes.json();
@@ -3221,7 +3230,7 @@
       try {
         const pnlRes = await fetch('/api/portfolio/pnl', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
         const pnlData = await pnlRes.json();
@@ -3261,7 +3270,7 @@
       try {
         const dialectRes = await fetch('/api/portfolio/dialect', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
         const dialectData = await dialectRes.json();

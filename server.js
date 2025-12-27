@@ -53,6 +53,12 @@ const metrics = {
     byEndpoint: {},
   },
 
+  // Rate limiting stats
+  rateLimited: {
+    connected: 0,
+    unconnected: 0,
+  },
+
   // Unique wallets seen
   uniqueWallets: new Set(),
 };
@@ -110,14 +116,54 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for inline scripts
 }));
 
-// Rate limiting: 60 requests per minute per IP
-app.use('/api/', rateLimit({
+// Rate limiting: Connected users get 60/min, unconnected get 6/min (1 per 10s)
+// Check if user is connected via x-connected-wallet header or wallet in URL/body
+function isConnectedUser(req) {
+  // Check header first
+  if (req.headers['x-connected-wallet']) return true;
+  // Check URL params for wallet
+  if (req.params?.wallet && req.params.wallet.length >= 32) return true;
+  // Check body for owner_wallet (for label endpoints)
+  if (req.body?.owner_wallet) return true;
+  // Check query for wallets
+  if (req.query?.wallets) return true;
+  return false;
+}
+
+// Rate limiter for connected users: 60 requests per minute
+const connectedLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
   message: { success: false, message: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-}));
+  handler: (req, res) => {
+    metrics.rateLimited.connected++;
+    res.status(429).json({ success: false, message: 'Too many requests, please try again later' });
+  },
+});
+
+// Rate limiter for unconnected users: 6 requests per minute (1 per 10s)
+const unconnectedLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  message: { success: false, message: 'Too many requests. Connect a wallet for higher limits.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    metrics.rateLimited.unconnected++;
+    res.status(429).json({ success: false, message: 'Too many requests. Connect a wallet for higher limits.' });
+  },
+});
+
+// Dynamic rate limiter middleware
+app.use('/api/', (req, res, next) => {
+  if (isConnectedUser(req)) {
+    return connectedLimiter(req, res, next);
+  } else {
+    return unconnectedLimiter(req, res, next);
+  }
+});
 
 app.use(express.json());
 app.use(express.static(join(__dirname, 'public'), {
@@ -1651,6 +1697,12 @@ app.get('/api/metrics', (req, res) => {
     externalAPIs: apiStats,
 
     uniqueWalletsTracked: metrics.uniqueWallets.size,
+
+    rateLimited: {
+      connected: metrics.rateLimited.connected,
+      unconnected: metrics.rateLimited.unconnected,
+      total: metrics.rateLimited.connected + metrics.rateLimited.unconnected,
+    },
 
     requests: metrics.requests,
   });
