@@ -5275,16 +5275,14 @@
         const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${connectedWallet}`);
         const checkData = await checkRes.json();
         console.log('Dialect check result:', checkData);
-        
+
         if (checkData.subscribed) {
           localStorage.setItem(subscriptionKey, 'true');
           console.log('Already subscribed to Dialect');
           return true;
         }
 
-        // Need to subscribe - alert user
-        alert('Please sign the message to enable Telegram notifications (one-time only)');
-
+        // Need to subscribe - get message and trigger wallet sign directly
         // Step 1: Prepare auth message from Dialect
         console.log('Preparing Dialect auth...');
         const prepareRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/prepare', {
@@ -5299,7 +5297,6 @@
         if (!prepareRes.ok) {
           const err = await prepareRes.text();
           console.error('Dialect prepare error:', err);
-          alert('Could not connect to notification service. Please try again.');
           return false;
         }
 
@@ -5310,7 +5307,6 @@
         const encodedMessage = new TextEncoder().encode(message);
         if (!connectedProvider) {
           console.error('No wallet provider connected');
-          alert('Wallet not connected. Please reconnect and try again.');
           return false;
         }
         console.log('Requesting signature from wallet...');
@@ -5338,7 +5334,6 @@
         if (!verifyRes.ok) {
           const err = await verifyRes.text();
           console.error('Dialect verify error:', err);
-          alert('Signature verification failed. Please try again.');
           return false;
         }
 
@@ -5361,7 +5356,6 @@
         if (subscribeRes.ok || subscribeRes.status === 201) {
           console.log('✓ Subscribed to Dialect');
           localStorage.setItem(subscriptionKey, 'true');
-          alert('Notifications enabled! You can now create alerts.');
           return true;
         } else {
           const err = await subscribeRes.text();
@@ -5372,11 +5366,6 @@
         }
       } catch (error) {
         console.error('Dialect subscription error:', error.message);
-        if (error.message.includes('rejected') || error.message.includes('User rejected')) {
-          alert('Signature rejected. Please sign to enable notifications.');
-          return false;
-        }
-        alert('Error setting up notifications: ' + error.message);
         return false;
       }
     }
