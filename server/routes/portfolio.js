@@ -171,6 +171,81 @@ router.get('/fast/:wallet', async (req, res) => {
     }
 });
 
+// Fast aggregate (no P&L, no Dialect)
+router.post('/aggregate/fast', async (req, res) => {
+    try {
+        const { wallets: inputWallets } = req.body;
+        if (!inputWallets?.length) {
+            return res.status(400).json({ error: 'wallets array required' });
+        }
+
+        metrics.requests.total++;
+        metrics.requests.byEndpoint['/api/portfolio/aggregate/fast'] = (metrics.requests.byEndpoint['/api/portfolio/aggregate/fast'] || 0) + 1;
+
+        const wallets = await Promise.all(inputWallets.map(w => resolveSNS(w)));
+        wallets.forEach(w => metrics.uniqueWallets.add(w));
+
+        const portfolios = await Promise.all(
+            wallets.map(async (wallet) => {
+                try {
+                    const [holdings, defi] = await Promise.all([
+                        getHoldings(wallet),
+                        getDefiPositionsFast(wallet),
+                    ]);
+                    return { wallet, holdings, defi };
+                } catch (e) {
+                    return { wallet, error: e.message };
+                }
+            })
+        );
+
+        let totalNetWorth = 0;
+        let totalTokens = 0;
+        let defiDeposits = 0;
+        let defiBorrows = 0;
+
+        const allTokens = [];
+        const allDefiPositions = [];
+
+        for (const p of portfolios) {
+            if (p.error || !p.holdings) continue;
+
+            const walletShort = `${p.wallet.slice(0, 4)}...${p.wallet.slice(-4)}`;
+            const walletTokens = p.holdings.tokens || [];
+            const walletDefi = p.defi || { positions: [], totalDeposits: 0, totalBorrows: 0 };
+
+            totalTokens += p.holdings.totalValue || 0;
+            defiDeposits += walletDefi.totalDeposits;
+            defiBorrows += walletDefi.totalBorrows;
+
+            for (const t of walletTokens) {
+                allTokens.push({ ...t, wallet: p.wallet, walletShort });
+            }
+            for (const d of walletDefi.positions) {
+                allDefiPositions.push({ ...d, wallet: p.wallet, walletShort });
+            }
+        }
+
+        totalNetWorth = totalTokens + defiDeposits - defiBorrows;
+
+        res.json({
+            wallet: 'aggregate',
+            summary: {
+                totalNetWorth,
+                totalAssets: totalTokens + defiDeposits,
+                totalTokens,
+                defiDeposits,
+                defiBorrows,
+            },
+            tokens: allTokens.sort((a, b) => b.value - a.value),
+            defiPositions: allDefiPositions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+        });
+    } catch (error) {
+        console.error('Fast aggregate error:', error);
+        res.status(500).json({ error: 'Failed to fetch portfolio' });
+    }
+});
+
 // Get P&L for tokens
 router.post('/pnl', async (req, res) => {
     try {
