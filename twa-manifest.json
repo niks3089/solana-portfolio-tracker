@@ -1,0 +1,23 @@
+{
+  "packageId": "run.saul.portfolio",
+  "host": "saul.run",
+  "name": "Solana Portfolio",
+  "launcherName": "Portfolio",
+  "display": "standalone",
+  "themeColor": "#00d4aa",
+  "navigationColor": "#0a0a0f",
+  "backgroundColor": "#0a0a0f",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://saul.run/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./portfolio-key.keystore",
+    "alias": "portfolio"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://saul.run/manifest.json"
+}
