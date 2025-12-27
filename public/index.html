@@ -2159,6 +2159,13 @@
           </select>
         </div>
 
+        <div class="label-form-group" id="walletSelectGroup" style="display:none">
+          <label>Specific Wallet <span style="color:var(--text-secondary);font-weight:normal">(optional)</span></label>
+          <select class="label-form-input" id="alertWalletSelect" onchange="updateWalletSelection()">
+            <option value="">All wallets in portfolio</option>
+          </select>
+        </div>
+
         <div class="label-form-group">
           <label>Telegram Username</label>
           <input type="text" class="label-form-input" id="telegramUsername" placeholder="@username">
@@ -5154,22 +5161,24 @@
       titleEl.textContent = 'Create Alert';
       telegramInput.value = localStorage.getItem('telegramUsername') || '';
 
-      // Populate target options - keep it simple
-      let options = '<option value="">Select wallet or portfolio...</option>';
+      // Populate target options - clean list
+      let options = '<option value="">Select...</option>';
 
-      // Add connected wallet first
+      // Add connected wallet
       if (connectedWallet) {
-        const shortAddr = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
-        options += `<option value="wallet:${connectedWallet}">🔗 ${shortAddr} (connected)</option>`;
+        const shortAddr = connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4);
+        options += `<option value="wallet:${connectedWallet}">${shortAddr}</option>`;
       }
 
       // Add portfolios
       for (const label of userLabels) {
-        const count = (label.wallets || []).length;
-        options += `<option value="label:${label.id}">📁 ${escapeHtml(label.name)} (${count} wallet${count !== 1 ? 's' : ''})</option>`;
+        options += `<option value="label:${label.id}">${escapeHtml(label.name)}</option>`;
       }
 
       targetSelect.innerHTML = options;
+
+      // Hide wallet select
+      document.getElementById('walletSelectGroup').style.display = 'none';
 
       // Reset checkboxes - activity checked by default
       document.getElementById('check-activity').classList.add('checked');
@@ -5197,21 +5206,55 @@
       const notificationSection = document.getElementById('notificationTypeSection');
       const portfolioOption = document.getElementById('portfolioChangeOption');
       const checkThreshold = document.getElementById('check-threshold');
+      const walletSelectGroup = document.getElementById('walletSelectGroup');
+      const walletSelect = document.getElementById('alertWalletSelect');
 
       // Show notification type section only after target is selected
       if (target) {
         notificationSection.style.display = 'block';
 
-        // Only show portfolio change option for entire portfolios (label:xxx)
-        // Individual wallets within portfolios (portfolio-wallet:xxx) are treated as wallets
+        // If portfolio selected, show wallet dropdown
         if (target.startsWith('label:')) {
+          const labelId = parseInt(target.split(':')[1]);
+          const label = userLabels.find(l => l.id === labelId);
+
+          if (label && (label.wallets || []).length > 0) {
+            let walletOptions = '<option value="">All wallets in portfolio</option>';
+            for (const w of label.wallets) {
+              const addr = w.address || w;
+              const shortAddr = addr.slice(0, 4) + '...' + addr.slice(-4);
+              const name = w.name || shortAddr;
+              walletOptions += `<option value="${addr}">${name}</option>`;
+            }
+            walletSelect.innerHTML = walletOptions;
+            walletSelectGroup.style.display = 'block';
+          } else {
+            walletSelectGroup.style.display = 'none';
+          }
+
           portfolioOption.style.display = 'flex';
         } else {
+          walletSelectGroup.style.display = 'none';
           portfolioOption.style.display = 'none';
           checkThreshold.classList.remove('checked');
         }
       } else {
         notificationSection.style.display = 'none';
+        walletSelectGroup.style.display = 'none';
+      }
+    }
+
+    function updateWalletSelection() {
+      const walletSelect = document.getElementById('alertWalletSelect');
+      const portfolioOption = document.getElementById('portfolioChangeOption');
+      const checkThreshold = document.getElementById('check-threshold');
+
+      // If specific wallet selected, hide portfolio change option
+      if (walletSelect.value) {
+        portfolioOption.style.display = 'none';
+        checkThreshold.classList.remove('checked');
+      } else {
+        portfolioOption.style.display = 'flex';
       }
     }
 
@@ -5221,6 +5264,7 @@
       const telegramInput = document.getElementById('telegramUsername');
 
       const target = targetSelect.value;
+      const specificWallet = document.getElementById('alertWalletSelect').value;
       const telegram = telegramInput.value.trim().replace('@', '');
 
       // Check which types are selected
@@ -5246,7 +5290,15 @@
       // Save telegram username for next time
       localStorage.setItem('telegramUsername', '@' + telegram);
 
-      const [targetType, targetId] = target.split(':');
+      // Determine actual target - if specific wallet selected, use that instead of portfolio
+      let targetType, targetId;
+      if (specificWallet) {
+        targetType = 'wallet';
+        targetId = specificWallet;
+      } else {
+        [targetType, targetId] = target.split(':');
+      }
+
       const alertTypes = [];
       if (activityChecked) alertTypes.push({ type: 'any_tx' });
       if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: thresholdPercent });
