@@ -3719,7 +3719,7 @@
         ctx.stroke();
       }
 
-      // Draw Y-axis labels - skip duplicates when range is tiny
+      // Draw Y-axis labels - skip duplicates, always use K format
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '10px system-ui';
       ctx.textAlign = 'right';
@@ -3729,15 +3729,8 @@
       for (let i = 0; i <= 3; i++) {
         const y = padding.top + (chartHeight / 3) * i;
         const val = yMax - (yRange / 3) * i;
-        // Format label
-        let label;
-        if (yRange < 100) {
-          label = '$' + val.toFixed(2);
-        } else if (yRange < 1000) {
-          label = '$' + val.toFixed(0);
-        } else {
-          label = fmtUsd(val);
-        }
+        // Always use fmtUsd format (e.g. $25.7K)
+        const label = fmtUsd(val);
         // Skip if we already showed this label (prevents duplicates)
         if (!shownLabels.has(label)) {
           ctx.fillText(label, padding.left - 8, y);
