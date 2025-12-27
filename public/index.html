@@ -1480,16 +1480,6 @@
       background: var(--accent-dim);
     }
 
-    .alert-bell.has-alerts::after {
-      content: '';
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 50%;
-    }
 
     .alert-dropdown {
       display: none;
@@ -2091,11 +2081,7 @@
                 <span class="alert-dropdown-title">Alerts</span>
                 <span class="alert-dropdown-add" onclick="showAlertModal()">+ Add</span>
               </div>
-              <div class="alert-dropdown-list" id="alertDropdownList">
-                <div class="alert-dropdown-empty">
-                  No alerts yet.<br><a onclick="showAlertModal()">Create your first alert</a>
-                </div>
-              </div>
+              <div class="alert-dropdown-list" id="alertDropdownList"></div>
             </div>
           </div>
         </div>
@@ -2160,10 +2146,10 @@
             </div>
             <div class="alert-checkbox checked" id="check-activity">✓</div>
           </div>
-          <div class="alert-type-option" onclick="toggleThresholdAlert()">
+          <div class="alert-type-option" id="portfolioChangeOption" onclick="toggleThresholdAlert()">
             <div class="alert-type-label">
               <strong>Portfolio Change</strong>
-              <span>Alert when value changes by <strong id="threshold-val">5</strong>%</span>
+              <span>Alert when value changes by <strong id="threshold-val">5</strong>% or more</span>
             </div>
             <div class="alert-checkbox" id="check-threshold">✓</div>
           </div>
@@ -2178,6 +2164,21 @@
         <div class="label-modal-actions">
           <button class="btn" onclick="closeAlertModal()">Cancel</button>
           <button class="btn btn-accent" onclick="saveAlert()">Enable Alert</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Alert Modal -->
+    <div class="label-modal" id="deleteAlertModal">
+      <div class="label-modal-content" style="max-width:320px">
+        <div class="label-modal-header">
+          <h3>Delete Alert</h3>
+          <span class="label-modal-close" onclick="closeDeleteAlertModal()">&times;</span>
+        </div>
+        <p style="color:var(--text-secondary);margin:1rem 0">Are you sure you want to delete this alert?</p>
+        <div class="label-modal-actions">
+          <button class="btn" onclick="closeDeleteAlertModal()">Cancel</button>
+          <button class="btn btn-danger" onclick="confirmDeleteAlert()">Delete</button>
         </div>
       </div>
     </div>
@@ -5066,19 +5067,9 @@
 
       bellEl.style.display = 'block';
 
-      // Update bell indicator
-      if (userAlerts.length > 0) {
-        bell.classList.add('has-alerts');
-      } else {
-        bell.classList.remove('has-alerts');
-      }
 
       if (userAlerts.length === 0) {
-        container.innerHTML = `
-          <div class="alert-dropdown-empty">
-            No alerts yet.<br><a onclick="showAlertModal()">Create your first alert</a>
-          </div>
-        `;
+        container.innerHTML = '';
         return;
       }
 
@@ -5159,6 +5150,9 @@
       document.getElementById('check-threshold').classList.remove('checked');
       document.getElementById('thresholdRange').value = 5;
       document.getElementById('threshold-val').textContent = '5';
+      
+      // Hide portfolio change option until a portfolio is selected
+      document.getElementById('portfolioChangeOption').style.display = 'none';
 
       document.getElementById('alertModalStatus').textContent = '';
       modal.classList.add('active');
@@ -5173,7 +5167,19 @@
     }
 
     function updateAlertTargetOptions() {
-      // Could add dynamic behavior here if needed
+      const target = document.getElementById('alertTargetSelect').value;
+      const portfolioOption = document.getElementById('portfolioChangeOption');
+      const thresholdSlider = document.getElementById('thresholdSlider');
+      const checkThreshold = document.getElementById('check-threshold');
+      
+      // Only show portfolio change option for portfolios (label:xxx), not individual wallets
+      if (target && target.startsWith('label:')) {
+        portfolioOption.style.display = 'flex';
+      } else {
+        portfolioOption.style.display = 'none';
+        // Uncheck threshold if switching away from portfolio
+        checkThreshold.classList.remove('checked');
+      }
     }
 
     async function saveAlert() {
@@ -5279,11 +5285,22 @@
       }
     }
 
-    async function deleteAlert(alertId) {
-      if (!confirm('Delete this alert?')) return;
+    let pendingDeleteAlertId = null;
 
+    function deleteAlert(alertId) {
+      pendingDeleteAlertId = alertId;
+      document.getElementById('deleteAlertModal').classList.add('active');
+    }
+
+    function closeDeleteAlertModal() {
+      document.getElementById('deleteAlertModal').classList.remove('active');
+      pendingDeleteAlertId = null;
+    }
+
+    async function confirmDeleteAlert() {
+      if (!pendingDeleteAlertId) return;
       try {
-        await fetch('/api/alerts/' + alertId, {
+        await fetch('/api/alerts/' + pendingDeleteAlertId, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ owner_wallet: connectedWallet })
@@ -5292,6 +5309,7 @@
       } catch (e) {
         console.error('Delete alert error:', e);
       }
+      closeDeleteAlertModal();
     }
 
     // ============================================================================
