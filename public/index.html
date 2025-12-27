@@ -2920,6 +2920,7 @@
         renderDefiPage();
 
         // Load portfolio tracking chart (our daily snapshots)
+        console.log('About to call loadTrackingChart with:', labelId, p.totalNetWorth);
         loadTrackingChart(labelId, p.totalNetWorth);
 
         // Also load the Birdeye growth chart for the portfolio wallets
@@ -3565,8 +3566,10 @@
         return;
       }
 
-      const label = userLabels.find(l => l.id === labelId);
-      console.log('Found label:', label);
+      // Ensure labelId is a number for comparison
+      const numLabelId = parseInt(labelId);
+      const label = userLabels.find(l => l.id === numLabelId || l.id === labelId);
+      console.log('Found label:', label, 'userLabels:', userLabels);
       if (!label) {
         trackingSection.style.display = 'none';
         return;
@@ -3576,6 +3579,7 @@
         // Fetch snapshot history from our database
         const res = await fetch('/api/labels/' + labelId + '/history?days=90');
         const data = await res.json();
+        console.log('History API response:', data);
 
         let history = data.history || [];
 
@@ -3596,13 +3600,19 @@
           }
         }
 
+        // Helper to get UTC date string for comparison
+        const getUTCDateStr = (d) => d.toISOString().split('T')[0];
+
         // If we only have 1 snapshot (or none), add the creation date as starting point
         if (chartData.length < 2) {
           const createdAt = label.created_at ? new Date(label.created_at) : new Date();
           const createdValue = chartData.length > 0 ? chartData[0].value : currentNetWorth;
 
-          // Only add if creation date is different from first snapshot
-          if (chartData.length === 0 || chartData[0].date.toDateString() !== createdAt.toDateString()) {
+          // Compare in UTC to avoid timezone issues
+          const firstSnapshotUTC = chartData.length > 0 ? getUTCDateStr(chartData[0].date) : null;
+          const createdAtUTC = getUTCDateStr(createdAt);
+
+          if (chartData.length === 0 || firstSnapshotUTC !== createdAtUTC) {
             chartData.unshift({
               date: createdAt,
               value: createdValue,
@@ -3613,9 +3623,10 @@
 
         // Always add current live value as the last point if different from last snapshot
         const today = new Date();
-        const lastSnapshotDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
+        const lastSnapshotUTC = chartData.length > 0 ? getUTCDateStr(chartData[chartData.length - 1].date) : null;
+        const todayUTC = getUTCDateStr(today);
 
-        if (!lastSnapshotDate || lastSnapshotDate.toDateString() !== today.toDateString()) {
+        if (!lastSnapshotUTC || lastSnapshotUTC !== todayUTC) {
           chartData.push({
             date: today,
             value: currentNetWorth || 0,
@@ -3639,7 +3650,13 @@
         document.getElementById('trackingTitle').textContent = label.name + ' Tracker';
 
         trackingSection.style.display = 'block';
-        renderTrackingChart(chartData);
+        console.log('Tracking section set to block, rendering chart...');
+        try {
+          renderTrackingChart(chartData);
+          console.log('Chart rendered successfully');
+        } catch (renderErr) {
+          console.error('Error rendering tracking chart:', renderErr);
+        }
 
       } catch (e) {
         console.error('Load tracking chart error:', e);
