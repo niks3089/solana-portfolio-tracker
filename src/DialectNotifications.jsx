@@ -47,22 +47,25 @@ const getWalletAdapter = () => {
 };
 
 const useCustomWalletAdapter = () => {
-    const [wallet, setWallet] = useState(() => getWalletAdapter());
+    const [wallet, setWallet] = useState(null);
 
     useEffect(() => {
-        // Check once on mount
-        setWallet(getWalletAdapter());
-
-        // Only check periodically if not connected yet
-        const interval = setInterval(() => {
+        // Check wallet status periodically
+        const checkWallet = () => {
             const newWallet = getWalletAdapter();
-            if (newWallet && !wallet) {
-                setWallet(newWallet);
-                clearInterval(interval); // Stop checking once connected
-            } else if (!newWallet && wallet) {
-                setWallet(null);
-            }
-        }, 2000);
+            setWallet(prev => {
+                // Only update if status actually changed
+                if (newWallet && !prev) return newWallet;
+                if (!newWallet && prev) return null;
+                return prev;
+            });
+        };
+
+        // Check immediately
+        checkWallet();
+
+        // Keep checking - need to detect both connect AND disconnect
+        const interval = setInterval(checkWallet, 1500);
 
         return () => clearInterval(interval);
     }, []);
