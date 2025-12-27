@@ -5245,32 +5245,44 @@
     const DIALECT_APP_ID = 'ffb32fc6-5e32-47ba-acdf-3c77ce999360';
     const DIALECT_CLIENT_KEY = 'pk_rjryqg4hkgb4tbxrhau62sdq';
 
-    async function subscribeToDialect(walletAddress, statusEl) {
+    async function ensureDialectSubscription(statusEl) {
+      if (!connectedWallet) return false;
+
+      // Check localStorage first (already subscribed before)
+      const subscriptionKey = `dialect_subscribed_${connectedWallet}`;
+      if (localStorage.getItem(subscriptionKey) === 'true') {
+        console.log('Already subscribed (cached)');
+        return true;
+      }
+
       try {
-        // Check if already subscribed
-        const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${walletAddress}`);
+        // Check backend if subscribed
+        const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${connectedWallet}`);
         const checkData = await checkRes.json();
         if (checkData.subscribed) {
+          localStorage.setItem(subscriptionKey, 'true');
           console.log('Already subscribed to Dialect');
           return true;
         }
 
-        statusEl.innerHTML = '<span class="loading-text">Sign to enable notifications...</span>';
+        // Need to subscribe - show sign prompt
+        statusEl.innerHTML = '<span class="loading-text">Sign to enable notifications (one-time)...</span>';
 
         // Get nonce from Dialect
-        const nonceRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/auth/nonce?walletAddress=${walletAddress}`, {
+        const nonceRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/auth/nonce?walletAddress=${connectedWallet}`, {
           headers: { 'X-Dialect-Client-Key': DIALECT_CLIENT_KEY }
         });
 
         if (!nonceRes.ok) {
-          console.log('Could not get Dialect nonce, continuing without subscription');
-          return false;
+          console.log('Could not get Dialect nonce');
+          // Allow creating alert anyway, notifications just won't work via Dialect
+          return true;
         }
 
         const { nonce } = await nonceRes.json();
 
         // Sign the nonce with user's wallet
-        const message = new TextEncoder().encode(`Sign to enable notifications\n\nNonce: ${nonce}`);
+        const message = new TextEncoder().encode(`Sign to enable Saul.run notifications\n\nNonce: ${nonce}`);
         const signature = await window.solana.signMessage(message, 'utf8');
         const signatureBase64 = btoa(String.fromCharCode(...signature.signature));
 
@@ -5283,22 +5295,29 @@
             'Authorization': `Bearer ${signatureBase64}`
           },
           body: JSON.stringify({
-            walletAddress: walletAddress,
+            walletAddress: connectedWallet,
             channels: { telegram: true, email: false, inApp: true }
           })
         });
 
-        if (subscribeRes.ok) {
+        if (subscribeRes.ok || subscribeRes.status === 201) {
           console.log('✓ Subscribed to Dialect');
+          localStorage.setItem(subscriptionKey, 'true');
           return true;
         } else {
           const err = await subscribeRes.text();
           console.log('Dialect subscription response:', err);
-          return false;
+          // Allow creating alert anyway
+          return true;
         }
       } catch (error) {
-        console.log('Dialect subscription skipped:', error.message);
-        return false;
+        console.log('Dialect subscription error:', error.message);
+        // If user rejected signature, don't proceed
+        if (error.message.includes('rejected') || error.message.includes('User rejected')) {
+          return false;
+        }
+        // For other errors, allow continuing
+        return true;
       }
     }
 
@@ -5439,10 +5458,11 @@
       statusEl.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
 
       try {
-        // Step 1: Subscribe to Dialect for notifications (requires wallet signature)
-        const walletsToSubscribe = baseType === 'label' ? selectedWallets : [baseId];
-        for (const wallet of walletsToSubscribe) {
-          await subscribeToDialect(wallet, statusEl);
+        // Step 1: Subscribe connected wallet to Dialect (one-time, requires signature)
+        const subscribed = await ensureDialectSubscription(statusEl);
+        if (!subscribed) {
+          statusEl.innerHTML = '<span style="color:var(--warning)">Please sign to enable notifications</span>';
+          return;
         }
 
         statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
