@@ -2922,8 +2922,11 @@
         // Load portfolio tracking chart (our daily snapshots)
         loadTrackingChart(labelId, p.totalNetWorth);
 
-        // Hide the Birdeye growth chart when viewing a portfolio
-        document.getElementById('growthSection').style.display = 'none';
+        // Also load the Birdeye growth chart for the portfolio wallets
+        const labelWalletAddrs = (label.wallets || []).map(w => w.address);
+        if (labelWalletAddrs.length > 0) {
+          loadGrowthChart(labelWalletAddrs);
+        }
 
       } catch (e) {
         console.error('Load portfolio error:', e);
@@ -3555,6 +3558,7 @@
     // ============================================================================
     async function loadTrackingChart(labelId, currentNetWorth) {
       const trackingSection = document.getElementById('trackingSection');
+      console.log('Loading tracking chart for label:', labelId, 'netWorth:', currentNetWorth);
 
       if (!labelId) {
         trackingSection.style.display = 'none';
@@ -3562,6 +3566,7 @@
       }
 
       const label = userLabels.find(l => l.id === labelId);
+      console.log('Found label:', label);
       if (!label) {
         trackingSection.style.display = 'none';
         return;
@@ -3623,7 +3628,9 @@
         }
 
         // Need at least 2 points to draw a chart
+        console.log('Chart data points:', chartData.length, chartData);
         if (chartData.length < 2) {
+          console.log('Not enough data points, hiding chart');
           trackingSection.style.display = 'none';
           return;
         }
