@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DialectSolanaSdk } from '@dialectlabs/react-sdk-blockchain-solana';
 import { NotificationsButton } from '@dialectlabs/react-ui';
@@ -8,32 +8,49 @@ const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 
 // Custom wallet adapter that uses the already-connected wallet
 const useCustomWalletAdapter = () => {
-    const [wallet, setWallet] = React.useState(null);
+    const [publicKey, setPublicKey] = useState(null);
+    const providerRef = useRef(null);
 
-    React.useEffect(() => {
-        // Check for connected wallet from parent window
+    useEffect(() => {
         const checkWallet = () => {
             const provider = window.backpack || window.phantom?.solana || window.solflare;
             if (provider?.isConnected && provider?.publicKey) {
-                setWallet({
-                    publicKey: provider.publicKey,
-                    signMessage: async (message) => {
-                        const result = await provider.signMessage(message);
-                        return result.signature || result;
-                    },
-                    signTransaction: async (tx) => provider.signTransaction(tx),
-                    signAllTransactions: async (txs) => provider.signAllTransactions?.(txs) || Promise.all(txs.map(tx => provider.signTransaction(tx))),
+                const newPubKey = provider.publicKey.toString();
+                // Only update if publicKey actually changed
+                setPublicKey(prev => {
+                    if (prev !== newPubKey) {
+                        providerRef.current = provider;
+                        return newPubKey;
+                    }
+                    return prev;
                 });
             } else {
-                setWallet(null);
+                setPublicKey(null);
+                providerRef.current = null;
             }
         };
 
         checkWallet();
-        // Re-check when wallet connects
-        const interval = setInterval(checkWallet, 1000);
+        const interval = setInterval(checkWallet, 2000);
         return () => clearInterval(interval);
     }, []);
+
+    // Memoize wallet adapter - only recreate when publicKey changes
+    const wallet = useMemo(() => {
+        if (!publicKey || !providerRef.current) return null;
+
+        const provider = providerRef.current;
+        return {
+            publicKey: provider.publicKey,
+            signMessage: async (message) => {
+                const result = await provider.signMessage(message);
+                return result.signature || result;
+            },
+            signTransaction: async (tx) => provider.signTransaction(tx),
+            signAllTransactions: async (txs) =>
+                provider.signAllTransactions?.(txs) || Promise.all(txs.map(tx => provider.signTransaction(tx))),
+        };
+    }, [publicKey]);
 
     return wallet;
 };
