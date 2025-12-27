@@ -5255,7 +5255,10 @@
     const DIALECT_CLIENT_KEY = 'pk_rjryqg4hkgb4tbxrhau62sdq';
 
     async function ensureDialectSubscription(statusEl) {
-      if (!connectedWallet) return false;
+      if (!connectedWallet) {
+        console.log('No wallet connected');
+        return false;
+      }
 
       // Check localStorage first (already subscribed before)
       const subscriptionKey = `dialect_subscribed_${connectedWallet}`;
@@ -5268,18 +5271,22 @@
 
       try {
         // Check backend if subscribed
+        console.log('Checking Dialect subscription status...');
         const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${connectedWallet}`);
         const checkData = await checkRes.json();
+        console.log('Dialect check result:', checkData);
+        
         if (checkData.subscribed) {
           localStorage.setItem(subscriptionKey, 'true');
           console.log('Already subscribed to Dialect');
           return true;
         }
 
-        // Need to subscribe - show sign prompt
-        statusEl.innerHTML = '<span class="loading-text">Sign to enable notifications (one-time)...</span>';
+        // Need to subscribe - alert user
+        alert('Please sign the message to enable Telegram notifications (one-time only)');
 
         // Step 1: Prepare auth message from Dialect
+        console.log('Preparing Dialect auth...');
         const prepareRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/prepare', {
           method: 'POST',
           headers: {
@@ -5291,8 +5298,9 @@
 
         if (!prepareRes.ok) {
           const err = await prepareRes.text();
-          console.log('Dialect prepare error:', err);
-          return true; // Continue anyway
+          console.error('Dialect prepare error:', err);
+          alert('Could not connect to notification service. Please try again.');
+          return false;
         }
 
         const { message } = await prepareRes.json();
@@ -5301,10 +5309,13 @@
         // Step 2: User signs the message using the connected wallet
         const encodedMessage = new TextEncoder().encode(message);
         if (!connectedProvider) {
-          console.log('No wallet provider connected');
-          return true;
+          console.error('No wallet provider connected');
+          alert('Wallet not connected. Please reconnect and try again.');
+          return false;
         }
+        console.log('Requesting signature from wallet...');
         const signResult = await connectedProvider.signMessage(encodedMessage, 'utf8');
+        console.log('Signature received');
 
         // Convert signature to base58
         const signatureBytes = signResult.signature;
@@ -5326,8 +5337,9 @@
 
         if (!verifyRes.ok) {
           const err = await verifyRes.text();
-          console.log('Dialect verify error:', err);
-          return true;
+          console.error('Dialect verify error:', err);
+          alert('Signature verification failed. Please try again.');
+          return false;
         }
 
         const { token } = await verifyRes.json();
@@ -5349,18 +5361,23 @@
         if (subscribeRes.ok || subscribeRes.status === 201) {
           console.log('✓ Subscribed to Dialect');
           localStorage.setItem(subscriptionKey, 'true');
+          alert('Notifications enabled! You can now create alerts.');
           return true;
         } else {
           const err = await subscribeRes.text();
-          console.log('Dialect subscribe response:', err);
+          console.error('Dialect subscribe error:', err);
+          // Still allow if we got the JWT - subscription might already exist
+          localStorage.setItem(subscriptionKey, 'true');
           return true;
         }
       } catch (error) {
-        console.log('Dialect subscription error:', error.message);
+        console.error('Dialect subscription error:', error.message);
         if (error.message.includes('rejected') || error.message.includes('User rejected')) {
+          alert('Signature rejected. Please sign to enable notifications.');
           return false;
         }
-        return true;
+        alert('Error setting up notifications: ' + error.message);
+        return false;
       }
     }
 
