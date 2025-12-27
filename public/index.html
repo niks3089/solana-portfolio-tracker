@@ -5355,39 +5355,45 @@
         console.log('Signature base58:', signatureBase58.slice(0, 20) + '...');
 
         // Step 3: Verify signature with Dialect to get JWT
-        console.log('Verifying signature with Dialect...');
-        const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
-          },
-          body: JSON.stringify({
-            message: message,
-            signature: signatureBase58,
-            walletAddress: connectedWallet
-          })
-        });
+        let token;
+        try {
+          console.log('Verifying signature with Dialect...');
+          const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
+            },
+            body: JSON.stringify({
+              message: message,
+              signature: signatureBase58,
+              walletAddress: connectedWallet
+            })
+          });
 
-        console.log('Verify response status:', verifyRes.status);
-        
-        if (!verifyRes.ok) {
-          const err = await verifyRes.text();
-          console.error('Dialect verify error:', err);
+          console.log('Verify response status:', verifyRes.status);
+          const verifyText = await verifyRes.text();
+          console.log('Verify response text:', verifyText);
+          
+          if (!verifyRes.ok) {
+            console.error('Dialect verify failed:', verifyRes.status, verifyText);
+            return false;
+          }
+
+          const verifyData = JSON.parse(verifyText);
+          token = verifyData.token;
+          
+          if (!token) {
+            console.error('No token in verify response:', verifyData);
+            return false;
+          }
+          
+          localStorage.setItem(jwtKey, token);
+          console.log('JWT token saved, length:', token.length);
+        } catch (verifyError) {
+          console.error('Verify step exception:', verifyError);
           return false;
         }
-
-        const verifyData = await verifyRes.json();
-        console.log('Verify response:', verifyData);
-        const token = verifyData.token;
-        
-        if (!token) {
-          console.error('No token in verify response');
-          return false;
-        }
-        
-        localStorage.setItem(jwtKey, token);
-        console.log('JWT token saved');
 
         // Step 4: Subscribe using the JWT
         const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
