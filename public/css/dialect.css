@@ -41,3 +41,61 @@
 .dialect label:has(input[type="checkbox"]) {
   display: none !important;
 }
+
+/* Rename Notifications to Alerts and style green */
+.dialect [class*="dt-text-h2"]:first-of-type {
+  font-size: 0 !important;
+}
+.dialect [class*="dt-text-h2"]:first-of-type::after {
+  content: "Alerts" !important;
+  font-size: 1.0625rem !important;
+  color: #00d4aa !important;
+}
+
+/* Hide email section */
+.dialect [class*="Email"],
+.dialect label[for*="email"],
+.dialect input[type="email"],
+.dialect input[placeholder*="email" i] {
+  display: none !important;
+}
+.dialect div:has(> input[placeholder*="email" i]) {
+  display: none !important;
+}
+
+/* Hide Manage button */
+.dialect [class*="Manage"],
+.dialect a[href*="manage"],
+.dialect button:has([class*="Manage"]) {
+  display: none !important;
+}
+
+/* Green accent theme */
+.dialect {
+  --dt-accent-brand: #00d4aa !important;
+  --dt-accent-success: #00d4aa !important;
+  --dt-input-checked: #00d4aa !important;
+  --dt-text-accent: #00d4aa !important;
+}
+
+/* Style Subscribe button green */
+.dialect button[class*="dt-bg-"][class*="button-secondary"] {
+  background-color: #00d4aa !important;
+  color: #0a0a0f !important;
+  border: none !important;
+}
+.dialect button[class*="dt-bg-"][class*="button-secondary"]:hover {
+  background-color: #00b894 !important;
+}
+
+/* Hide "Powered by Dialect" */
+.dialect [class*="Powered"],
+.dialect footer,
+.dialect [class*="dt-text-caption"]:has(a[href*="dialect"]) {
+  display: none !important;
+}
+
+/* Hide version info */
+.dialect [class*="beta"] {
+  display: none !important;
+}

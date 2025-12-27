@@ -12,7 +12,7 @@ let cachedPublicKey = null;
 
 const getWalletAdapter = () => {
     const provider = window.backpack || window.phantom?.solana || window.solflare;
-    
+
     if (!provider?.isConnected || !provider?.publicKey) {
         cachedWalletAdapter = null;
         cachedPublicKey = null;
@@ -20,7 +20,7 @@ const getWalletAdapter = () => {
     }
 
     const currentPubKey = provider.publicKey.toString();
-    
+
     // Return cached adapter if same wallet
     if (cachedWalletAdapter && cachedPublicKey === currentPubKey) {
         return cachedWalletAdapter;
@@ -70,6 +70,23 @@ const useCustomWalletAdapter = () => {
     return wallet;
 };
 
+// Custom green + button style
+const plusButtonStyle = {
+    width: '32px',
+    height: '32px',
+    borderRadius: '6px',
+    backgroundColor: '#00d4aa',
+    border: 'none',
+    color: '#0a0a0f',
+    fontSize: '20px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background-color 0.2s',
+};
+
 const DialectNotificationsInner = () => {
     const wallet = useCustomWalletAdapter();
 
@@ -90,11 +107,20 @@ const DialectNotificationsInner = () => {
                     theme="dark"
                     channels={['telegram']}
                     dialectId="dialect-notifications"
-                    notifications={[
-                        { name: 'Wallet Activity', detail: 'Get notified on wallet transactions' },
-                        { name: 'Portfolio Change', detail: 'Alert when portfolio value changes significantly' },
-                    ]}
-                />
+                >
+                    {({ setOpen, ref }) => (
+                        <button
+                            ref={ref}
+                            onClick={() => setOpen(true)}
+                            style={plusButtonStyle}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#00b894'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#00d4aa'}
+                            title="Alerts"
+                        >
+                            +
+                        </button>
+                    )}
+                </NotificationsButton>
             </DialectSolanaSdk>
         </div>
     );
