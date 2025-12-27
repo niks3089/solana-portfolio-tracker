@@ -1,61 +1,38 @@
 /**
- * SNS (.sol) Domain Resolution
+ * SNS (.sol) Domain Resolution using Bonfida SNS proxy
  */
 
-import { HELIUS_RPC } from '../config.js';
+// Cache resolved domains for 5 minutes
+const snsCache = new Map();
+const SNS_CACHE_TTL = 5 * 60 * 1000;
 
 export async function resolveSNS(domain) {
     if (!domain.endsWith('.sol')) {
         return domain; // Not a .sol domain, return as-is
     }
 
+    // Check cache first
+    const cached = snsCache.get(domain);
+    if (cached && Date.now() - cached.timestamp < SNS_CACHE_TTL) {
+        return cached.address;
+    }
+
+    const name = domain.replace('.sol', '');
+
     try {
-        const response = await fetch(HELIUS_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getAssetsByOwner',
-                params: {
-                    ownerAddress: domain,
-                    page: 1,
-                    limit: 1,
-                },
-            }),
+        const response = await fetch(`https://sns-sdk-proxy.bonfida.workers.dev/resolve/${name}`, {
+            headers: { 'Accept': 'application/json' },
         });
 
         const data = await response.json();
 
-        // If the domain resolved to assets, get the owner
-        if (data.result?.items?.length > 0) {
-            const ownerAddress = data.result.items[0].ownership?.owner;
-            if (ownerAddress) {
-                console.log(`✓ Resolved ${domain} → ${ownerAddress.slice(0, 8)}...`);
-                return ownerAddress;
-            }
+        if (data.s === 'ok' && data.result) {
+            console.log(`✓ Resolved ${domain} → ${data.result.slice(0, 8)}...`);
+            snsCache.set(domain, { address: data.result, timestamp: Date.now() });
+            return data.result;
         }
 
-        // Fallback: try SNS resolution via different method
-        const snsResponse = await fetch(HELIUS_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'resolveRecords',
-                params: {
-                    name: domain.replace('.sol', ''),
-                },
-            }),
-        });
-
-        const snsData = await snsResponse.json();
-        if (snsData.result?.owner) {
-            return snsData.result.owner;
-        }
-
-        console.warn(`Could not resolve ${domain}`);
+        console.warn(`Could not resolve ${domain}: ${data.s}`);
         return domain;
     } catch (error) {
         console.error(`SNS resolution error for ${domain}:`, error.message);
