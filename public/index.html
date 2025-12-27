@@ -5255,6 +5255,10 @@
     const DIALECT_CLIENT_KEY = 'pk_rjryqg4hkgb4tbxrhau62sdq';
 
     async function ensureDialectSubscription(statusEl) {
+      console.log('ensureDialectSubscription called');
+      console.log('connectedWallet:', connectedWallet);
+      console.log('connectedProvider:', connectedProvider);
+
       if (!connectedWallet) {
         console.log('No wallet connected');
         return false;
@@ -5305,12 +5309,19 @@
 
         // Step 2: User signs the message using the connected wallet
         const encodedMessage = new TextEncoder().encode(message);
-        if (!connectedProvider) {
-          console.error('No wallet provider connected');
-          return false;
+        // Get the provider - try to reconnect if needed
+        let provider = connectedProvider;
+        if (!provider) {
+          console.log('connectedProvider is null, trying to get wallet...');
+          // Try backpack first, then phantom, then solflare
+          provider = window.backpack || window.phantom?.solana || window.solflare;
+          if (!provider) {
+            console.error('No wallet provider found');
+            return false;
+          }
         }
-        console.log('Requesting signature from wallet...');
-        const signResult = await connectedProvider.signMessage(encodedMessage, 'utf8');
+        console.log('Requesting signature from wallet...', provider);
+        const signResult = await provider.signMessage(encodedMessage, 'utf8');
         console.log('Signature received');
 
         // Convert signature to base58
