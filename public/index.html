@@ -293,6 +293,15 @@
       color: var(--bg-primary);
     }
 
+    .tracking-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      background: var(--accent)22;
+      color: var(--accent);
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
     .growth-chart-container {
       padding: 1rem 1.5rem 1.5rem;
     }
@@ -1854,7 +1863,7 @@
       </div>
     </div>
 
-    <!-- Portfolio Growth Chart -->
+    <!-- Portfolio Growth Chart (Birdeye - individual wallets) -->
     <div class="section growth-section" id="growthSection" style="display: none;">
       <div class="section-header">
         Portfolio Growth
@@ -1877,6 +1886,31 @@
           <div class="growth-stat">
             <span class="growth-stat-label">Low</span>
             <span class="growth-stat-value" id="growthLow">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio Tracking Chart (Our snapshots - for portfolios/labels) -->
+    <div class="section growth-section" id="trackingSection" style="display: none;">
+      <div class="section-header">
+        <span id="trackingTitle">Portfolio Tracking</span>
+        <span class="tracking-badge">Daily Snapshots</span>
+      </div>
+      <div class="growth-chart-container">
+        <canvas id="trackingChart" width="800" height="200"></canvas>
+        <div class="growth-stats">
+          <div class="growth-stat">
+            <span class="growth-stat-label">Since Created</span>
+            <span class="growth-stat-value" id="trackingChange">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">Peak</span>
+            <span class="growth-stat-value" id="trackingPeak">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">Days Tracked</span>
+            <span class="growth-stat-value" id="trackingDays">—</span>
           </div>
         </div>
       </div>
@@ -2883,6 +2917,12 @@
         defiPage = 0;
         renderDefiPage();
 
+        // Load portfolio tracking chart (our daily snapshots)
+        loadTrackingChart(labelId, p.totalNetWorth);
+
+        // Hide the Birdeye growth chart when viewing a portfolio
+        document.getElementById('growthSection').style.display = 'none';
+
       } catch (e) {
         console.error('Load portfolio error:', e);
         document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">Error loading portfolio</div>';
@@ -3508,6 +3548,252 @@
       ctx.fill();
     }
 
+    // ============================================================================
+    // Portfolio Tracking Chart (Our daily snapshots for labels/portfolios)
+    // ============================================================================
+    async function loadTrackingChart(labelId, currentNetWorth) {
+      const trackingSection = document.getElementById('trackingSection');
+      
+      if (!labelId) {
+        trackingSection.style.display = 'none';
+        return;
+      }
+
+      const label = userLabels.find(l => l.id === labelId);
+      if (!label) {
+        trackingSection.style.display = 'none';
+        return;
+      }
+
+      try {
+        // Fetch snapshot history from our database
+        const res = await fetch('/api/labels/' + labelId + '/history?days=90');
+        const data = await res.json();
+        
+        let history = data.history || [];
+        
+        // Build chart data points
+        let chartData = [];
+        
+        // If we have snapshots, use them
+        if (history.length > 0) {
+          // Sort by date ascending
+          history = history.sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
+          
+          for (const snap of history) {
+            chartData.push({
+              date: new Date(snap.snapshot_date),
+              value: parseFloat(snap.total_net_worth) || 0,
+              label: new Date(snap.snapshot_date).toLocaleDateString()
+            });
+          }
+        }
+        
+        // If we only have 1 snapshot (or none), add the creation date as starting point
+        if (chartData.length < 2) {
+          const createdAt = label.created_at ? new Date(label.created_at) : new Date();
+          const createdValue = chartData.length > 0 ? chartData[0].value : currentNetWorth;
+          
+          // Only add if creation date is different from first snapshot
+          if (chartData.length === 0 || chartData[0].date.toDateString() !== createdAt.toDateString()) {
+            chartData.unshift({
+              date: createdAt,
+              value: createdValue,
+              label: 'Created'
+            });
+          }
+        }
+        
+        // Always add current live value as the last point if different from last snapshot
+        const today = new Date();
+        const lastSnapshotDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
+        
+        if (!lastSnapshotDate || lastSnapshotDate.toDateString() !== today.toDateString()) {
+          chartData.push({
+            date: today,
+            value: currentNetWorth || 0,
+            label: 'Now'
+          });
+        } else {
+          // Update last point with current live value
+          chartData[chartData.length - 1].value = currentNetWorth || 0;
+          chartData[chartData.length - 1].label = 'Now';
+        }
+
+        // Need at least 2 points to draw a chart
+        if (chartData.length < 2) {
+          trackingSection.style.display = 'none';
+          return;
+        }
+
+        // Update title with portfolio name
+        document.getElementById('trackingTitle').textContent = label.name + ' Tracking';
+        
+        trackingSection.style.display = 'block';
+        renderTrackingChart(chartData);
+        
+      } catch (e) {
+        console.error('Load tracking chart error:', e);
+        trackingSection.style.display = 'none';
+      }
+    }
+
+    function renderTrackingChart(chartData) {
+      const canvas = document.getElementById('trackingChart');
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas size for retina
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const width = rect.width;
+      const height = rect.height;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Extract values
+      const values = chartData.map(d => d.value);
+      const high = Math.max(...values);
+      const low = Math.min(...values);
+      const startValue = chartData[0].value;
+      const currentValue = chartData[chartData.length - 1].value;
+      const change = currentValue - startValue;
+      const changePercent = startValue > 0 ? (change / startValue) * 100 : 0;
+      const daysTracked = chartData.length;
+
+      // Update stats display
+      const changeEl = document.getElementById('trackingChange');
+      changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
+      changeEl.className = 'growth-stat-value ' + (change >= 0 ? 'positive' : 'negative');
+      document.getElementById('trackingPeak').textContent = fmtUsd(high);
+      document.getElementById('trackingDays').textContent = daysTracked + ' days';
+
+      // Draw chart
+      const padding = { top: 20, right: 20, bottom: 35, left: 70 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      // Add padding to Y range
+      const yPadding = (high - low) * 0.1 || currentValue * 0.05 || 100;
+      const yMin = Math.max(0, low - yPadding);
+      const yMax = high + yPadding;
+
+      const xScale = (i) => padding.left + (i / Math.max(1, chartData.length - 1)) * chartWidth;
+      const yScale = (v) => {
+        if (yMax === yMin) return padding.top + chartHeight / 2;
+        return padding.top + chartHeight - ((v - yMin) / (yMax - yMin)) * chartHeight;
+      };
+
+      // Draw subtle grid lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 3; i++) {
+        const y = padding.top + (chartHeight / 3) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+      }
+
+      // Draw Y-axis labels
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i <= 3; i++) {
+        const y = padding.top + (chartHeight / 3) * i;
+        const val = yMax - ((yMax - yMin) / 3) * i;
+        ctx.fillText(fmtUsd(val), padding.left - 8, y);
+      }
+
+      // Draw smooth line
+      const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
+      ctx.beginPath();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      ctx.moveTo(xScale(0), yScale(chartData[0].value));
+      for (let i = 1; i < chartData.length; i++) {
+        const prev = chartData[i - 1];
+        const curr = chartData[i];
+        const prevX = xScale(i - 1);
+        const prevY = yScale(prev.value);
+        const currX = xScale(i);
+        const currY = yScale(curr.value);
+        const cpX = (prevX + currX) / 2;
+        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      }
+      ctx.lineTo(xScale(chartData.length - 1), yScale(currentValue));
+      ctx.stroke();
+
+      // Draw gradient fill
+      const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+      gradient.addColorStop(0, change >= 0 ? 'rgba(0,212,170,0.25)' : 'rgba(255,68,102,0.25)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.beginPath();
+      ctx.moveTo(xScale(0), yScale(chartData[0].value));
+      for (let i = 1; i < chartData.length; i++) {
+        const prevX = xScale(i - 1);
+        const prevY = yScale(chartData[i - 1].value);
+        const currX = xScale(i);
+        const currY = yScale(chartData[i].value);
+        const cpX = (prevX + currX) / 2;
+        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      }
+      ctx.lineTo(xScale(chartData.length - 1), yScale(currentValue));
+      ctx.lineTo(xScale(chartData.length - 1), height - padding.bottom);
+      ctx.lineTo(xScale(0), height - padding.bottom);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw X-axis labels
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '10px system-ui';
+      ctx.textBaseline = 'top';
+
+      for (let i = 0; i < chartData.length; i++) {
+        // Only show some labels to avoid crowding
+        if (chartData.length <= 7 || i === 0 || i === chartData.length - 1 || i === Math.floor(chartData.length / 2)) {
+          const x = xScale(i);
+          const label = chartData[i].label;
+          ctx.textAlign = i === chartData.length - 1 ? 'right' : i === 0 ? 'left' : 'center';
+          ctx.fillText(label, x, height - padding.bottom + 8);
+        }
+      }
+
+      // Draw data points with glow
+      for (let i = 0; i < chartData.length; i++) {
+        const x = xScale(i);
+        const y = yScale(chartData[i].value);
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+        ctx.fill();
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
+        ctx.fill();
+
+        // Inner white dot
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+    }
+
     // Period tab click handlers
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.period-tab').forEach(tab => {
@@ -3647,13 +3933,13 @@
       searchHistory = [];
       allTokens = [];
       allDefiPositions = [];
-      
+
       // Clear ALL localStorage keys related to wallets
       localStorage.removeItem('portfolioWallets');
       localStorage.removeItem('portfolioWalletData');
       localStorage.removeItem('walletSearchHistory');
       localStorage.removeItem('connectedWallet');
-      
+
       // Force clear any potential cached data
       try {
         const keys = Object.keys(localStorage);
@@ -3662,7 +3948,7 @@
             localStorage.removeItem(key);
           }
         });
-      } catch (e) {}
+      } catch (e) { }
 
       // Clear search bar and reset placeholder
       document.getElementById('walletInput').value = '';
@@ -4284,6 +4570,7 @@
         hiddenLabelWallets = []; // Reset hidden wallets
         document.getElementById('walletInput').value = '';
         document.getElementById('walletInput').placeholder = 'Add wallet';
+        document.getElementById('trackingSection').style.display = 'none'; // Hide portfolio tracking
         renderLabels();
         renderWalletTags(); // Restore normal wallet tags
         refreshData();
