@@ -5,7 +5,7 @@
 import WebSocket from 'ws';
 import { HELIUS_WS_URL } from '../config.js';
 import { pool } from '../db.js';
-import { sendDialectNotification } from './dialect.js';
+import { sendWalletActivityNotification } from './dialect-sdk.js';
 
 class HeliusWebSocketManager {
     constructor() {
@@ -184,9 +184,7 @@ class HeliusWebSocketManager {
     }
 
     async processAlert(alert, wallet, txData) {
-        const { alert_type, telegram_username, label_name } = alert;
-
-        if (!telegram_username) return;
+        const { alert_type, label_name, owner_wallet } = alert;
 
         // Rate limit: 5 minutes per alert
         if (alert.last_notified_at) {
@@ -195,21 +193,21 @@ class HeliusWebSocketManager {
         }
 
         let shouldNotify = false;
-        let message = '';
+        let txType = 'any';
         const displayName = label_name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 
         switch (alert_type) {
             case 'any_tx':
                 shouldNotify = true;
-                message = `🔔 Activity detected on ${displayName}`;
+                txType = 'activity';
                 break;
             case 'incoming':
                 shouldNotify = true;
-                message = `📥 Incoming transaction on ${displayName}`;
+                txType = 'incoming';
                 break;
             case 'outgoing':
                 shouldNotify = true;
-                message = `📤 Outgoing transaction on ${displayName}`;
+                txType = 'outgoing';
                 break;
             case 'threshold':
                 // Handled separately via periodic check
@@ -217,7 +215,9 @@ class HeliusWebSocketManager {
         }
 
         if (shouldNotify) {
-            await sendDialectNotification(telegram_username, message, wallet);
+            // Send via Dialect SDK - notification goes to the wallet owner
+            const targetWallet = owner_wallet || wallet;
+            await sendWalletActivityNotification(targetWallet, txType, '', displayName);
             await pool.query('UPDATE alert_settings SET last_notified_at = NOW() WHERE id = $1', [alert.id]);
         }
     }

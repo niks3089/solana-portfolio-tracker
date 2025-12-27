@@ -10,8 +10,10 @@
     "build:dialect": "node scripts/build-dialect.js"
   },
   "dependencies": {
+    "@dialectlabs/blockchain-sdk-solana": "^2.0.0-beta.4",
     "@dialectlabs/react-sdk-blockchain-solana": "^3.0.0-beta.7",
     "@dialectlabs/react-ui": "^3.0.0-beta.7",
+    "@dialectlabs/sdk": "^2.0.0-beta.7",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",

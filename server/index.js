@@ -12,6 +12,7 @@ import { CONFIG } from './config.js';
 import { initDatabase } from './db.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import { heliusWS } from './services/helius-ws.js';
+import { initDialectSDK } from './services/dialect-sdk.js';
 
 // Routes
 import portfolioRoutes from './routes/portfolio.js';
@@ -67,7 +68,10 @@ app.get('*', (req, res) => {
 });
 
 // Start server
-initDatabase().then(() => {
+initDatabase().then(async () => {
+    // Initialize Dialect SDK for notifications
+    await initDialectSDK();
+
     app.listen(CONFIG.PORT, () => {
         console.log(`
 ╔════════════════════════════════════════════════════════════════╗
