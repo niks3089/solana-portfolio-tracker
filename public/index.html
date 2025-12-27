@@ -2444,9 +2444,11 @@
             saveWallets();
           }
         }
-        // In paid mode (not free), ensure demo wallet is present for demo purposes
-        // In free mode, don't auto-add demo wallet - let users add what they want
-        if (!freeMode && !walletData.some(w => w.address === DEMO_WALLET)) {
+        // Only auto-add demo wallet if:
+        // 1. Not in free mode, AND
+        // 2. No wallet is connected (user is just browsing), AND
+        // 3. Demo wallet not already present
+        if (!freeMode && !connectedWallet && !walletData.some(w => w.address === DEMO_WALLET)) {
           walletData.push({ address: DEMO_WALLET, label: 'toly.sol', group: '' });
           saveWallets();
         }
@@ -4041,10 +4043,13 @@
       await checkProStatus(); // Re-check Pro when wallet connects
       await loadLabels(); // Load labels for Pro users
 
-      // For free users: only keep the connected wallet (remove other personal wallets)
+      // When wallet connects: remove demo wallet (toly.sol) and keep only connected wallet
+      // For free users: only keep the connected wallet
       if (!isPro()) {
-        // Keep only demo wallet and the connected wallet
-        walletData = walletData.filter(w => w.address === DEMO_WALLET || w.address === addr);
+        walletData = walletData.filter(w => w.address === addr);
+      } else {
+        // For Pro users: remove auto-added demo wallet but keep other tracked wallets
+        walletData = walletData.filter(w => w.address !== DEMO_WALLET);
       }
 
       // Add connected wallet to tracked wallets if not already present
@@ -4055,7 +4060,7 @@
 
       saveWallets();
 
-      // Re-render tags (will now exclude toly.sol since wallet is connected)
+      // Re-render tags
       renderWalletTags();
       refreshData();
     }
