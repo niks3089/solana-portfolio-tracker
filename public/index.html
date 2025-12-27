@@ -1309,6 +1309,12 @@
       margin-top: 0.25rem;
     }
 
+    .threshold-current {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
     .portfolio-change-box {
       flex-direction: column;
       align-items: stretch !important;
@@ -2215,7 +2221,7 @@
               <strong>Wallet Activity</strong>
               <span>Alert on any transaction</span>
             </div>
-            <div class="alert-checkbox checked" id="check-activity">✓</div>
+            <div class="alert-checkbox" id="check-activity">✓</div>
           </div>
           <div class="alert-type-option portfolio-change-box" id="portfolioChangeOption">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
@@ -2227,8 +2233,12 @@
             </div>
             <div class="inline-slider" id="thresholdSlider" style="margin-top:0.5rem">
               <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
-                oninput="document.getElementById('threshold-val').textContent = this.value">
-              <div class="threshold-labels"><span>1%</span><span>25%</span></div>
+                oninput="updateThresholdDisplay(this.value)">
+              <div class="threshold-labels">
+                <span>1%</span>
+                <span class="threshold-current" id="thresholdCurrent">5%</span>
+                <span>25%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -5212,8 +5222,8 @@
       // Hide wallet select
       document.getElementById('walletSelectGroup').style.display = 'none';
 
-      // Reset checkboxes - activity checked by default
-      document.getElementById('check-activity').classList.add('checked');
+      // Reset checkboxes - none checked by default
+      document.getElementById('check-activity').classList.remove('checked');
       document.getElementById('check-threshold').classList.remove('checked');
       document.getElementById('thresholdRange').value = 5;
       document.getElementById('threshold-val').textContent = '5';
@@ -5231,6 +5241,11 @@
 
     function toggleThresholdAlert() {
       document.getElementById('check-threshold').classList.toggle('checked');
+    }
+
+    function updateThresholdDisplay(val) {
+      document.getElementById('threshold-val').textContent = val;
+      document.getElementById('thresholdCurrent').textContent = val + '%';
     }
 
     function updateAlertTargetOptions() {
