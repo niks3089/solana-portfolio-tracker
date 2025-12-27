@@ -169,11 +169,16 @@ app.use(express.json());
 app.use(express.static(join(__dirname, 'public'), {
   etag: false,
   maxAge: 0,
+  dotfiles: 'allow', // Allow .well-known directory for Android App Links
   setHeaders: (res, path) => {
     if (path.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+    }
+    // Set correct content type for assetlinks.json
+    if (path.endsWith('assetlinks.json')) {
+      res.setHeader('Content-Type', 'application/json');
     }
   }
 }));
