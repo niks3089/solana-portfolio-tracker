@@ -1269,6 +1269,46 @@
       color: var(--bg-primary);
     }
 
+    .threshold-slider-container {
+      padding: 0.5rem 1rem 0.75rem;
+      margin-top: -0.25rem;
+    }
+
+    .threshold-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--bg-primary);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .threshold-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    .threshold-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    .threshold-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
     .alert-type-label {
       flex: 1;
     }
@@ -2112,26 +2152,25 @@
 
         <div class="label-form-group">
           <label>Notification Type</label>
-          <div class="alert-type-option" onclick="document.getElementById('check-activity').classList.toggle('checked')">
+          <div class="alert-type-option"
+            onclick="document.getElementById('check-activity').classList.toggle('checked')">
             <div class="alert-type-label">
               <strong>Wallet Activity</strong>
               <span>Alert on any incoming or outgoing transaction</span>
             </div>
             <div class="alert-checkbox checked" id="check-activity">✓</div>
           </div>
-          <div class="alert-type-option" onclick="document.getElementById('check-threshold').classList.toggle('checked')">
+          <div class="alert-type-option" onclick="toggleThresholdAlert()">
             <div class="alert-type-label">
-              <strong>Value Change</strong>
-              <span>Alert when portfolio changes by 5% or more</span>
+              <strong>Portfolio Change</strong>
+              <span>Alert when value changes by <strong id="threshold-val">5</strong>%</span>
             </div>
             <div class="alert-checkbox" id="check-threshold">✓</div>
           </div>
-          <div class="alert-type-option" onclick="document.getElementById('check-large').classList.toggle('checked')">
-            <div class="alert-type-label">
-              <strong>Large Transaction</strong>
-              <span>Alert on transactions over $100</span>
-            </div>
-            <div class="alert-checkbox" id="check-large">✓</div>
+          <div class="threshold-slider-container" id="thresholdSlider">
+            <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
+              oninput="document.getElementById('threshold-val').textContent = this.value">
+            <div class="threshold-labels"><span>1%</span><span>25%</span></div>
           </div>
         </div>
 
@@ -5045,16 +5084,15 @@
 
       container.innerHTML = userAlerts.map(alert => {
         const targetName = alert.label_name || (alert.target_wallet ? alert.target_wallet.slice(0, 8) + '...' : 'Unknown');
-        const typeLabels = {
-          'any_tx': 'Activity',
-          'threshold': '5%+',
-          'large_tx': '$100+'
-        };
+        let typeLabel = 'Activity';
+        if (alert.alert_type === 'threshold') {
+          typeLabel = (alert.threshold_percent || 5) + '%';
+        }
         return `
           <div class="alert-dropdown-item">
             <div class="alert-item-info">
               <span class="alert-item-target">${escapeHtml(targetName)}</span>
-              <span class="alert-item-type">${typeLabels[alert.alert_type] || 'Activity'}</span>
+              <span class="alert-item-type">${typeLabel}</span>
             </div>
             <div class="alert-item-actions">
               <div class="alert-toggle ${alert.enabled ? 'active' : ''}" onclick="toggleAlert(${alert.id}, ${!alert.enabled})"></div>
@@ -5119,7 +5157,8 @@
       // Reset checkboxes - activity checked by default
       document.getElementById('check-activity').classList.add('checked');
       document.getElementById('check-threshold').classList.remove('checked');
-      document.getElementById('check-large').classList.remove('checked');
+      document.getElementById('thresholdRange').value = 5;
+      document.getElementById('threshold-val').textContent = '5';
 
       document.getElementById('alertModalStatus').textContent = '';
       modal.classList.add('active');
@@ -5127,6 +5166,10 @@
 
     function closeAlertModal() {
       document.getElementById('alertModal').classList.remove('active');
+    }
+
+    function toggleThresholdAlert() {
+      document.getElementById('check-threshold').classList.toggle('checked');
     }
 
     function updateAlertTargetOptions() {
@@ -5144,7 +5187,7 @@
       // Check which types are selected
       const activityChecked = document.getElementById('check-activity').classList.contains('checked');
       const thresholdChecked = document.getElementById('check-threshold').classList.contains('checked');
-      const largeChecked = document.getElementById('check-large').classList.contains('checked');
+      const thresholdPercent = parseInt(document.getElementById('thresholdRange').value);
 
       if (!target) {
         statusEl.innerHTML = '<span style="color:var(--warning)">Please select what to monitor</span>';
@@ -5156,7 +5199,7 @@
         return;
       }
 
-      if (!activityChecked && !thresholdChecked && !largeChecked) {
+      if (!activityChecked && !thresholdChecked) {
         statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one notification type</span>';
         return;
       }
@@ -5167,8 +5210,20 @@
       const [targetType, targetId] = target.split(':');
       const alertTypes = [];
       if (activityChecked) alertTypes.push({ type: 'any_tx' });
-      if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: 5.00 });
-      if (largeChecked) alertTypes.push({ type: 'large_tx' });
+      if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: thresholdPercent });
+
+      // Check for duplicates
+      const existingKey = targetType === 'label' ? `label:${targetId}` : `wallet:${targetId}`;
+      for (const alertToCreate of alertTypes) {
+        const isDuplicate = userAlerts.some(existing => {
+          const existingTargetKey = existing.label_id ? `label:${existing.label_id}` : `wallet:${existing.target_wallet}`;
+          return existingTargetKey === existingKey && existing.alert_type === alertToCreate.type;
+        });
+        if (isDuplicate) {
+          statusEl.innerHTML = `<span style="color:var(--warning)">Alert already exists for this target</span>`;
+          return;
+        }
+      }
 
       statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
 
