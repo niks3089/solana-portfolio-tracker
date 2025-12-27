@@ -1031,7 +1031,7 @@
     .label-form-group label {
       display: block;
       font-size: 0.85rem;
-      color: var(--text-secondary);
+      color: var(--accent);
       margin-bottom: 0.4rem;
     }
 
@@ -1312,17 +1312,17 @@
     .portfolio-change-box {
       flex-direction: column;
       align-items: stretch !important;
-      border: 1px solid var(--accent);
-      background: rgba(0, 212, 170, 0.08);
-    }
-
-    .portfolio-change-box .alert-type-label strong {
-      color: var(--accent);
     }
 
     .portfolio-change-box .inline-slider {
-      border-top: 1px solid var(--accent)33;
+      border-top: 1px solid var(--border);
       padding-top: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .pct-value {
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .inline-slider {
@@ -2220,7 +2220,7 @@
           <div class="alert-type-option portfolio-change-box" id="portfolioChangeOption">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
               <div class="alert-type-label" onclick="toggleThresholdAlert()">
-                <strong>Portfolio Change ±<span id="threshold-val">5</span>%</strong>
+                <strong>Portfolio Change <span class="pct-value">±<span id="threshold-val">5</span>%</span></strong>
                 <span>Notify on value swing</span>
               </div>
               <div class="alert-checkbox" id="check-threshold" onclick="toggleThresholdAlert()">✓</div>
@@ -5249,7 +5249,7 @@
         if (target.startsWith('label:')) {
           const labelId = parseInt(target.split(':')[1]);
           const label = userLabels.find(l => l.id === labelId);
-          
+
           if (label && (label.wallets || []).length > 0) {
             const walletList = document.getElementById('alertWalletList');
             let html = `<label class="alert-wallet-item all-wallets">
@@ -5270,7 +5270,7 @@
           } else {
             walletSelectGroup.style.display = 'none';
           }
-          
+
           portfolioOption.style.display = 'flex';
         } else {
           walletSelectGroup.style.display = 'none';
@@ -5294,16 +5294,16 @@
       const allCheck = document.getElementById('alertAllWallets');
       const portfolioOption = document.getElementById('portfolioChangeOption');
       const checkThreshold = document.getElementById('check-threshold');
-      
+
       const checkedCount = Array.from(checks).filter(c => c.checked).length;
       const totalCount = checks.length;
-      
+
       // Update "All wallets" checkbox state
       if (allCheck) {
         allCheck.checked = checkedCount === totalCount;
         allCheck.indeterminate = checkedCount > 0 && checkedCount < totalCount;
       }
-      
+
       // Show portfolio change only if all wallets selected
       if (checkedCount === totalCount) {
         portfolioOption.style.display = 'flex';
@@ -5347,12 +5347,12 @@
       // Determine actual targets - check which wallets are selected
       const [baseType, baseId] = target.split(':');
       const selectedWallets = [];
-      
+
       if (baseType === 'label') {
         const checks = document.querySelectorAll('.alert-wallet-check:checked');
         checks.forEach(c => selectedWallets.push(c.value));
       }
-      
+
       // If all wallets selected in portfolio, treat as portfolio alert
       const label = userLabels.find(l => l.id === parseInt(baseId));
       const allSelected = label && selectedWallets.length === (label.wallets || []).length;
