@@ -73,6 +73,7 @@ const DialectNotificationsInner = () => {
             >
                 <NotificationsButton
                     theme="dark"
+                    channels={['telegram']}
                     dialectId="dialect-notifications"
                     notifications={[
                         { name: 'Wallet Activity', detail: 'Get notified on wallet transactions' },
