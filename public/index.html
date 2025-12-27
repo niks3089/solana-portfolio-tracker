@@ -5355,6 +5355,7 @@
         console.log('Signature base58:', signatureBase58.slice(0, 20) + '...');
 
         // Step 3: Verify signature with Dialect to get JWT
+        console.log('Verifying signature with Dialect...');
         const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
           method: 'POST',
           headers: {
@@ -5368,14 +5369,25 @@
           })
         });
 
+        console.log('Verify response status:', verifyRes.status);
+        
         if (!verifyRes.ok) {
           const err = await verifyRes.text();
           console.error('Dialect verify error:', err);
           return false;
         }
 
-        const { token } = await verifyRes.json();
+        const verifyData = await verifyRes.json();
+        console.log('Verify response:', verifyData);
+        const token = verifyData.token;
+        
+        if (!token) {
+          console.error('No token in verify response');
+          return false;
+        }
+        
         localStorage.setItem(jwtKey, token);
+        console.log('JWT token saved');
 
         // Step 4: Subscribe using the JWT
         const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
