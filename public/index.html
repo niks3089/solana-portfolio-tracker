@@ -1753,7 +1753,8 @@
             <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#00d4aa" stroke-width="3" />
             <line x1="5" y1="50" x2="95" y2="50" stroke="#00d4aa" stroke-width="3" />
           </svg>Solana Portfolio</div>
-        <div class="logo-subtitle">Track your crypto wealth<span>•</span>Multiple wallets<span>•</span>Private</div>
+        <div class="logo-subtitle"><b><i>Track your crypto wealth<span>•</span>Multiple
+              wallets<span>•</span>Private</i></b></div>
       </div>
       <div class="header-actions">
         <div class="pro-status-display" id="proStatusDisplay" style="display:none">
@@ -1908,10 +1909,6 @@
           <div class="growth-stat">
             <span class="growth-stat-label">Peak</span>
             <span class="growth-stat-value" id="trackingPeak">—</span>
-          </div>
-          <div class="growth-stat">
-            <span class="growth-stat-label">Days Tracked</span>
-            <span class="growth-stat-value" id="trackingDays">—</span>
           </div>
         </div>
       </div>
@@ -2919,7 +2916,6 @@
         renderDefiPage();
 
         // Load portfolio tracking chart (our daily snapshots)
-        console.log('About to call loadTrackingChart with:', labelId, p.totalNetWorth);
         loadTrackingChart(labelId, p.totalNetWorth);
 
         // Also load the Birdeye growth chart for the portfolio wallets
@@ -3288,7 +3284,6 @@
 
             // Re-render DeFi with rewards
             renderDefiPage();
-            console.log(`Added ${newPositions.length} Dialect positions (rewards)`);
           }
         }
       } catch (err) {
@@ -3558,7 +3553,6 @@
     // ============================================================================
     async function loadTrackingChart(labelId, currentNetWorth) {
       const trackingSection = document.getElementById('trackingSection');
-      console.log('Loading tracking chart for label:', labelId, 'netWorth:', currentNetWorth);
 
       if (!labelId) {
         trackingSection.style.display = 'none';
@@ -3568,7 +3562,6 @@
       // Ensure labelId is a number for comparison
       const numLabelId = parseInt(labelId);
       const label = userLabels.find(l => l.id === numLabelId || l.id === labelId);
-      console.log('Found label:', label, 'userLabels:', userLabels);
       if (!label) {
         trackingSection.style.display = 'none';
         return;
@@ -3578,7 +3571,6 @@
         // Fetch snapshot history from our database
         const res = await fetch('/api/labels/' + labelId + '/history?days=90');
         const data = await res.json();
-        console.log('History API response:', data);
 
         let history = data.history || [];
 
@@ -3638,9 +3630,7 @@
         }
 
         // Need at least 2 points to draw a chart
-        console.log('Chart data points:', chartData.length, chartData);
         if (chartData.length < 2) {
-          console.log('Not enough data points, hiding chart');
           trackingSection.style.display = 'none';
           return;
         }
@@ -3649,10 +3639,8 @@
         document.getElementById('trackingTitle').textContent = label.name + ' tracker';
 
         trackingSection.style.display = 'block';
-        console.log('Tracking section set to block, rendering chart...');
         try {
           renderTrackingChart(chartData);
-          console.log('Chart rendered successfully');
         } catch (renderErr) {
           console.error('Error rendering tracking chart:', renderErr);
         }
@@ -3699,7 +3687,6 @@
       changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
       changeEl.className = 'growth-stat-value ' + (isPositive ? 'positive' : 'negative');
       document.getElementById('trackingPeak').textContent = fmtUsd(high);
-      document.getElementById('trackingDays').textContent = daysTracked + ' days';
 
       // Draw chart
       const padding = { top: 20, right: 20, bottom: 35, left: 70 };
@@ -4016,7 +4003,6 @@
       renderDonutChart([], 0);
 
       // Show confirmation
-      console.log('Wallet disconnected - all data cleared');
     }
 
     function showWalletModal() { document.getElementById('walletModal').classList.add('active'); }
