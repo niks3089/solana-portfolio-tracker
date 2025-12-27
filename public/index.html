@@ -4423,9 +4423,8 @@
       hiddenLabelWallets = [];
       renderLabels();
 
-      // Clear alerts and hide bell
+      // Clear alerts (Dialect component handles its own state)
       userAlerts = [];
-      document.getElementById('alertBell').style.display = 'none';
 
       // Clear ALL wallet data - reset everything
       walletData = [];
@@ -5101,83 +5100,14 @@
     let userAlerts = [];
     let editingAlertId = null;
 
+    // Alerts are now handled by Dialect React component
     async function loadAlerts() {
-      const bellEl = document.getElementById('alertBell');
-
-      // Alerts require a connected wallet
-      if (!connectedWallet) {
-        bellEl.style.display = 'none';
-        return;
-      }
-
-      // Show bell icon when wallet connected
-      bellEl.style.display = 'block';
-
-      try {
-        const res = await fetch('/api/alerts/' + connectedWallet);
-        const data = await res.json();
-        userAlerts = data.alerts || [];
-        renderAlerts();
-      } catch (e) {
-        console.error('Failed to load alerts:', e);
-        userAlerts = [];
-        renderAlerts();
-      }
+      // No-op - Dialect handles alerts UI
     }
 
     function renderAlerts() {
-      const bellEl = document.getElementById('alertBell');
-      const container = document.getElementById('alertDropdownList');
-      const bell = bellEl.querySelector('.alert-bell');
-
-      if (!connectedWallet) {
-        bellEl.style.display = 'none';
-        return;
-      }
-
-      bellEl.style.display = 'block';
-
-
-      if (userAlerts.length === 0) {
-        container.innerHTML = '';
-        return;
-      }
-
-      container.innerHTML = userAlerts.map(alert => {
-        const targetName = alert.label_name || (alert.target_wallet ? alert.target_wallet.slice(0, 8) + '...' : 'Unknown');
-        let typeLabel = 'Activity';
-        if (alert.alert_type === 'threshold') {
-          typeLabel = (alert.threshold_percent || 5) + '%';
-        }
-        return `
-          <div class="alert-dropdown-item">
-            <div class="alert-item-info">
-              <span class="alert-item-target">${escapeHtml(targetName)}</span>
-              <span class="alert-item-type">${typeLabel}</span>
-            </div>
-            <div class="alert-item-actions">
-              <div class="alert-toggle ${alert.enabled ? 'active' : ''}" onclick="toggleAlert(${alert.id}, ${!alert.enabled})"></div>
-              <span class="alert-delete" onclick="deleteAlert(${alert.id})">✕</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // No-op - Dialect handles alerts UI
     }
-
-    function toggleAlertDropdown(event) {
-      event.stopPropagation();
-      const dropdown = document.getElementById('alertDropdown');
-      dropdown.classList.toggle('active');
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      const dropdown = document.getElementById('alertDropdown');
-      const bell = document.getElementById('alertBell');
-      if (dropdown && bell && !bell.contains(e.target)) {
-        dropdown.classList.remove('active');
-      }
-    });
 
     async function showAlertModal() {
       editingAlertId = null;
