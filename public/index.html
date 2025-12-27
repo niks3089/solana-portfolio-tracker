@@ -1422,21 +1422,21 @@
 
     .alert-bell {
       position: relative;
-      width: 36px;
-      height: 36px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 1.1rem;
+      font-size: 0.9rem;
+      color: var(--accent);
     }
 
     .alert-bell:hover {
-      border-color: var(--accent);
       background: var(--accent-dim);
     }
 
@@ -2038,7 +2038,8 @@
             <span class="pro-days" id="proDaysLeft"></span>
           </span>
         </div>
-        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn" style="display:none">⚡ Upgrade</button>
+        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn" style="display:none">⚡
+          Upgrade</button>
         <div class="wallet-status-container">
           <div id="walletStatus">
             <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
@@ -2047,7 +2048,7 @@
             <div class="alert-bell" onclick="toggleAlertDropdown(event)">🔔</div>
             <div class="alert-dropdown" id="alertDropdown">
               <div class="alert-dropdown-header">
-                <span class="alert-dropdown-title">Telegram Alerts</span>
+                <span class="alert-dropdown-title">Alerts</span>
                 <span class="alert-dropdown-add" onclick="showAlertModal()">+ Add</span>
               </div>
               <div class="alert-dropdown-list" id="alertDropdownList">
@@ -2101,30 +2102,21 @@
         </div>
 
         <div class="label-form-group">
-          <label style="color:var(--accent)">Telegram</label>
+          <label>Telegram Username</label>
           <input type="text" class="label-form-input" id="telegramUsername" placeholder="@username">
           <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.4rem">
-            Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank"
-              style="color:var(--accent)">this bot</a> on
-            Telegram to enable notifications
+            Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank" style="color:var(--accent)">this bot</a> on Telegram first
           </div>
         </div>
 
         <div class="label-form-group">
-          <label style="color:var(--accent)">Notification Type</label>
-          <div class="alert-type-option" onclick="toggleAlertCheck('incoming')">
+          <label>Notification Type</label>
+          <div class="alert-type-option selected">
             <div class="alert-type-label">
-              <strong>Incoming Funds</strong>
-              <span>Alert when receiving tokens or SOL</span>
+              <strong>Wallet Activity</strong>
+              <span>Alert on incoming or outgoing transactions</span>
             </div>
-            <div class="alert-checkbox checked" id="check-incoming">✓</div>
-          </div>
-          <div class="alert-type-option" onclick="toggleAlertCheck('outgoing')">
-            <div class="alert-type-label">
-              <strong>Outgoing Funds</strong>
-              <span>Alert when sending tokens or SOL</span>
-            </div>
-            <div class="alert-checkbox checked" id="check-outgoing">✓</div>
+            <div class="alert-checkbox checked" id="check-activity">✓</div>
           </div>
         </div>
 
@@ -5038,17 +5030,10 @@
 
       container.innerHTML = userAlerts.map(alert => {
         const targetName = alert.label_name || (alert.target_wallet ? alert.target_wallet.slice(0, 8) + '...' : 'Unknown');
-        const typeLabels = {
-          'any_tx': 'Any TX',
-          'incoming': 'Incoming',
-          'outgoing': 'Outgoing',
-          'threshold': alert.threshold_percent + '%'
-        };
         return `
           <div class="alert-dropdown-item">
             <div class="alert-item-info">
               <span class="alert-item-target">${escapeHtml(targetName)}</span>
-              <span class="alert-item-type">${typeLabels[alert.alert_type] || alert.alert_type}</span>
             </div>
             <div class="alert-item-actions">
               <div class="alert-toggle ${alert.enabled ? 'active' : ''}" onclick="toggleAlert(${alert.id}, ${!alert.enabled})"></div>
@@ -5110,9 +5095,8 @@
 
       targetSelect.innerHTML = options;
 
-      // Reset checkboxes to checked
-      document.getElementById('check-incoming').classList.add('checked');
-      document.getElementById('check-outgoing').classList.add('checked');
+      // Reset checkbox to checked
+      document.getElementById('check-activity').classList.add('checked');
 
       document.getElementById('alertModalStatus').textContent = '';
       modal.classList.add('active');
@@ -5120,11 +5104,6 @@
 
     function closeAlertModal() {
       document.getElementById('alertModal').classList.remove('active');
-    }
-
-    function toggleAlertCheck(type) {
-      const checkbox = document.getElementById('check-' + type);
-      checkbox.classList.toggle('checked');
     }
 
     function updateAlertTargetOptions() {
@@ -5139,10 +5118,6 @@
       const target = targetSelect.value;
       const telegram = telegramInput.value.trim().replace('@', '');
 
-      // Check which alert types are selected
-      const incomingChecked = document.getElementById('check-incoming').classList.contains('checked');
-      const outgoingChecked = document.getElementById('check-outgoing').classList.contains('checked');
-
       if (!target) {
         statusEl.innerHTML = '<span style="color:var(--warning)">Please select what to monitor</span>';
         return;
@@ -5153,47 +5128,36 @@
         return;
       }
 
-      if (!incomingChecked && !outgoingChecked) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one notification type</span>';
-        return;
-      }
-
       // Save telegram username for next time
       localStorage.setItem('telegramUsername', '@' + telegram);
 
       const [targetType, targetId] = target.split(':');
-      const alertTypes = [];
-      if (incomingChecked) alertTypes.push('incoming');
-      if (outgoingChecked) alertTypes.push('outgoing');
 
-      statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
+      statusEl.innerHTML = '<span class="loading-text">Creating alert...</span>';
 
       try {
-        // Create an alert for each selected type
-        for (const alertType of alertTypes) {
-          const payload = {
-            owner_wallet: connectedWallet,
-            telegram_username: telegram,
-            alert_type: alertType
-          };
+        const payload = {
+          owner_wallet: connectedWallet,
+          telegram_username: telegram,
+          alert_type: 'any_tx'
+        };
 
-          if (targetType === 'label') {
-            payload.label_id = parseInt(targetId);
-          } else {
-            payload.target_wallet = targetId;
-          }
+        if (targetType === 'label') {
+          payload.label_id = parseInt(targetId);
+        } else {
+          payload.target_wallet = targetId;
+        }
 
-          const res = await fetch('/api/alerts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+        const res = await fetch('/api/alerts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-          const data = await res.json();
-          if (data.error) {
-            statusEl.innerHTML = `<span style="color:var(--negative)">${data.error}</span>`;
-            return;
-          }
+        const data = await res.json();
+        if (data.error) {
+          statusEl.innerHTML = `<span style="color:var(--negative)">${data.error}</span>`;
+          return;
         }
 
         closeAlertModal();
