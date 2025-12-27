@@ -3629,7 +3629,7 @@
         }
 
         // Update title with portfolio name
-        document.getElementById('trackingTitle').textContent = label.name + ' Tracking';
+        document.getElementById('trackingTitle').textContent = label.name + ' Tracker';
 
         trackingSection.style.display = 'block';
         renderTrackingChart(chartData);
@@ -3667,10 +3667,14 @@
       const changePercent = startValue > 0 ? (change / startValue) * 100 : 0;
       const daysTracked = chartData.length;
 
+      // Only show as negative (red) if loss > 1%, otherwise treat as flat (green)
+      const isSignificantLoss = changePercent < -1;
+      const isPositive = !isSignificantLoss;
+
       // Update stats display
       const changeEl = document.getElementById('trackingChange');
       changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
-      changeEl.className = 'growth-stat-value ' + (change >= 0 ? 'positive' : 'negative');
+      changeEl.className = 'growth-stat-value ' + (isPositive ? 'positive' : 'negative');
       document.getElementById('trackingPeak').textContent = fmtUsd(high);
       document.getElementById('trackingDays').textContent = daysTracked + ' days';
 
@@ -3701,19 +3705,29 @@
         ctx.stroke();
       }
 
-      // Draw Y-axis labels
+      // Draw Y-axis labels - use more precision if range is small
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '10px system-ui';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
+      const yRange = yMax - yMin;
       for (let i = 0; i <= 3; i++) {
         const y = padding.top + (chartHeight / 3) * i;
-        const val = yMax - ((yMax - yMin) / 3) * i;
-        ctx.fillText(fmtUsd(val), padding.left - 8, y);
+        const val = yMax - (yRange / 3) * i;
+        // Use more decimal places if range is small
+        let label;
+        if (yRange < 100) {
+          label = '$' + val.toFixed(2);
+        } else if (yRange < 1000) {
+          label = '$' + val.toFixed(0);
+        } else {
+          label = fmtUsd(val);
+        }
+        ctx.fillText(label, padding.left - 8, y);
       }
 
-      // Draw smooth line
-      const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
+      // Draw smooth line - green unless significant loss (>1%)
+      const lineColor = isPositive ? '#00d4aa' : '#ff4466';
       ctx.beginPath();
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2.5;
@@ -3736,7 +3750,7 @@
 
       // Draw gradient fill
       const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
-      gradient.addColorStop(0, change >= 0 ? 'rgba(0,212,170,0.25)' : 'rgba(255,68,102,0.25)');
+      gradient.addColorStop(0, isPositive ? 'rgba(0,212,170,0.25)' : 'rgba(255,68,102,0.25)');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
       ctx.beginPath();
@@ -3779,13 +3793,13 @@
         // Glow
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+        ctx.fillStyle = isPositive ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
         ctx.fill();
 
         // Dot
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
+        ctx.fillStyle = isPositive ? '#00d4aa' : '#ff4466';
         ctx.fill();
 
         // Inner white dot
