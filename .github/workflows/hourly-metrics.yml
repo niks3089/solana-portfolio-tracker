@@ -22,27 +22,37 @@ jobs:
           CACHE_HIT_RATE=$(echo "$METRICS" | jq -r '.cache.hitRate // "N/A"')
           CACHE_HITS=$(echo "$METRICS" | jq -r '.cache.hits // 0')
           CACHE_MISSES=$(echo "$METRICS" | jq -r '.cache.misses // 0')
-          WALLETS_CACHED=$(echo "$METRICS" | jq -r '.uniqueWalletsTracked // 0')
+          UNIQUE_WALLETS=$(echo "$METRICS" | jq -r '.uniqueWallets // 0')
           TOTAL_REQUESTS=$(echo "$METRICS" | jq -r '.requests.total // 0')
 
-          # API stats
-          BIRDEYE_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.calls // 0')
-          BIRDEYE_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.errors // 0')
-          BIRDEYE_LATENCY=$(echo "$METRICS" | jq -r '.externalAPIs.birdeye.avgLatencyMs // 0')
+          # DB stats
+          TOTAL_USERS=$(echo "$METRICS" | jq -r '.db.users // 0')
+          TOTAL_LABELS=$(echo "$METRICS" | jq -r '.db.labels // 0')
+          ACTIVE_ALERTS=$(echo "$METRICS" | jq -r '.db.activeAlerts // 0')
+          ACTIVE_PAYMENTS=$(echo "$METRICS" | jq -r '.db.activePayments // 0')
 
-          LAMBDA_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.lambda.calls // 0')
-          LAMBDA_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.lambda.errors // 0')
+          # API stats (correct path is .api not .externalAPIs)
+          BIRDEYE_CALLS=$(echo "$METRICS" | jq -r '.api.birdeye.calls // 0')
+          BIRDEYE_ERRORS=$(echo "$METRICS" | jq -r '.api.birdeye.errors // 0')
+          BIRDEYE_LATENCY=$(echo "$METRICS" | jq -r '.api.birdeye.avgLatencyMs // 0')
 
-          DIALECT_CALLS=$(echo "$METRICS" | jq -r '.externalAPIs.dialect.calls // 0')
-          DIALECT_ERRORS=$(echo "$METRICS" | jq -r '.externalAPIs.dialect.errors // 0')
+          LAMBDA_CALLS=$(echo "$METRICS" | jq -r '.api.lambda.calls // 0')
+          LAMBDA_ERRORS=$(echo "$METRICS" | jq -r '.api.lambda.errors // 0')
+
+          DIALECT_CALLS=$(echo "$METRICS" | jq -r '.api.dialect.calls // 0')
+          DIALECT_ERRORS=$(echo "$METRICS" | jq -r '.api.dialect.errors // 0')
 
           # Store for next step
           echo "uptime=$UPTIME" >> $GITHUB_OUTPUT
           echo "cache_hit_rate=$CACHE_HIT_RATE" >> $GITHUB_OUTPUT
           echo "cache_hits=$CACHE_HITS" >> $GITHUB_OUTPUT
           echo "cache_misses=$CACHE_MISSES" >> $GITHUB_OUTPUT
-          echo "wallets=$WALLETS_CACHED" >> $GITHUB_OUTPUT
+          echo "wallets=$UNIQUE_WALLETS" >> $GITHUB_OUTPUT
           echo "requests=$TOTAL_REQUESTS" >> $GITHUB_OUTPUT
+          echo "users=$TOTAL_USERS" >> $GITHUB_OUTPUT
+          echo "labels=$TOTAL_LABELS" >> $GITHUB_OUTPUT
+          echo "alerts=$ACTIVE_ALERTS" >> $GITHUB_OUTPUT
+          echo "payments=$ACTIVE_PAYMENTS" >> $GITHUB_OUTPUT
           echo "birdeye_calls=$BIRDEYE_CALLS" >> $GITHUB_OUTPUT
           echo "birdeye_errors=$BIRDEYE_ERRORS" >> $GITHUB_OUTPUT
           echo "birdeye_latency=$BIRDEYE_LATENCY" >> $GITHUB_OUTPUT
@@ -90,7 +100,12 @@ jobs:
           MESSAGE+="─────────────────%0A"
           MESSAGE+="⏱ *Uptime:* ${{ steps.metrics.outputs.uptime }}%0A"
           MESSAGE+="📈 *Total Requests:* ${{ steps.metrics.outputs.requests }}%0A"
-          MESSAGE+="👛 *Wallets Tracked:* ${{ steps.metrics.outputs.wallets }}%0A"
+          MESSAGE+="%0A"
+          MESSAGE+="👥 *Database Stats*%0A"
+          MESSAGE+="• Users: ${{ steps.metrics.outputs.users }}%0A"
+          MESSAGE+="• Portfolios: ${{ steps.metrics.outputs.labels }}%0A"
+          MESSAGE+="• Active Alerts: ${{ steps.metrics.outputs.alerts }}%0A"
+          MESSAGE+="• Pro Users: ${{ steps.metrics.outputs.payments }}%0A"
           MESSAGE+="%0A"
           MESSAGE+="💾 *Cache Performance*%0A"
           MESSAGE+="• Hit Rate: ${{ steps.metrics.outputs.cache_hit_rate }}%0A"
