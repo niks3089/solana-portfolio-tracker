@@ -8,40 +8,40 @@ const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 // Use the wallet selected by the main page (not auto-detection)
 const useWallet = () => {
     const [wallet, setWallet] = useState(null);
-    
+
     useEffect(() => {
         const check = () => {
             // Use the provider that the main page connected with
             const provider = window.connectedProvider;
             const walletAddr = window.connectedWallet;
-            
+
             if (!provider || !walletAddr) {
                 if (wallet) setWallet(null);
                 return;
             }
-            
+
             // Only update if wallet changed
             if (wallet?.publicKey?.toString() === walletAddr) return;
-            
+
             console.log('Wallet changed to:', walletAddr);
-            
+
             setWallet({
                 publicKey: provider.publicKey,
-                signMessage: async (msg) => { 
-                    const r = await provider.signMessage(msg); 
-                    return r.signature || r; 
+                signMessage: async (msg) => {
+                    const r = await provider.signMessage(msg);
+                    return r.signature || r;
                 },
                 signTransaction: async (tx) => provider.signTransaction(tx),
-                signAllTransactions: async (txs) => 
+                signAllTransactions: async (txs) =>
                     provider.signAllTransactions?.(txs) || Promise.all(txs.map(tx => provider.signTransaction(tx))),
             });
         };
-        
+
         check();
         const interval = setInterval(check, 500);
         return () => clearInterval(interval);
     }, [wallet]);
-    
+
     return wallet;
 };
 
@@ -123,9 +123,25 @@ class DialectErrorBoundary extends React.Component {
     }
 }
 
+// Hide "Using ledger?" by finding text
+const hideLedgerToggle = (container) => {
+    if (!container) return;
+    // Find all labels and divs with "ledger" text
+    container.querySelectorAll('label, div').forEach(el => {
+        if (el.textContent?.toLowerCase().includes('ledger')) {
+            el.style.display = 'none';
+            // Also hide parent if it only contains this
+            if (el.parentElement && el.parentElement.children.length === 1) {
+                el.parentElement.style.display = 'none';
+            }
+        }
+    });
+};
+
 // Single-view modal
 const NotificationModal = ({ isOpen, onClose, wallet }) => {
     const [error, setError] = useState(null);
+    const containerRef = React.useRef(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -134,10 +150,29 @@ const NotificationModal = ({ isOpen, onClose, wallet }) => {
         }
     }, [isOpen]);
 
+    // Hide ledger toggle whenever DOM changes
+    useEffect(() => {
+        if (!isOpen || !containerRef.current) return;
+        
+        const hide = () => hideLedgerToggle(containerRef.current);
+        hide();
+        
+        // Watch for changes
+        const observer = new MutationObserver(hide);
+        observer.observe(containerRef.current, { childList: true, subtree: true });
+        
+        // Also run periodically
+        const interval = setInterval(hide, 200);
+        
+        return () => {
+            observer.disconnect();
+            clearInterval(interval);
+        };
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const walletKey = wallet?.publicKey?.toString();
-    console.log('NotificationModal wallet:', walletKey);
 
     return (
         <div style={overlay} onClick={onClose}>
@@ -146,7 +181,7 @@ const NotificationModal = ({ isOpen, onClose, wallet }) => {
                     <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '18px' }}>🔔 Notifications</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer', lineHeight: 1 }}>×</button>
                 </div>
-                <div className="dialect" data-theme="dark" style={{ minHeight: '300px', maxHeight: '70vh', overflowY: 'auto', background: '#1b1b1c' }}>
+                <div ref={containerRef} className="dialect" data-theme="dark" style={{ minHeight: '300px', maxHeight: '70vh', overflowY: 'auto', background: '#1b1b1c' }}>
                     {error ? (
                         <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
                             <p>Error: {error}</p>
