@@ -78,6 +78,7 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
     const [threshold, setThreshold] = useState(editAlert?.threshold_percent || 5);
     const [walletTx, setWalletTx] = useState(editAlert ? editAlert.alert_type !== 'threshold' : true);
     const [portfolioChange, setPortfolioChange] = useState(editAlert?.alert_type === 'threshold');
+    const [telegramUser, setTelegramUser] = useState(editAlert?.telegram_username || localStorage.getItem('telegram_username') || '');
     const [saving, setSaving] = useState(false);
 
     const isPortfolio = target.startsWith('portfolio:');
@@ -97,8 +98,10 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
     const toggleWallet = (addr) => setSelectedWallets(prev => prev.includes(addr) ? prev.filter(w => w !== addr) : [...prev, addr]);
 
     const save = async () => {
-        if (!target) return;
+        if (!target || !telegramUser.trim()) return;
         setSaving(true);
+        // Save telegram username for future
+        localStorage.setItem('telegram_username', telegramUser.trim().replace('@', ''));
         try {
             const data = {
                 owner_wallet: wallet.publicKey.toString(),
@@ -106,6 +109,7 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
                 target_wallet: !isPortfolio ? target : (selectedWallets.length > 0 ? selectedWallets.join(',') : null),
                 alert_type: portfolioChange ? 'threshold' : 'any_tx',
                 threshold_percent: portfolioChange ? threshold : null,
+                telegram_username: telegramUser.trim().replace('@', ''),
                 enabled: true,
             };
 
@@ -136,7 +140,7 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
         setSaving(false);
     };
 
-    const canCreate = target && (walletTx || portfolioChange);
+    const canCreate = target && (walletTx || portfolioChange) && telegramUser.trim();
 
     return (
         <div>
@@ -196,11 +200,18 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
                 </div>
             )}
 
-            {/* Telegram Status */}
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#c4c6c8', fontSize: '14px' }}>📱 Telegram</span>
-                    <span style={{ color: '#00d4aa', fontSize: '12px' }}>✓ Connected</span>
+            {/* Telegram Username */}
+            <div style={{ marginBottom: '16px' }}>
+                <label style={labelStyle}>Telegram Username</label>
+                <input 
+                    type="text" 
+                    value={telegramUser} 
+                    onChange={e => setTelegramUser(e.target.value)}
+                    placeholder="@username"
+                    style={{ ...selectStyle, marginTop: '4px' }}
+                />
+                <div style={{ color: '#888', fontSize: '11px', marginTop: '4px' }}>
+                    Enter your Telegram username to receive alerts
                 </div>
             </div>
 
@@ -258,7 +269,7 @@ const AlertsList = ({ alerts, wallet, onDelete, onEdit, onAddNew }) => {
                                 </div>
                                 <div style={{ color: '#888', fontSize: '12px', marginTop: '2px' }}>
                                     {alert.alert_type === 'threshold' ? `${alert.threshold_percent}% change` : 'Transactions'}
-                                    <span style={{ color: '#00d4aa', marginLeft: '8px' }}>✏️ Edit</span>
+                                    {alert.telegram_username && <span style={{ marginLeft: '8px' }}>→ @{alert.telegram_username}</span>}
                                 </div>
                             </div>
                             {confirmDelete === alert.id ? (

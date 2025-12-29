@@ -54,8 +54,8 @@ router.post('/', async (req, res) => {
 
         // Check for duplicate alert
         const existing = await pool.query(`
-            SELECT id FROM alert_settings 
-            WHERE owner_wallet = $1 
+            SELECT id FROM alert_settings
+            WHERE owner_wallet = $1
               AND COALESCE(label_id, 0) = COALESCE($2, 0)
               AND COALESCE(target_wallet, '') = COALESCE($3, '')
               AND alert_type = $4
