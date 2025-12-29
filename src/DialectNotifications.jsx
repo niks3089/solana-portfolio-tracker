@@ -183,36 +183,50 @@ const bellButtonStyle = {
 
 // Telegram Status Component - uses Dialect SDK to check subscription status
 const TelegramStatus = ({ onSetupClick }) => {
-    const { sdk } = useDialectSdk();
+    const { sdk, connected: sdkConnected } = useDialectSdk();
     const [isConnected, setIsConnected] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const checkStatus = async () => {
-            if (!sdk) {
+            if (!sdk || !sdkConnected) {
                 setLoading(false);
                 return;
             }
             try {
-                // Try to get dapp notification subscriptions
-                const dappAddress = await sdk.dapps?.find();
-                if (dappAddress) {
-                    const addresses = await sdk.wallet?.notificationSubscriptions?.findAll();
-                    // Check if telegram is in the addresses
-                    const hasTelegram = addresses?.some(a =>
-                        a.channel === 'TELEGRAM' && a.enabled
-                    );
-                    setIsConnected(hasTelegram || false);
+                // Check for existing Dialect address/subscription
+                const address = await sdk.wallet?.addresses?.findAll?.();
+                console.log('Dialect addresses:', address);
+
+                // If user has any telegram address configured, they're connected
+                const hasTelegram = address?.some(a =>
+                    a.type === 'TELEGRAM' || a.value?.includes('telegram')
+                );
+
+                if (hasTelegram) {
+                    setIsConnected(true);
+                    localStorage.setItem('dialect_telegram_connected', 'true');
+                } else {
+                    // Fallback to localStorage
+                    const stored = localStorage.getItem('dialect_telegram_connected');
+                    setIsConnected(stored === 'true');
                 }
             } catch (e) {
-                console.log('Dialect status check:', e.message);
-                // If we get an error, assume connected if we can see the SDK is ready
-                // The Dialect UI will handle the actual status display
+                console.log('Dialect status check error:', e.message);
+                // Fallback to localStorage
+                const stored = localStorage.getItem('dialect_telegram_connected');
+                setIsConnected(stored === 'true');
             }
             setLoading(false);
         };
+
         checkStatus();
-    }, [sdk]);
+    }, [sdk, sdkConnected]);
+
+    // When user comes back from setup, mark as connected
+    const handleSetupClick = () => {
+        onSetupClick();
+    };
 
     return (
         <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#2a2a2b', borderRadius: '8px' }}>
@@ -224,7 +238,7 @@ const TelegramStatus = ({ onSetupClick }) => {
                     <span style={{ color: '#00d4aa', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         ✓ Connected
                         <button
-                            onClick={onSetupClick}
+                            onClick={handleSetupClick}
                             style={{
                                 background: 'none',
                                 border: 'none',
@@ -240,7 +254,7 @@ const TelegramStatus = ({ onSetupClick }) => {
                     </span>
                 ) : (
                     <button
-                        onClick={onSetupClick}
+                        onClick={handleSetupClick}
                         style={{
                             background: 'none',
                             border: '1px solid #00d4aa',
@@ -359,7 +373,11 @@ const AlertModal = ({ isOpen, onClose, wallet, labels, wallets, onSave }) => {
                             </div>
                             <button
                                 style={secondaryButtonStyle}
-                                onClick={() => setShowTelegramSetup(false)}
+                                onClick={() => {
+                                    // Mark as connected when user comes back from setup
+                                    localStorage.setItem('dialect_telegram_connected', 'true');
+                                    setShowTelegramSetup(false);
+                                }}
                             >
                                 ← Back to Alert Setup
                             </button>
