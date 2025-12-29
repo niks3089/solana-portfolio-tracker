@@ -41,6 +41,12 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Either label_id or target_wallet required' });
         }
 
+        // Ensure user exists (auto-create if not)
+        await pool.query(`
+            INSERT INTO users (wallet) VALUES ($1)
+            ON CONFLICT (wallet) DO NOTHING
+        `, [owner_wallet]);
+
         // Verify Pro status (or free mode)
         const proCheck = await pool.query(`
       SELECT 1 FROM payments
