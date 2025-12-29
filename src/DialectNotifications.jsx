@@ -221,13 +221,17 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onBack }) => {
                     </button>
                 </>
             )}
+            
+            <div style={{ marginTop: '20px', padding: '12px', background: '#1a1a1a', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
+                💡 Not receiving alerts? Check "History" tab to manage Telegram settings.
+            </div>
         </div>
     );
 };
 
 // Main Modal with tabs
 const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
-    const [tab, setTab] = useState('setup'); // 'setup' or 'alerts'
+    const [tab, setTab] = useState('alerts'); // Default to alerts since setup is likely done
     const [toast, setToast] = useState(null);
 
     if (!isOpen) return null;
@@ -243,27 +247,27 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', borderBottom: '1px solid #2a2a2b' }}>
-                    <button style={tab === 'setup' ? tabActiveStyle : tabStyle} onClick={() => setTab('setup')}>
-                        Setup Telegram
-                    </button>
                     <button style={tab === 'alerts' ? tabActiveStyle : tabStyle} onClick={() => setTab('alerts')}>
                         My Alerts
+                    </button>
+                    <button style={tab === 'history' ? tabActiveStyle : tabStyle} onClick={() => setTab('history')}>
+                        History
                     </button>
                 </div>
 
                 {/* Content */}
                 <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                    {tab === 'setup' ? (
+                    {tab === 'history' ? (
                         <DialectSolanaSdk
                             dappAddress={DAPP_ADDRESS}
                             customWalletAdapter={wallet}
                             config={{ environment: 'production' }}
                         >
                             <div className="dialect-wrapper" style={{ padding: '0' }}>
-                                <Notifications
+                                <Notifications 
                                     theme="dark"
                                     channels={['telegram']}
-                                    notifications={{ emptyState: <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>Complete setup to receive alerts</div> }}
+                                    notifications={{ emptyState: <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>No notifications yet</div> }}
                                 />
                             </div>
                         </DialectSolanaSdk>
