@@ -4417,6 +4417,8 @@
       connectedWallet = null;
       connectedProvider = null;
       connectedWalletType = null;
+      window.connectedWallet = null;
+      window.connectedProvider = null;
       saveConnectedWallet();
       updateWalletStatusUI();
       await checkProStatus(); // Re-check Pro when wallet disconnects (will be false)
@@ -4493,6 +4495,8 @@
 
     async function updateWalletUI(addr) {
       connectedWallet = addr;
+      window.connectedWallet = addr; // Expose for React component
+      window.connectedProvider = connectedProvider; // Expose for React component
       saveConnectedWallet();
       updateWalletStatusUI();
       closeWalletModal();
@@ -5649,7 +5653,7 @@
   </script>
 
   <!-- Dialect Notifications React Component -->
-  <script src="/js/dialect-notifications.js?v=18"></script>
+  <script src="/js/dialect-notifications.js?v=19"></script>
 </body>
 
 </html>

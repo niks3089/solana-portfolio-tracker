@@ -5,52 +5,43 @@ import { Notifications } from '@dialectlabs/react-ui';
 
 const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 
-// Wallet adapter
-let cachedWalletAdapter = null;
-let cachedPublicKey = null;
-
-const getWalletAdapter = () => {
-    const providers = [window.backpack, window.phantom?.solana, window.solflare].filter(Boolean);
-    let provider = null;
-    for (const p of providers) {
-        if ((p.isConnected || p.publicKey) && p.publicKey) {
-            provider = p;
-            break;
-        }
-    }
-    if (!provider?.publicKey) {
-        cachedWalletAdapter = null;
-        cachedPublicKey = null;
-        return null;
-    }
-    const currentPubKey = provider.publicKey.toString();
-    if (cachedWalletAdapter && cachedPublicKey === currentPubKey) return cachedWalletAdapter;
-    cachedPublicKey = currentPubKey;
-    cachedWalletAdapter = {
-        publicKey: provider.publicKey,
-        signMessage: async (msg) => { const r = await provider.signMessage(msg); return r.signature || r; },
-        signTransaction: async (tx) => provider.signTransaction(tx),
-        signAllTransactions: async (txs) => provider.signAllTransactions?.(txs) || Promise.all(txs.map(tx => provider.signTransaction(tx))),
-    };
-    return cachedWalletAdapter;
-};
-
+// Use the wallet selected by the main page (not auto-detection)
 const useWallet = () => {
     const [wallet, setWallet] = useState(null);
+    
     useEffect(() => {
         const check = () => {
-            const w = getWalletAdapter();
-            setWallet(prev => {
-                if (w && !prev) return w;
-                if (!w && prev) return null;
-                if (w && prev && w.publicKey?.toString() !== prev.publicKey?.toString()) return w;
-                return prev;
+            // Use the provider that the main page connected with
+            const provider = window.connectedProvider;
+            const walletAddr = window.connectedWallet;
+            
+            if (!provider || !walletAddr) {
+                if (wallet) setWallet(null);
+                return;
+            }
+            
+            // Only update if wallet changed
+            if (wallet?.publicKey?.toString() === walletAddr) return;
+            
+            console.log('Wallet changed to:', walletAddr);
+            
+            setWallet({
+                publicKey: provider.publicKey,
+                signMessage: async (msg) => { 
+                    const r = await provider.signMessage(msg); 
+                    return r.signature || r; 
+                },
+                signTransaction: async (tx) => provider.signTransaction(tx),
+                signAllTransactions: async (txs) => 
+                    provider.signAllTransactions?.(txs) || Promise.all(txs.map(tx => provider.signTransaction(tx))),
             });
         };
+        
         check();
-        const interval = setInterval(check, 1000);
+        const interval = setInterval(check, 500);
         return () => clearInterval(interval);
-    }, []);
+    }, [wallet]);
+    
     return wallet;
 };
 
@@ -70,7 +61,7 @@ const injectDialectStyles = () => {
         .dialect-notifications-modal label[class*="dt-"]:has(input[type="checkbox"]):has(span:not([class*="toggle"])) {
             display: none !important;
         }
-        
+
         /* Style overrides for dark theme */
         .dialect-notifications-modal {
             --dt-bg-primary: #1b1b1c;
@@ -81,19 +72,19 @@ const injectDialectStyles = () => {
             --dt-accent-brand: #00d4aa;
             --dt-button-primary: #00d4aa;
         }
-        
+
         /* Green buttons */
         .dialect-notifications-modal button[class*="dt-bg"] {
             background-color: #00d4aa !important;
             color: #0a0a0f !important;
         }
-        
+
         /* Green accents */
         .dialect-notifications-modal [class*="accent"],
         .dialect-notifications-modal a {
             color: #00d4aa !important;
         }
-        
+
         /* Hide version footer */
         .dialect-notifications-modal [class*="caption"]:has(span) {
             display: none !important;
@@ -105,21 +96,21 @@ const injectDialectStyles = () => {
 // Error boundary for Dialect
 class DialectErrorBoundary extends React.Component {
     state = { hasError: false, error: null };
-    
+
     static getDerivedStateFromError(error) {
         return { hasError: true, error };
     }
-    
+
     componentDidCatch(error, info) {
         console.error('Dialect Error:', error, info);
     }
-    
+
     render() {
         if (this.state.hasError) {
             return (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
                     <p>Failed to load notifications</p>
-                    <button 
+                    <button
                         onClick={() => this.setState({ hasError: false, error: null })}
                         style={{ background: '#00d4aa', color: '#0a0a0f', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', marginTop: '10px' }}
                     >
@@ -135,7 +126,7 @@ class DialectErrorBoundary extends React.Component {
 // Single-view modal
 const NotificationModal = ({ isOpen, onClose, wallet }) => {
     const [error, setError] = useState(null);
-    
+
     useEffect(() => {
         if (isOpen) {
             injectDialectStyles();
@@ -169,8 +160,8 @@ const NotificationModal = ({ isOpen, onClose, wallet }) => {
                                 customWalletAdapter={wallet}
                                 config={{ environment: 'production' }}
                             >
-                                <Notifications 
-                                    theme="dark" 
+                                <Notifications
+                                    theme="dark"
                                     channels={['telegram']}
                                 />
                             </DialectSolanaSdk>
