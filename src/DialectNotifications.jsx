@@ -111,27 +111,27 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
 
             let res;
             if (editAlert) {
-                res = await fetch(`/api/alerts/${editAlert.id}`, { 
-                    method: 'PUT', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify(data) 
+                res = await fetch(`/api/alerts/${editAlert.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
                 });
             } else {
-                res = await fetch('/api/alerts', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify(data) 
+                res = await fetch('/api/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
                 });
             }
 
-            if (res.ok) { 
-                onSave(editAlert ? 'Alert updated!' : 'Alert created!'); 
-            } else { 
-                const err = await res.json(); 
+            if (res.ok) {
+                onSave(editAlert ? 'Alert updated!' : 'Alert created!');
+            } else {
+                const err = await res.json();
                 onSave(null, err.error || 'Failed to save alert');
             }
-        } catch (e) { 
-            onSave(null, 'Failed to save alert'); 
+        } catch (e) {
+            onSave(null, 'Failed to save alert');
         }
         setSaving(false);
     };
@@ -207,9 +207,9 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: '8px' }}>
                 <button style={btnSecondary} onClick={onCancel}>Cancel</button>
-                <button 
-                    style={{ ...btnStyle, opacity: canCreate ? 1 : 0.5, cursor: canCreate ? 'pointer' : 'not-allowed' }} 
-                    onClick={save} 
+                <button
+                    style={{ ...btnStyle, opacity: canCreate ? 1 : 0.5, cursor: canCreate ? 'pointer' : 'not-allowed' }}
+                    onClick={save}
                     disabled={!canCreate || saving}
                 >
                     {saving ? 'Saving...' : (editAlert ? 'Update' : 'Create')}
@@ -227,7 +227,7 @@ const AlertsList = ({ alerts, wallet, onDelete, onEdit, onAddNew }) => {
     const handleDelete = async (id) => {
         setDeleting(id);
         try {
-            const res = await fetch(`/api/alerts/${id}`, { 
+            const res = await fetch(`/api/alerts/${id}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ owner_wallet: wallet.publicKey.toString() })
@@ -269,8 +269,8 @@ const AlertsList = ({ alerts, wallet, onDelete, onEdit, onAddNew }) => {
                                     <button onClick={() => setConfirmDelete(null)} style={{ background: '#444', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>No</button>
                                 </div>
                             ) : (
-                                <button 
-                                    onClick={() => setConfirmDelete(alert.id)} 
+                                <button
+                                    onClick={() => setConfirmDelete(alert.id)}
                                     style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '18px', padding: '4px 8px' }}
                                 >
                                     ×
@@ -363,18 +363,18 @@ const AlertModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                     {loading ? (
                         <p style={{ color: '#888', textAlign: 'center', padding: '20px 0' }}>Loading...</p>
                     ) : view === 'list' ? (
-                        <AlertsList 
-                            alerts={alerts} 
+                        <AlertsList
+                            alerts={alerts}
                             wallet={wallet}
                             onDelete={handleDelete}
                             onEdit={handleEdit}
-                            onAddNew={handleAddNew} 
+                            onAddNew={handleAddNew}
                         />
                     ) : (
-                        <AlertForm 
-                            wallet={wallet} 
-                            labels={labels} 
-                            wallets={wallets} 
+                        <AlertForm
+                            wallet={wallet}
+                            labels={labels}
+                            wallets={wallets}
                             onSave={handleSave}
                             onCancel={() => { setView('list'); setEditAlert(null); }}
                             editAlert={editAlert}

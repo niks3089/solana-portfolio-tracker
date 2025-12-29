@@ -32,6 +32,8 @@ router.post('/', async (req, res) => {
     try {
         const { owner_wallet, label_id, target_wallet, telegram_username, alert_type, threshold_percent } = req.body;
 
+        console.log('Creating alert:', { owner_wallet: owner_wallet?.slice(0, 8), label_id, target_wallet: target_wallet?.slice(0, 8), alert_type });
+
         if (!owner_wallet) {
             return res.status(400).json({ error: 'owner_wallet required' });
         }
@@ -50,6 +52,20 @@ router.post('/', async (req, res) => {
             return res.status(403).json({ error: 'Pro subscription required for alerts' });
         }
 
+        // Check for duplicate alert
+        const existing = await pool.query(`
+            SELECT id FROM alert_settings 
+            WHERE owner_wallet = $1 
+              AND COALESCE(label_id, 0) = COALESCE($2, 0)
+              AND COALESCE(target_wallet, '') = COALESCE($3, '')
+              AND alert_type = $4
+            LIMIT 1
+        `, [owner_wallet, label_id || null, target_wallet || null, alert_type || 'any_tx']);
+
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'Alert already exists for this configuration' });
+        }
+
         const result = await pool.query(`
       INSERT INTO alert_settings (owner_wallet, label_id, target_wallet, telegram_username, alert_type, threshold_percent, enabled)
       VALUES ($1, $2, $3, $4, $5, $6, true)
@@ -63,22 +79,28 @@ router.post('/', async (req, res) => {
             threshold_percent || 5.00
         ]);
 
+        console.log('Alert created:', result.rows[0]?.id);
+
         // Subscribe to wallet via Helius WebSocket
-        if (target_wallet) {
-            heliusWS.subscribeToWallet(target_wallet);
-        } else if (label_id) {
-            const label = await pool.query('SELECT wallets FROM labels WHERE id = $1', [label_id]);
-            if (label.rows[0]?.wallets) {
-                for (const w of label.rows[0].wallets) {
-                    heliusWS.subscribeToWallet(w.address);
+        try {
+            if (target_wallet) {
+                heliusWS.subscribeToWallet(target_wallet);
+            } else if (label_id) {
+                const label = await pool.query('SELECT wallets FROM labels WHERE id = $1', [label_id]);
+                if (label.rows[0]?.wallets) {
+                    for (const w of label.rows[0].wallets) {
+                        heliusWS.subscribeToWallet(w.address);
+                    }
                 }
             }
+        } catch (wsError) {
+            console.error('WebSocket subscription error (non-fatal):', wsError.message);
         }
 
         res.json({ success: true, alert: result.rows[0] });
     } catch (error) {
-        console.error('Create alert error:', error);
-        res.status(500).json({ error: 'Failed to create alert' });
+        console.error('Create alert error:', error.message);
+        res.status(500).json({ error: 'Failed to create alert: ' + error.message });
     }
 });
 
@@ -121,20 +143,23 @@ router.delete('/:id', async (req, res) => {
         const { id } = req.params;
         const { owner_wallet } = req.body;
 
+        console.log('Deleting alert:', { id, owner_wallet: owner_wallet?.slice(0, 8) });
+
         // Verify ownership
         const existing = await pool.query('SELECT * FROM alert_settings WHERE id = $1', [id]);
         if (existing.rows.length === 0) {
             return res.status(404).json({ error: 'Alert not found' });
         }
-        if (existing.rows[0].owner_wallet !== owner_wallet) {
+        if (owner_wallet && existing.rows[0].owner_wallet !== owner_wallet) {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
         await pool.query('DELETE FROM alert_settings WHERE id = $1', [id]);
+        console.log('Alert deleted:', id);
         res.json({ success: true });
     } catch (error) {
-        console.error('Delete alert error:', error);
-        res.status(500).json({ error: 'Failed to delete alert' });
+        console.error('Delete alert error:', error.message);
+        res.status(500).json({ error: 'Failed to delete alert: ' + error.message });
     }
 });
 
