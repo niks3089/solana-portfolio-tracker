@@ -8,14 +8,45 @@ const HELIUS_API_KEY = CONFIG.HELIUS_API_KEY;
 import { pool } from '../db.js';
 import { sendWalletActivityNotification } from './dialect-sdk.js';
 
-// Fetch recent transaction details from Helius
+// Fetch recent transaction details from Helius - find the most relevant one
 async function getRecentTransaction(wallet) {
     try {
+        // Fetch last 5 transactions to find the relevant one
         const response = await fetch(
-            `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_API_KEY}&limit=1`
+            `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_API_KEY}&limit=5`
         );
         if (!response.ok) return null;
         const txs = await response.json();
+        
+        // Priority 1: Find token transfer where wallet is sender or receiver
+        for (const tx of txs) {
+            if (tx.tokenTransfers?.length > 0) {
+                for (const transfer of tx.tokenTransfers) {
+                    if (transfer.fromUserAccount === wallet || transfer.toUserAccount === wallet) {
+                        console.log(`Found token transfer tx: ${tx.signature?.slice(0, 8)}...`);
+                        return tx;
+                    }
+                }
+            }
+        }
+        
+        // Priority 2: Find significant SOL transfer (> 0.001 SOL) where wallet is sender/receiver
+        for (const tx of txs) {
+            if (tx.nativeTransfers?.length > 0) {
+                for (const transfer of tx.nativeTransfers) {
+                    const isSender = transfer.fromUserAccount === wallet;
+                    const isReceiver = transfer.toUserAccount === wallet;
+                    const isSignificant = transfer.amount > 1000000; // > 0.001 SOL
+                    
+                    if ((isSender || isReceiver) && isSignificant) {
+                        console.log(`Found SOL transfer tx: ${tx.signature?.slice(0, 8)}...`);
+                        return tx;
+                    }
+                }
+            }
+        }
+        
+        // Fallback: return first transaction
         return txs[0] || null;
     } catch (e) {
         console.error('Failed to fetch transaction:', e.message);
@@ -54,7 +85,7 @@ async function getTokenMetadata(mint) {
 
         if (!response.ok) return null;
         const data = await response.json();
-        
+
         if (data.result) {
             const metadata = {
                 symbol: data.result.token_info?.symbol || data.result.content?.metadata?.symbol || mint.slice(0, 4),
@@ -68,7 +99,7 @@ async function getTokenMetadata(mint) {
     } catch (e) {
         console.error('Failed to fetch token metadata:', e.message);
     }
-    
+
     return { symbol: mint.slice(0, 4), decimals: 9, price: null, name: null };
 }
 
@@ -289,60 +320,66 @@ class HeliusWebSocketManager {
             const type = tx.type || 'UNKNOWN';
             const description = tx.description || '';
 
-            // Check for native SOL transfers
-            if (tx.nativeTransfers?.length > 0) {
-                for (const transfer of tx.nativeTransfers) {
-                    if (transfer.toUserAccount === wallet) {
-                        txType = 'incoming';
-                        txDetails = {
-                            amount: formatSol(transfer.amount),
-                            from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
-                            type: 'SOL'
-                        };
-                        break;
-                    } else if (transfer.fromUserAccount === wallet) {
-                        txType = 'outgoing';
-                        txDetails = {
-                            amount: formatSol(transfer.amount),
-                            to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
-                            type: 'SOL'
-                        };
+            // Priority 1: Check for token transfers FIRST (more specific)
+            if (tx.tokenTransfers?.length > 0) {
+                for (const transfer of tx.tokenTransfers) {
+                    if (transfer.fromUserAccount === wallet || transfer.toUserAccount === wallet) {
+                        // Fetch token metadata from DAS API
+                        const tokenMeta = await getTokenMetadata(transfer.mint);
+                        const symbol = tokenMeta.symbol;
+                        const amount = transfer.tokenAmount; // Already human-readable from Helius
+
+                        // Calculate USD value if price available
+                        let usdValue = null;
+                        if (tokenMeta.price && amount) {
+                            usdValue = amount * tokenMeta.price;
+                        }
+
+                        if (transfer.toUserAccount === wallet) {
+                            txType = 'incoming';
+                            txDetails = {
+                                amount: formatAmount(amount, symbol),
+                                usdValue: usdValue ? formatUsd(usdValue) : null,
+                                from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
+                                type: symbol
+                            };
+                        } else {
+                            txType = 'outgoing';
+                            txDetails = {
+                                amount: formatAmount(amount, symbol),
+                                usdValue: usdValue ? formatUsd(usdValue) : null,
+                                to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
+                                type: symbol
+                            };
+                        }
                         break;
                     }
                 }
             }
 
-            // Check for token transfers
-            if (tx.tokenTransfers?.length > 0 && !txDetails.amount) {
-                for (const transfer of tx.tokenTransfers) {
-                    // Fetch token metadata from DAS API
-                    const tokenMeta = await getTokenMetadata(transfer.mint);
-                    const symbol = tokenMeta.symbol;
-                    const amount = transfer.tokenAmount;
+            // Priority 2: Check for significant native SOL transfers
+            if (!txDetails.amount && tx.nativeTransfers?.length > 0) {
+                for (const transfer of tx.nativeTransfers) {
+                    const isSender = transfer.fromUserAccount === wallet;
+                    const isReceiver = transfer.toUserAccount === wallet;
+                    const isSignificant = transfer.amount > 1000000; // > 0.001 SOL
                     
-                    // Calculate USD value if price available
-                    let usdValue = null;
-                    if (tokenMeta.price && amount) {
-                        usdValue = amount * tokenMeta.price;
-                    }
-                    
-                    if (transfer.toUserAccount === wallet) {
-                        txType = 'incoming';
-                        txDetails = {
-                            amount: formatAmount(amount, symbol),
-                            usdValue: usdValue ? formatUsd(usdValue) : null,
-                            from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
-                            type: symbol
-                        };
-                        break;
-                    } else if (transfer.fromUserAccount === wallet) {
-                        txType = 'outgoing';
-                        txDetails = {
-                            amount: formatAmount(amount, symbol),
-                            usdValue: usdValue ? formatUsd(usdValue) : null,
-                            to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
-                            type: symbol
-                        };
+                    if ((isSender || isReceiver) && isSignificant) {
+                        if (isReceiver) {
+                            txType = 'incoming';
+                            txDetails = {
+                                amount: formatSol(transfer.amount),
+                                from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
+                                type: 'SOL'
+                            };
+                        } else {
+                            txType = 'outgoing';
+                            txDetails = {
+                                amount: formatSol(transfer.amount),
+                                to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
+                                type: 'SOL'
+                            };
+                        }
                         break;
                     }
                 }
