@@ -111,7 +111,7 @@
 }
 
 /* Hide modal backdrop in embedded mode */
-.dialect-telegram-setup > div > div:first-child {
+.dialect-telegram-setup>div>div:first-child {
   background: transparent !important;
 }
 
