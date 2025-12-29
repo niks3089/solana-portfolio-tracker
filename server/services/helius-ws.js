@@ -124,6 +124,7 @@ class HeliusWebSocketManager {
     constructor() {
         this.ws = null;
         this.subscriptions = new Map(); // wallet -> subscriptionId
+        this.walletRateLimits = new Map(); // wallet -> lastNotifiedAt (per-wallet rate limiting)
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 5000;
@@ -299,9 +300,11 @@ class HeliusWebSocketManager {
     async processAlert(alert, wallet, txData) {
         const { alert_type, label_name, owner_wallet } = alert;
 
-        // Rate limit: 5 minutes per alert
-        if (alert.last_notified_at) {
-            const timeSince = Date.now() - new Date(alert.last_notified_at).getTime();
+        // Rate limit: 5 minutes per wallet (not per alert)
+        const rateLimitKey = `${alert.id}:${wallet}`;
+        const lastNotified = this.walletRateLimits.get(rateLimitKey);
+        if (lastNotified) {
+            const timeSince = Date.now() - lastNotified;
             if (timeSince < 5 * 60 * 1000) return;
         }
 
@@ -413,7 +416,9 @@ class HeliusWebSocketManager {
         if (shouldNotify) {
             const targetWallet = owner_wallet || wallet;
             await sendWalletActivityNotification(targetWallet, txType, txDetails, displayName, walletShort);
-            await pool.query('UPDATE alert_settings SET last_notified_at = NOW() WHERE id = $1', [alert.id]);
+            // Update per-wallet rate limit
+            const rateLimitKey = `${alert.id}:${wallet}`;
+            this.walletRateLimits.set(rateLimitKey, Date.now());
         }
     }
 }
