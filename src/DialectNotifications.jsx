@@ -100,85 +100,85 @@ const AlertModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
     return (
         <div style={overlay} onClick={onClose}>
             <div style={modal} onClick={e => e.stopPropagation()}>
-                <DialectSolanaSdk dappAddress={DAPP_ADDRESS} customWalletAdapter={wallet} config={{ environment: 'production' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                        <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '18px' }}>+ Create Alert</h3>
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '18px' }}>+ Create Alert</h3>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
+                </div>
 
-                    {showTelegram ? (
-                        <div>
-                            <p style={{ color: '#c4c6c8', fontSize: '14px', marginBottom: '16px' }}>Connect Telegram to receive notifications:</p>
-                            <div className="dialect-telegram-setup" style={{ minHeight: '300px' }}>
+                {showTelegram ? (
+                    <DialectSolanaSdk dappAddress={DAPP_ADDRESS} customWalletAdapter={wallet} config={{ environment: 'production' }}>
+                        <div className="dialect" data-theme="dark">
+                            <p style={{ color: '#c4c6c8', fontSize: '14px', marginBottom: '16px' }}>Manage Telegram notifications:</p>
+                            <div style={{ minHeight: '300px' }}>
                                 <Notifications theme="dark" channels={['telegram']} />
                             </div>
-                            <button style={btnSecondary} onClick={() => { localStorage.setItem('dialect_telegram_connected', 'true'); setTelegramConnected(true); setShowTelegram(false); }}>
+                            <button style={btnSecondary} onClick={() => setShowTelegram(false)}>
                                 ← Back to Alert Setup
                             </button>
                         </div>
-                    ) : (
-                        <div>
-                            {/* Portfolio/Wallet Selection */}
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={label}>Select Portfolio or Wallet</label>
-                                <select style={select} value={target} onChange={e => setTarget(e.target.value)}>
-                                    <option value="">Choose...</option>
-                                    {labels.length > 0 && <optgroup label="📁 Portfolios">{labels.map(l => <option key={l.id} value={`portfolio:${l.id}`}>{l.name} ({l.wallets?.length || 0} wallets)</option>)}</optgroup>}
-                                    {wallets.length > 0 && <optgroup label="👛 Wallets">{wallets.map(w => <option key={w.address} value={w.address}>{w.label || `${w.address.slice(0, 4)}...${w.address.slice(-4)}`}</option>)}</optgroup>}
-                                </select>
-                            </div>
-
-                            {/* Wallet filter for portfolios */}
-                            {isPortfolio && portfolioWallets.length > 0 && (
-                                <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
-                                    <label style={{ ...label, marginBottom: '8px' }}>Filter to specific wallets (optional)</label>
-                                    <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
-                                        {portfolioWallets.map(w => {
-                                            const addr = w.address || w;
-                                            const name = w.name || `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-                                            return <label key={addr} style={{ ...checkbox, marginBottom: '6px' }}><input type="checkbox" checked={selectedWallets.includes(addr)} onChange={() => toggleWallet(addr)} style={{ accentColor: '#00d4aa' }} />{name}</label>;
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Notification Types */}
-                            {target && (
-                                <div style={{ marginBottom: '16px' }}>
-                                    <label style={label}>Notification Type</label>
-                                    <div style={{ display: 'flex', marginTop: '8px' }}>
-                                        <label style={checkbox}><input type="checkbox" checked={incoming} onChange={e => setIncoming(e.target.checked)} style={{ accentColor: '#00d4aa' }} />Incoming</label>
-                                        <label style={checkbox}><input type="checkbox" checked={outgoing} onChange={e => setOutgoing(e.target.checked)} style={{ accentColor: '#00d4aa' }} />Outgoing</label>
-                                    </div>
-                                    {isPortfolio && selectedWallets.length === 0 && (
-                                        <div style={{ marginTop: '12px' }}>
-                                            <label style={checkbox}><input type="checkbox" checked={portfolioChange} onChange={e => setPortfolioChange(e.target.checked)} style={{ accentColor: '#00d4aa' }} /><span style={{ color: '#00d4aa' }}>Portfolio Change</span></label>
-                                            {portfolioChange && (
-                                                <div style={{ marginTop: '8px' }}>
-                                                    <input type="range" min="1" max="25" value={threshold} onChange={e => setThreshold(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#00d4aa' }} />
-                                                    <div style={{ color: '#00d4aa', fontSize: '14px', textAlign: 'center' }}>{threshold}%</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Telegram Status */}
-                            <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: '#c4c6c8', fontSize: '14px' }}>📱 Telegram</span>
-                                    <span style={{ color: '#00d4aa', fontSize: '12px' }}>✓ Connected <button onClick={() => setShowTelegram(true)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>Manage</button></span>
-                                </div>
-                            </div>
-
-                            {/* Create Button */}
-                            <button style={{ ...btn, opacity: (!target || (!incoming && !outgoing && !portfolioChange)) ? 0.5 : 1 }} onClick={save} disabled={!target || (!incoming && !outgoing && !portfolioChange) || saving}>
-                                {saving ? 'Saving...' : 'Create Alert'}
-                            </button>
+                    </DialectSolanaSdk>
+                ) : (
+                    <div>
+                        {/* Portfolio/Wallet Selection */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={label}>Select Portfolio or Wallet</label>
+                            <select style={select} value={target} onChange={e => setTarget(e.target.value)}>
+                                <option value="">Choose...</option>
+                                {labels.length > 0 && <optgroup label="📁 Portfolios">{labels.map(l => <option key={l.id} value={`portfolio:${l.id}`}>{l.name} ({l.wallets?.length || 0} wallets)</option>)}</optgroup>}
+                                {wallets.length > 0 && <optgroup label="👛 Wallets">{wallets.map(w => <option key={w.address} value={w.address}>{w.label || `${w.address.slice(0, 4)}...${w.address.slice(-4)}`}</option>)}</optgroup>}
+                            </select>
                         </div>
-                    )}
-                </DialectSolanaSdk>
+
+                        {/* Wallet filter for portfolios */}
+                        {isPortfolio && portfolioWallets.length > 0 && (
+                            <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
+                                <label style={{ ...label, marginBottom: '8px' }}>Filter to specific wallets (optional)</label>
+                                <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                                    {portfolioWallets.map(w => {
+                                        const addr = w.address || w;
+                                        const name = w.name || `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+                                        return <label key={addr} style={{ ...checkbox, marginBottom: '6px' }}><input type="checkbox" checked={selectedWallets.includes(addr)} onChange={() => toggleWallet(addr)} style={{ accentColor: '#00d4aa' }} />{name}</label>;
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Notification Types */}
+                        {target && (
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={label}>Notification Type</label>
+                                <div style={{ display: 'flex', marginTop: '8px' }}>
+                                    <label style={checkbox}><input type="checkbox" checked={incoming} onChange={e => setIncoming(e.target.checked)} style={{ accentColor: '#00d4aa' }} />Incoming</label>
+                                    <label style={checkbox}><input type="checkbox" checked={outgoing} onChange={e => setOutgoing(e.target.checked)} style={{ accentColor: '#00d4aa' }} />Outgoing</label>
+                                </div>
+                                {isPortfolio && selectedWallets.length === 0 && (
+                                    <div style={{ marginTop: '12px' }}>
+                                        <label style={checkbox}><input type="checkbox" checked={portfolioChange} onChange={e => setPortfolioChange(e.target.checked)} style={{ accentColor: '#00d4aa' }} /><span style={{ color: '#00d4aa' }}>Portfolio Change</span></label>
+                                        {portfolioChange && (
+                                            <div style={{ marginTop: '8px' }}>
+                                                <input type="range" min="1" max="25" value={threshold} onChange={e => setThreshold(parseInt(e.target.value))} style={{ width: '100%', accentColor: '#00d4aa' }} />
+                                                <div style={{ color: '#00d4aa', fontSize: '14px', textAlign: 'center' }}>{threshold}%</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Telegram Status */}
+                        <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#c4c6c8', fontSize: '14px' }}>📱 Telegram</span>
+                                <span style={{ color: '#00d4aa', fontSize: '12px' }}>✓ Connected <button onClick={() => setShowTelegram(true)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>Manage</button></span>
+                            </div>
+                        </div>
+
+                        {/* Create Button */}
+                        <button style={{ ...btn, opacity: (!target || (!incoming && !outgoing && !portfolioChange)) ? 0.5 : 1 }} onClick={save} disabled={!target || (!incoming && !outgoing && !portfolioChange) || saving}>
+                            {saving ? 'Saving...' : 'Create Alert'}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
