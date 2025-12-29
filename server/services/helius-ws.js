@@ -300,12 +300,12 @@ class HeliusWebSocketManager {
     async processAlert(alert, wallet, txData) {
         const { alert_type, label_name, owner_wallet } = alert;
 
-        // Rate limit: 5 minutes per wallet (not per alert)
+        // Rate limit: 10 seconds per wallet (not per alert)
         const rateLimitKey = `${alert.id}:${wallet}`;
         const lastNotified = this.walletRateLimits.get(rateLimitKey);
         if (lastNotified) {
             const timeSince = Date.now() - lastNotified;
-            if (timeSince < 5 * 60 * 1000) return;
+            if (timeSince < 10 * 1000) return;
         }
 
         // Fetch detailed transaction info
