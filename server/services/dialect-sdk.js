@@ -115,14 +115,16 @@ export async function sendWalletActivityNotification(walletAddress, txType, txDe
     if (txType === 'incoming') {
         title = '💰 Received';
         if (txDetails.amount) {
-            body = `+${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📤 From: ${txDetails.from || 'unknown'}`;
+            const usdLine = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
+            body = `+${txDetails.amount}${usdLine}\n📍 ${displayName} (${walletShort})\n📤 From: ${txDetails.from || 'unknown'}`;
         } else {
             body = `Funds received\n📍 ${displayName} (${walletShort})`;
         }
     } else if (txType === 'outgoing') {
         title = '📤 Sent';
         if (txDetails.amount) {
-            body = `-${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📥 To: ${txDetails.to || 'unknown'}`;
+            const usdLine = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
+            body = `-${txDetails.amount}${usdLine}\n📍 ${displayName} (${walletShort})\n📥 To: ${txDetails.to || 'unknown'}`;
         } else {
             body = `Funds sent\n📍 ${displayName} (${walletShort})`;
         }

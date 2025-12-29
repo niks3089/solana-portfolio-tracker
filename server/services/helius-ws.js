@@ -31,13 +31,62 @@ function formatSol(lamports) {
     return `${(sol * 1000).toFixed(2)} mSOL`;
 }
 
-// Format token amount
-function formatAmount(amount, decimals = 9, symbol = '') {
-    const val = amount / Math.pow(10, decimals);
-    if (val >= 1000000) return `${(val / 1000000).toFixed(2)}M ${symbol}`.trim();
-    if (val >= 1000) return `${(val / 1000).toFixed(2)}K ${symbol}`.trim();
-    if (val >= 1) return `${val.toFixed(2)} ${symbol}`.trim();
-    return `${val.toFixed(6)} ${symbol}`.trim();
+// Token metadata cache
+const tokenCache = new Map();
+
+// Fetch token metadata from Helius DAS API
+async function getTokenMetadata(mint) {
+    if (tokenCache.has(mint)) {
+        return tokenCache.get(mint);
+    }
+
+    try {
+        const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 'token-metadata',
+                method: 'getAsset',
+                params: { id: mint }
+            })
+        });
+
+        if (!response.ok) return null;
+        const data = await response.json();
+        
+        if (data.result) {
+            const metadata = {
+                symbol: data.result.token_info?.symbol || data.result.content?.metadata?.symbol || mint.slice(0, 4),
+                decimals: data.result.token_info?.decimals || 9,
+                price: data.result.token_info?.price_info?.price_per_token || null,
+                name: data.result.content?.metadata?.name || null,
+            };
+            tokenCache.set(mint, metadata);
+            return metadata;
+        }
+    } catch (e) {
+        console.error('Failed to fetch token metadata:', e.message);
+    }
+    
+    return { symbol: mint.slice(0, 4), decimals: 9, price: null, name: null };
+}
+
+// Format token amount (already human-readable from Helius API)
+function formatAmount(amount, symbol = '') {
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(2)}M ${symbol}`.trim();
+    if (amount >= 1000) return `${(amount / 1000).toFixed(2)}K ${symbol}`.trim();
+    if (amount >= 1) return `${amount.toFixed(2)} ${symbol}`.trim();
+    if (amount >= 0.01) return `${amount.toFixed(4)} ${symbol}`.trim();
+    return `${amount.toFixed(6)} ${symbol}`.trim();
+}
+
+// Format USD value
+function formatUsd(amount) {
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(2)}M`;
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(2)}K`;
+    if (amount >= 1) return `$${amount.toFixed(2)}`;
+    return `$${amount.toFixed(4)}`;
 }
 
 class HeliusWebSocketManager {
@@ -266,11 +315,22 @@ class HeliusWebSocketManager {
             // Check for token transfers
             if (tx.tokenTransfers?.length > 0 && !txDetails.amount) {
                 for (const transfer of tx.tokenTransfers) {
-                    const symbol = transfer.tokenSymbol || transfer.mint?.slice(0, 6) || 'tokens';
+                    // Fetch token metadata from DAS API
+                    const tokenMeta = await getTokenMetadata(transfer.mint);
+                    const symbol = tokenMeta.symbol;
+                    const amount = transfer.tokenAmount;
+                    
+                    // Calculate USD value if price available
+                    let usdValue = null;
+                    if (tokenMeta.price && amount) {
+                        usdValue = amount * tokenMeta.price;
+                    }
+                    
                     if (transfer.toUserAccount === wallet) {
                         txType = 'incoming';
                         txDetails = {
-                            amount: formatAmount(transfer.tokenAmount, transfer.decimals || 9, symbol),
+                            amount: formatAmount(amount, symbol),
+                            usdValue: usdValue ? formatUsd(usdValue) : null,
                             from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
                             type: symbol
                         };
@@ -278,7 +338,8 @@ class HeliusWebSocketManager {
                     } else if (transfer.fromUserAccount === wallet) {
                         txType = 'outgoing';
                         txDetails = {
-                            amount: formatAmount(transfer.tokenAmount, transfer.decimals || 9, symbol),
+                            amount: formatAmount(amount, symbol),
+                            usdValue: usdValue ? formatUsd(usdValue) : null,
                             to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
                             type: symbol
                         };
