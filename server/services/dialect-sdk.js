@@ -12,6 +12,12 @@ import { CONFIG, HELIUS_RPC } from '../config.js';
 let sdk = null;
 let dapp = null;
 
+// Notification type UUIDs from Dialect dashboard
+const NOTIFICATION_TYPES = {
+    WALLET_ACTIVITY: '44106a0b-6923-4ec1-b96c-47aabf9ba5ad',
+    PORTFOLIO_CHANGE: 'dd2c4471-1963-44b6-af6d-6cd98ce6bae8',
+};
+
 // Initialize Dialect SDK
 export async function initDialectSDK() {
     if (!CONFIG.DIALECT_PRIVATE_KEY) {
@@ -76,41 +82,65 @@ export async function initDialectSDK() {
 }
 
 // Send notification
-export async function sendNotification({ recipient, title, message }) {
+export async function sendNotification({ recipient, title, body, notificationTypeId }) {
     if (!sdk || !dapp) {
         console.warn('Dialect SDK not ready');
         return false;
     }
 
+    const msgTitle = String(title || 'Alert');
+    const msgBody = String(body || 'Notification from saul.run');
+
+    console.log(`📤 Sending notification: to=${recipient.slice(0, 8)}... title="${msgTitle}" body="${msgBody}"`);
+
     try {
         await dapp.messages.send({
             recipient: new PublicKey(recipient),
-            message: { title, body: message },
+            title: msgTitle,
+            message: msgBody,
+            notificationTypeId: notificationTypeId || NOTIFICATION_TYPES.WALLET_ACTIVITY,
         });
         console.log(`✓ Notification sent to ${recipient.slice(0, 8)}...`);
         return true;
     } catch (error) {
-        console.error('Dialect send error:', error.message);
+        console.error('Dialect send error:', error);
         return false;
     }
 }
 
 // Send wallet activity notification
-export async function sendWalletActivityNotification(walletAddress, txType, amount, displayName) {
-    let title, message;
+export async function sendWalletActivityNotification(walletAddress, txType, txDetails, displayName, walletShort) {
+    let title, body;
 
     if (txType === 'incoming') {
-        title = '💰 Incoming Transaction';
-        message = `Funds received on ${displayName}`;
+        title = '💰 Received';
+        if (txDetails.amount) {
+            body = `+${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📤 From: ${txDetails.from || 'unknown'}`;
+        } else {
+            body = `Funds received\n📍 ${displayName} (${walletShort})`;
+        }
     } else if (txType === 'outgoing') {
-        title = '📤 Outgoing Transaction';
-        message = `Funds sent from ${displayName}`;
+        title = '📤 Sent';
+        if (txDetails.amount) {
+            body = `-${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📥 To: ${txDetails.to || 'unknown'}`;
+        } else {
+            body = `Funds sent\n📍 ${displayName} (${walletShort})`;
+        }
     } else {
-        title = '🔔 Wallet Activity';
-        message = `Activity detected on ${displayName}`;
+        title = '🔔 Activity';
+        if (txDetails.type && txDetails.type !== 'unknown') {
+            body = `${txDetails.type}\n📍 ${displayName} (${walletShort})`;
+        } else {
+            body = `Transaction detected\n📍 ${displayName} (${walletShort})`;
+        }
     }
 
-    return sendNotification({ recipient: walletAddress, title, message });
+    return sendNotification({
+        recipient: walletAddress,
+        title,
+        body,
+        notificationTypeId: NOTIFICATION_TYPES.WALLET_ACTIVITY,
+    });
 }
 
 // Send portfolio change notification
@@ -122,6 +152,7 @@ export async function sendPortfolioChangeNotification(walletAddress, percentChan
     return sendNotification({
         recipient: walletAddress,
         title: `${emoji} Portfolio ${direction} ${Math.abs(percentChange).toFixed(1)}%`,
-        message: `Your portfolio is now worth $${newValue.toLocaleString()}.`,
+        body: `Your portfolio is now worth $${newValue.toLocaleString()}.`,
+        notificationTypeId: NOTIFICATION_TYPES.PORTFOLIO_CHANGE,
     });
 }

@@ -3,9 +3,42 @@
  */
 
 import WebSocket from 'ws';
-import { HELIUS_WS_URL } from '../config.js';
+import { HELIUS_WS_URL, CONFIG } from '../config.js';
+const HELIUS_API_KEY = CONFIG.HELIUS_API_KEY;
 import { pool } from '../db.js';
 import { sendWalletActivityNotification } from './dialect-sdk.js';
+
+// Fetch recent transaction details from Helius
+async function getRecentTransaction(wallet) {
+    try {
+        const response = await fetch(
+            `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_API_KEY}&limit=1`
+        );
+        if (!response.ok) return null;
+        const txs = await response.json();
+        return txs[0] || null;
+    } catch (e) {
+        console.error('Failed to fetch transaction:', e.message);
+        return null;
+    }
+}
+
+// Format SOL amount
+function formatSol(lamports) {
+    const sol = lamports / 1e9;
+    if (sol >= 1000) return `${(sol / 1000).toFixed(2)}K SOL`;
+    if (sol >= 1) return `${sol.toFixed(4)} SOL`;
+    return `${(sol * 1000).toFixed(2)} mSOL`;
+}
+
+// Format token amount
+function formatAmount(amount, decimals = 9, symbol = '') {
+    const val = amount / Math.pow(10, decimals);
+    if (val >= 1000000) return `${(val / 1000000).toFixed(2)}M ${symbol}`.trim();
+    if (val >= 1000) return `${(val / 1000).toFixed(2)}K ${symbol}`.trim();
+    if (val >= 1) return `${val.toFixed(2)} ${symbol}`.trim();
+    return `${val.toFixed(6)} ${symbol}`.trim();
+}
 
 class HeliusWebSocketManager {
     constructor() {
@@ -192,22 +225,87 @@ class HeliusWebSocketManager {
             if (timeSince < 5 * 60 * 1000) return;
         }
 
-        let shouldNotify = false;
-        let txType = 'any';
-        const displayName = label_name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+        // Fetch detailed transaction info
+        const tx = await getRecentTransaction(wallet);
 
+        let shouldNotify = false;
+        let txType = 'activity';
+        let txDetails = {};
+
+        const walletShort = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+        const displayName = label_name || walletShort;
+
+        if (tx) {
+            // Parse transaction type and details
+            const type = tx.type || 'UNKNOWN';
+            const description = tx.description || '';
+
+            // Check for native SOL transfers
+            if (tx.nativeTransfers?.length > 0) {
+                for (const transfer of tx.nativeTransfers) {
+                    if (transfer.toUserAccount === wallet) {
+                        txType = 'incoming';
+                        txDetails = {
+                            amount: formatSol(transfer.amount),
+                            from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
+                            type: 'SOL'
+                        };
+                        break;
+                    } else if (transfer.fromUserAccount === wallet) {
+                        txType = 'outgoing';
+                        txDetails = {
+                            amount: formatSol(transfer.amount),
+                            to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
+                            type: 'SOL'
+                        };
+                        break;
+                    }
+                }
+            }
+
+            // Check for token transfers
+            if (tx.tokenTransfers?.length > 0 && !txDetails.amount) {
+                for (const transfer of tx.tokenTransfers) {
+                    const symbol = transfer.tokenSymbol || transfer.mint?.slice(0, 6) || 'tokens';
+                    if (transfer.toUserAccount === wallet) {
+                        txType = 'incoming';
+                        txDetails = {
+                            amount: formatAmount(transfer.tokenAmount, transfer.decimals || 9, symbol),
+                            from: `${transfer.fromUserAccount?.slice(0, 4)}...${transfer.fromUserAccount?.slice(-4)}`,
+                            type: symbol
+                        };
+                        break;
+                    } else if (transfer.fromUserAccount === wallet) {
+                        txType = 'outgoing';
+                        txDetails = {
+                            amount: formatAmount(transfer.tokenAmount, transfer.decimals || 9, symbol),
+                            to: `${transfer.toUserAccount?.slice(0, 4)}...${transfer.toUserAccount?.slice(-4)}`,
+                            type: symbol
+                        };
+                        break;
+                    }
+                }
+            }
+
+            // Fallback to transaction type
+            if (!txDetails.amount) {
+                txDetails = {
+                    type: type.replace(/_/g, ' ').toLowerCase(),
+                    description: description.slice(0, 50)
+                };
+            }
+        }
+
+        // Check if alert type matches
         switch (alert_type) {
             case 'any_tx':
                 shouldNotify = true;
-                txType = 'activity';
                 break;
             case 'incoming':
-                shouldNotify = true;
-                txType = 'incoming';
+                shouldNotify = txType === 'incoming';
                 break;
             case 'outgoing':
-                shouldNotify = true;
-                txType = 'outgoing';
+                shouldNotify = txType === 'outgoing';
                 break;
             case 'threshold':
                 // Handled separately via periodic check
@@ -215,9 +313,8 @@ class HeliusWebSocketManager {
         }
 
         if (shouldNotify) {
-            // Send via Dialect SDK - notification goes to the wallet owner
             const targetWallet = owner_wallet || wallet;
-            await sendWalletActivityNotification(targetWallet, txType, '', displayName);
+            await sendWalletActivityNotification(targetWallet, txType, txDetails, displayName, walletShort);
             await pool.query('UPDATE alert_settings SET last_notified_at = NOW() WHERE id = $1', [alert.id]);
         }
     }
