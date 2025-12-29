@@ -17,7 +17,7 @@ async function getRecentTransaction(wallet) {
         );
         if (!response.ok) return null;
         const txs = await response.json();
-        
+
         // Priority 1: Find token transfer where wallet is sender or receiver
         for (const tx of txs) {
             if (tx.tokenTransfers?.length > 0) {
@@ -29,7 +29,7 @@ async function getRecentTransaction(wallet) {
                 }
             }
         }
-        
+
         // Priority 2: Find significant SOL transfer (> 0.001 SOL) where wallet is sender/receiver
         for (const tx of txs) {
             if (tx.nativeTransfers?.length > 0) {
@@ -37,7 +37,7 @@ async function getRecentTransaction(wallet) {
                     const isSender = transfer.fromUserAccount === wallet;
                     const isReceiver = transfer.toUserAccount === wallet;
                     const isSignificant = transfer.amount > 1000000; // > 0.001 SOL
-                    
+
                     if ((isSender || isReceiver) && isSignificant) {
                         console.log(`Found SOL transfer tx: ${tx.signature?.slice(0, 8)}...`);
                         return tx;
@@ -45,7 +45,7 @@ async function getRecentTransaction(wallet) {
                 }
             }
         }
-        
+
         // Fallback: return first transaction
         return txs[0] || null;
     } catch (e) {
@@ -363,7 +363,7 @@ class HeliusWebSocketManager {
                     const isSender = transfer.fromUserAccount === wallet;
                     const isReceiver = transfer.toUserAccount === wallet;
                     const isSignificant = transfer.amount > 1000000; // > 0.001 SOL
-                    
+
                     if ((isSender || isReceiver) && isSignificant) {
                         if (isReceiver) {
                             txType = 'incoming';
