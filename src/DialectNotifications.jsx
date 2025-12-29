@@ -72,6 +72,55 @@ const bellBtn = { width: '32px', height: '32px', borderRadius: '6px', background
 const tabStyle = { flex: 1, padding: '12px', background: 'transparent', border: 'none', color: '#888', fontSize: '14px', cursor: 'pointer', borderBottom: '2px solid transparent' };
 const tabActiveStyle = { ...tabStyle, color: '#00d4aa', borderBottomColor: '#00d4aa' };
 
+// Dialect wrapper that hides "Using ledger?" and cleans up UI
+const DialectWrapper = () => {
+    useEffect(() => {
+        // Hide "Using ledger?" and other unwanted elements
+        const hideUnwanted = () => {
+            // Find and hide ledger checkbox by text content
+            document.querySelectorAll('label').forEach(label => {
+                if (label.textContent?.toLowerCase().includes('ledger')) {
+                    label.style.display = 'none';
+                    // Also hide parent if it's a wrapper
+                    if (label.parentElement?.children.length === 1) {
+                        label.parentElement.style.display = 'none';
+                    }
+                }
+            });
+            // Hide "Powered by" footer
+            document.querySelectorAll('div, span, p').forEach(el => {
+                if (el.textContent?.toLowerCase().includes('powered by')) {
+                    el.style.display = 'none';
+                }
+            });
+            // Hide version numbers
+            document.querySelectorAll('div, span').forEach(el => {
+                if (el.textContent?.match(/^\d+\.\d+\.\d+\s*\/\s*\d+\.\d+\.\d+$/)) {
+                    el.style.display = 'none';
+                }
+            });
+        };
+
+        // Run multiple times as Dialect renders async
+        hideUnwanted();
+        const intervals = [100, 300, 500, 1000, 2000].map(ms =>
+            setTimeout(hideUnwanted, ms)
+        );
+
+        return () => intervals.forEach(clearTimeout);
+    }, []);
+
+    return (
+        <div className="dialect-wrapper" style={{ padding: '0' }}>
+            <Notifications
+                theme="dark"
+                channels={['telegram']}
+                notifications={{ emptyState: <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>No notifications yet</div> }}
+            />
+        </div>
+    );
+};
+
 // Step indicator
 const StepIndicator = ({ currentStep }) => {
     const steps = ['Subscribe', 'Link Telegram', 'Create Alerts'];
@@ -221,9 +270,9 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onBack }) => {
                     </button>
                 </>
             )}
-            
+
             <div style={{ marginTop: '20px', padding: '12px', background: '#1a1a1a', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
-                💡 Not receiving alerts? Check "History" tab to manage Telegram settings.
+                💡 Not receiving alerts? Check "Settings" tab to connect Telegram.
             </div>
         </div>
     );
@@ -231,7 +280,7 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onBack }) => {
 
 // Main Modal with tabs
 const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
-    const [tab, setTab] = useState('alerts'); // Default to alerts since setup is likely done
+    const [tab, setTab] = useState('settings'); // Default to settings for first-time setup
     const [toast, setToast] = useState(null);
 
     if (!isOpen) return null;
@@ -247,29 +296,23 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', borderBottom: '1px solid #2a2a2b' }}>
+                    <button style={tab === 'settings' ? tabActiveStyle : tabStyle} onClick={() => setTab('settings')}>
+                        Settings
+                    </button>
                     <button style={tab === 'alerts' ? tabActiveStyle : tabStyle} onClick={() => setTab('alerts')}>
                         My Alerts
-                    </button>
-                    <button style={tab === 'history' ? tabActiveStyle : tabStyle} onClick={() => setTab('history')}>
-                        History
                     </button>
                 </div>
 
                 {/* Content */}
                 <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                    {tab === 'history' ? (
+                    {tab === 'settings' ? (
                         <DialectSolanaSdk
                             dappAddress={DAPP_ADDRESS}
                             customWalletAdapter={wallet}
                             config={{ environment: 'production' }}
                         >
-                            <div className="dialect-wrapper" style={{ padding: '0' }}>
-                                <Notifications 
-                                    theme="dark"
-                                    channels={['telegram']}
-                                    notifications={{ emptyState: <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>No notifications yet</div> }}
-                                />
-                            </div>
+                            <DialectWrapper />
                         </DialectSolanaSdk>
                     ) : (
                         <AlertForm

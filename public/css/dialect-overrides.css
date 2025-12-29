@@ -1,7 +1,8 @@
-/* Dialect UI Overrides - Clean single-page like Drift */
+/* Dialect UI Overrides - Clean like Drift */
 
 .dialect,
-.dialect-notifications-wrapper {
+.dialect-wrapper,
+[data-dialect] {
   --dt-bg-primary: #1b1b1c !important;
   --dt-bg-secondary: #232324 !important;
   --dt-bg-tertiary: #2a2a2b !important;
@@ -13,53 +14,79 @@
   --dt-text-accent: #00d4aa !important;
   --dt-stroke-primary: #323335 !important;
   --dt-button-primary: #00d4aa !important;
+  --dt-button-secondary: #2a2a2b !important;
 }
 
-/* Hide tabs - we only want single view */
+/* Hide tabs */
 .dialect [role="tablist"],
 .dialect button[role="tab"] {
   display: none !important;
 }
 
 /* Hide footer/version info */
-.dialect .dt-text-caption,
-.dialect-notifications-wrapper .dt-text-caption {
+.dialect .dt-text-caption {
   display: none !important;
 }
 
-/* Hide email input - telegram only */
+/* Hide email input */
 .dialect input[type="email"],
-.dialect input[placeholder*="email" i],
-.dialect div:has(> input[type="email"]),
-.dialect div:has(> input[placeholder*="email" i]) {
+.dialect input[placeholder*="email" i] {
+  display: none !important;
+}
+
+/* HIDE "Using ledger?" checkbox - target by structure */
+.dialect label[class*="ledger" i],
+.dialect div[class*="ledger" i],
+.dialect [class*="Ledger" i] {
+  display: none !important;
+}
+
+/* Hide any checkbox container that's before the sign message button */
+.dialect form>label:first-of-type:has(input[type="checkbox"]) {
+  display: none !important;
+}
+
+/* More aggressive - hide checkbox labels in sign flow */
+.dialect button+label,
+.dialect label:has(input[type="checkbox"]):not(:has(input[type="checkbox"]:checked)) {
+  /* Only hide unchecked ones in certain contexts */
+}
+
+/* Target the ledger toggle specifically by its position/structure */
+.dialect div:has(> span):has(> input[type="checkbox"]):has(span) {
+  display: none !important;
+}
+
+/* Hide ledger row - usually it's a flex container with checkbox */
+.dialect .dt-flex:has(> label > input[type="checkbox"]):not(:has(span[class*="notification"])) {
   display: none !important;
 }
 
 /* Style headers green */
 .dialect .dt-text-h2,
-.dialect .dt-text-h3 {
+.dialect .dt-text-h3,
+.dialect h2,
+.dialect h3 {
   color: #00d4aa !important;
 }
 
 /* Green toggle when checked */
 .dialect input:checked+div,
-.dialect .dt-bg-\[--dt-input-checked\] {
+.dialect input:checked+span,
+.dialect [class*="checked"] {
   background-color: #00d4aa !important;
 }
 
-/* Style buttons green */
-.dialect .dt-bg-\[--dt-button-primary\] {
+/* Style primary buttons green */
+.dialect button[class*="primary"],
+.dialect .dt-bg-\[--dt-button-primary\],
+.dialect button:not([class*="secondary"]):not([class*="ghost"]) {
   background-color: #00d4aa !important;
   color: #0a0a0f !important;
 }
 
-.dialect .dt-bg-\[--dt-button-primary\]:hover {
-  background-color: #00b894 !important;
-}
-
-/* Hide "Using ledger?" */
-.dialect label:has(> input[type="checkbox"]):has(span:contains("Ledger")) {
-  display: none !important;
+.dialect button:hover {
+  opacity: 0.9;
 }
 
 /* Green links */
@@ -68,29 +95,41 @@
 }
 
 /* Nice card styling */
-.dialect .dt-rounded-lg {
+.dialect [class*="rounded"] {
   border-color: #323335 !important;
 }
 
-/* Make notification type cards look better */
-.dialect-notifications-wrapper .dt-rounded-\[--dt-border-radius-m\] {
+/* Notification type cards */
+.dialect [class*="notification-type"],
+.dialect [class*="NotificationType"] {
   background: rgba(0, 212, 170, 0.05) !important;
-  border-color: rgba(0, 212, 170, 0.2) !important;
+  border: 1px solid rgba(0, 212, 170, 0.2) !important;
 }
 
-/* Clean up padding */
-.dialect-notifications-wrapper>div {
-  padding: 0 !important;
-}
-
-/* Style the modal content area */
-.dialect-notifications-wrapper {
+/* Clean modal background */
+.dialect-wrapper {
   background: #1b1b1c;
   min-height: 300px;
+  padding: 16px;
 }
 
-/* Hide "Manage" links */
-.dialect a[href*="manage"],
-.dialect button:contains("Manage") {
+/* Hide powered by footer */
+.dialect [class*="powered"],
+.dialect [class*="Powered"],
+.dialect footer {
   display: none !important;
+}
+
+/* Checkboxes green when checked */
+.dialect input[type="checkbox"]:checked {
+  accent-color: #00d4aa !important;
+  background-color: #00d4aa !important;
+}
+
+/* Select/dropdown styling */
+.dialect select,
+.dialect input[type="text"] {
+  background: #2a2a2b !important;
+  border-color: #323335 !important;
+  color: #fff !important;
 }
