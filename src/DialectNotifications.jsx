@@ -6,12 +6,30 @@ let cachedWalletAdapter = null;
 let cachedPublicKey = null;
 
 const getWalletAdapter = () => {
-    const provider = window.backpack || window.phantom?.solana || window.solflare;
-    if (!provider?.isConnected || !provider?.publicKey) {
+    // Try each wallet provider
+    const providers = [
+        window.backpack,
+        window.phantom?.solana,
+        window.solflare,
+    ].filter(Boolean);
+
+    // Find the first connected provider with a public key
+    let provider = null;
+    for (const p of providers) {
+        // Check both isConnected and publicKey existence
+        const isConnected = p.isConnected || (p.publicKey && p.publicKey.toString());
+        if (isConnected && p.publicKey) {
+            provider = p;
+            break;
+        }
+    }
+
+    if (!provider || !provider.publicKey) {
         cachedWalletAdapter = null;
         cachedPublicKey = null;
         return null;
     }
+
     const currentPubKey = provider.publicKey.toString();
     if (cachedWalletAdapter && cachedPublicKey === currentPubKey) {
         return cachedWalletAdapter;
