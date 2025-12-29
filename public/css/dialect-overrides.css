@@ -1,6 +1,7 @@
 /* Dialect UI Overrides - Clean single-page like Drift */
 
-.dialect, .dialect-notifications-wrapper {
+.dialect,
+.dialect-notifications-wrapper {
   --dt-bg-primary: #1b1b1c !important;
   --dt-bg-secondary: #232324 !important;
   --dt-bg-tertiary: #2a2a2b !important;
@@ -41,7 +42,7 @@
 }
 
 /* Green toggle when checked */
-.dialect input:checked + div,
+.dialect input:checked+div,
 .dialect .dt-bg-\[--dt-input-checked\] {
   background-color: #00d4aa !important;
 }
@@ -78,7 +79,7 @@
 }
 
 /* Clean up padding */
-.dialect-notifications-wrapper > div {
+.dialect-notifications-wrapper>div {
   padding: 0 !important;
 }
 
