@@ -96,11 +96,11 @@ const tabActiveStyle = { ...tabStyle, color: '#00d4aa', borderBottomColor: '#00d
 // Dialect wrapper that hides "Using ledger?" and cleans up UI
 const DialectWrapper = () => {
     const wrapperRef = React.useRef(null);
-    
+
     useEffect(() => {
         const hideUnwanted = () => {
             if (!wrapperRef.current) return;
-            
+
             // Hide "Using ledger?" by finding labels with that text
             wrapperRef.current.querySelectorAll('label, div, span').forEach(el => {
                 const text = el.textContent?.toLowerCase() || '';
@@ -116,7 +116,7 @@ const DialectWrapper = () => {
                     }
                 }
             });
-            
+
             // Also hide by class patterns
             wrapperRef.current.querySelectorAll('[class*="ledger" i], [class*="Ledger"]').forEach(el => {
                 el.style.display = 'none';
@@ -125,19 +125,19 @@ const DialectWrapper = () => {
 
         // Initial hide + MutationObserver for async renders
         hideUnwanted();
-        
+
         const observer = new MutationObserver(() => {
             hideUnwanted();
         });
-        
+
         if (wrapperRef.current) {
-            observer.observe(wrapperRef.current, { 
-                childList: true, 
+            observer.observe(wrapperRef.current, {
+                childList: true,
                 subtree: true,
-                attributes: true 
+                attributes: true
             });
         }
-        
+
         // Also run on intervals as backup
         const interval = setInterval(hideUnwanted, 500);
 
@@ -345,6 +345,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                 <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                     {tab === 'settings' ? (
                         <DialectSolanaSdk
+                            key={wallet?.publicKey?.toString()}
                             dappAddress={DAPP_ADDRESS}
                             customWalletAdapter={wallet}
                             config={{ environment: 'production' }}
