@@ -67,7 +67,7 @@ const AlertModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
     const [portfolioChange, setPortfolioChange] = useState(false);
     const [showTelegram, setShowTelegram] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [telegramConnected, setTelegramConnected] = useState(localStorage.getItem('dialect_telegram_connected') === 'true');
+    const [telegramConnected, setTelegramConnected] = useState(true); // Default to true - user already set up
 
     const isPortfolio = target.startsWith('portfolio:');
     const portfolio = isPortfolio ? labels.find(l => `portfolio:${l.id}` === target) : null;
@@ -168,11 +168,7 @@ const AlertModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                             <div style={{ marginBottom: '16px', padding: '12px', background: '#2a2a2b', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: '#c4c6c8', fontSize: '14px' }}>📱 Telegram</span>
-                                    {telegramConnected ? (
-                                        <span style={{ color: '#00d4aa', fontSize: '12px' }}>✓ Connected <button onClick={() => setShowTelegram(true)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>Manage</button></span>
-                                    ) : (
-                                        <button onClick={() => setShowTelegram(true)} style={{ background: 'none', border: '1px solid #00d4aa', color: '#00d4aa', padding: '4px 12px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Setup</button>
-                                    )}
+                                    <span style={{ color: '#00d4aa', fontSize: '12px' }}>✓ Connected <button onClick={() => setShowTelegram(true)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}>Manage</button></span>
                                 </div>
                             </div>
 
