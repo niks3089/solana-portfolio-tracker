@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DialectSolanaSdk } from '@dialectlabs/react-sdk-blockchain-solana';
-import { Notifications } from '@dialectlabs/react-ui';
+import { NotificationsButton } from '@dialectlabs/react-ui';
 
 const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 
-// Use the wallet selected by the main page (not auto-detection)
+// Use the wallet from main page
 const useWallet = () => {
     const [wallet, setWallet] = useState(null);
 
     useEffect(() => {
         const check = () => {
-            // Use the provider that the main page connected with
             const provider = window.connectedProvider;
             const walletAddr = window.connectedWallet;
 
@@ -20,10 +19,7 @@ const useWallet = () => {
                 return;
             }
 
-            // Only update if wallet changed
             if (wallet?.publicKey?.toString() === walletAddr) return;
-
-            console.log('Wallet changed to:', walletAddr);
 
             setWallet({
                 publicKey: provider.publicKey,
@@ -49,160 +45,207 @@ const useWallet = () => {
 const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
 const modal = { background: '#1b1b1c', borderRadius: '12px', width: '420px', maxWidth: '95vw', maxHeight: '90vh', overflow: 'hidden', border: '1px solid #00d4aa33' };
 const header = { padding: '20px 24px', borderBottom: '1px solid #2a2a2b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const bellBtn = { width: '32px', height: '32px', borderRadius: '6px', background: 'transparent', border: '1px solid #00d4aa', color: '#00d4aa', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' };
+const bellBtn = { width: '32px', height: '32px', borderRadius: '6px', background: 'transparent', border: '1px solid #00d4aa', color: '#00d4aa', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const selectStyle = { width: '100%', padding: '10px 12px', background: '#2a2a2b', border: '1px solid #323335', borderRadius: '8px', color: '#fff', fontSize: '14px', marginBottom: '12px' };
+const checkboxLabel = { display: 'flex', alignItems: 'center', gap: '8px', color: '#c4c6c8', fontSize: '14px', cursor: 'pointer', marginBottom: '8px' };
+const btnPrimary = { width: '100%', padding: '12px', background: '#00d4aa', color: '#0a0a0f', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' };
+const alertCard = { background: '#2a2a2b', borderRadius: '8px', padding: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 
-// CSS to hide ledger and style Dialect - inject once
-const injectDialectStyles = () => {
-    if (document.getElementById('dialect-custom-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'dialect-custom-styles';
-    style.textContent = `
-        /* Hide "Using ledger?" checkbox specifically */
-        .dialect-notifications-modal label[class*="dt-"]:has(input[type="checkbox"]):has(span:not([class*="toggle"])) {
-            display: none !important;
-        }
+// Alert Form Component
+const AlertForm = ({ wallet, labels, wallets, onSave }) => {
+    const [target, setTarget] = useState('');
+    const [walletTx, setWalletTx] = useState(true);
+    const [portfolioChange, setPortfolioChange] = useState(false);
+    const [threshold, setThreshold] = useState(5);
+    const [saving, setSaving] = useState(false);
+    const [alerts, setAlerts] = useState([]);
 
-        /* Style overrides for dark theme */
-        .dialect-notifications-modal {
-            --dt-bg-primary: #1b1b1c;
-            --dt-bg-secondary: #232324;
-            --dt-bg-tertiary: #2a2a2b;
-            --dt-text-primary: #ffffff;
-            --dt-text-secondary: #c4c6c8;
-            --dt-accent-brand: #00d4aa;
-            --dt-button-primary: #00d4aa;
-        }
+    const isPortfolio = target.startsWith('portfolio:');
 
-        /* Green buttons */
-        .dialect-notifications-modal button[class*="dt-bg"] {
-            background-color: #00d4aa !important;
-            color: #0a0a0f !important;
-        }
+    useEffect(() => { loadAlerts(); }, [wallet]);
 
-        /* Green accents */
-        .dialect-notifications-modal [class*="accent"],
-        .dialect-notifications-modal a {
-            color: #00d4aa !important;
-        }
+    const loadAlerts = async () => {
+        if (!wallet?.publicKey) return;
+        try {
+            const res = await fetch(`/api/alerts/${wallet.publicKey.toString()}`);
+            const data = await res.json();
+            setAlerts(data.alerts || []);
+        } catch (e) { setAlerts([]); }
+    };
 
-        /* Hide version footer */
-        .dialect-notifications-modal [class*="caption"]:has(span) {
-            display: none !important;
-        }
-    `;
-    document.head.appendChild(style);
+    const save = async () => {
+        if (!target) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    owner_wallet: wallet.publicKey.toString(),
+                    label_id: isPortfolio ? parseInt(target.split(':')[1]) : null,
+                    target_wallet: !isPortfolio ? target : null,
+                    alert_type: portfolioChange ? 'threshold' : 'any_tx',
+                    threshold_percent: portfolioChange ? threshold : null,
+                    enabled: true,
+                })
+            });
+            if (res.ok) {
+                onSave?.('Alert created!');
+                loadAlerts();
+                setTarget('');
+            } else {
+                const err = await res.json();
+                onSave?.(null, err.error);
+            }
+        } catch (e) { onSave?.(null, 'Failed'); }
+        setSaving(false);
+    };
+
+    const deleteAlert = async (id) => {
+        try {
+            await fetch(`/api/alerts/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ owner_wallet: wallet.publicKey.toString() })
+            });
+            loadAlerts();
+        } catch (e) { }
+    };
+
+    return (
+        <div style={{ padding: '16px 20px' }}>
+            <h4 style={{ color: '#00d4aa', margin: '0 0 16px 0', fontSize: '14px' }}>Your Alerts</h4>
+
+            {alerts.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                    {alerts.map(alert => (
+                        <div key={alert.id} style={alertCard}>
+                            <div>
+                                <div style={{ color: '#fff', fontSize: '13px' }}>
+                                    {alert.label_name || `${alert.target_wallet?.slice(0, 6)}...`}
+                                </div>
+                                <div style={{ color: '#888', fontSize: '11px' }}>
+                                    {alert.alert_type === 'threshold' ? `${alert.threshold_percent}% change` : 'Transactions'}
+                                </div>
+                            </div>
+                            <button onClick={() => deleteAlert(alert.id)} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '16px' }}>×</button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <h4 style={{ color: '#888', margin: '0 0 12px 0', fontSize: '12px' }}>+ New Alert</h4>
+
+            <select style={selectStyle} value={target} onChange={e => setTarget(e.target.value)}>
+                <option value="">Select portfolio or wallet...</option>
+                {labels.length > 0 && <optgroup label="📁 Portfolios">{labels.map(l => <option key={l.id} value={`portfolio:${l.id}`}>{l.name}</option>)}</optgroup>}
+                {wallets.length > 0 && <optgroup label="👛 Wallets">{wallets.map(w => <option key={w.address} value={w.address}>{w.label || `${w.address.slice(0, 4)}...${w.address.slice(-4)}`}</option>)}</optgroup>}
+            </select>
+
+            {target && (
+                <>
+                    <label style={checkboxLabel}>
+                        <input type="checkbox" checked={walletTx} onChange={e => setWalletTx(e.target.checked)} style={{ accentColor: '#00d4aa' }} />
+                        Wallet Transactions
+                    </label>
+                    {isPortfolio && (
+                        <>
+                            <label style={checkboxLabel}>
+                                <input type="checkbox" checked={portfolioChange} onChange={e => setPortfolioChange(e.target.checked)} style={{ accentColor: '#00d4aa' }} />
+                                <span style={{ color: '#00d4aa' }}>Portfolio Change ({threshold}%)</span>
+                            </label>
+                            {portfolioChange && (
+                                <input type="range" min="1" max="25" value={threshold} onChange={e => setThreshold(parseInt(e.target.value))} style={{ width: '100%', marginBottom: '12px', accentColor: '#00d4aa' }} />
+                            )}
+                        </>
+                    )}
+                    <button onClick={save} disabled={saving || (!walletTx && !portfolioChange)} style={{ ...btnPrimary, opacity: saving ? 0.5 : 1 }}>
+                        {saving ? 'Creating...' : 'Create Alert'}
+                    </button>
+                </>
+            )}
+        </div>
+    );
 };
 
-// Error boundary for Dialect
-class DialectErrorBoundary extends React.Component {
-    state = { hasError: false, error: null };
+// Telegram Setup Section
+const TelegramSetup = ({ wallet }) => {
+    const [showSetup, setShowSetup] = useState(false);
 
-    static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-    }
-
-    componentDidCatch(error, info) {
-        console.error('Dialect Error:', error, info);
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
-                    <p>Failed to load notifications</p>
-                    <button
-                        onClick={() => this.setState({ hasError: false, error: null })}
-                        style={{ background: '#00d4aa', color: '#0a0a0f', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', marginTop: '10px' }}
-                    >
-                        Retry
+    if (!showSetup) {
+        return (
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2a2b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: '500' }}>Telegram Notifications</div>
+                        <div style={{ color: '#888', fontSize: '12px' }}>Receive alerts via Telegram</div>
+                    </div>
+                    <button onClick={() => setShowSetup(true)} style={{ background: '#00d4aa', color: '#0a0a0f', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                        Setup
                     </button>
                 </div>
-            );
-        }
-        return this.props.children;
+            </div>
+        );
     }
-}
 
-// Hide "Using ledger?" by finding text
-const hideLedgerToggle = (container) => {
-    if (!container) return;
-    // Find all labels and divs with "ledger" text
-    container.querySelectorAll('label, div').forEach(el => {
-        if (el.textContent?.toLowerCase().includes('ledger')) {
-            el.style.display = 'none';
-            // Also hide parent if it only contains this
-            if (el.parentElement && el.parentElement.children.length === 1) {
-                el.parentElement.style.display = 'none';
-            }
-        }
-    });
+    return (
+        <div style={{ borderBottom: '1px solid #2a2a2b' }}>
+            <div style={{ padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#00d4aa', fontSize: '14px' }}>Telegram Setup</span>
+                <button onClick={() => setShowSetup(false)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>×</button>
+            </div>
+            <DialectSolanaSdk
+                key={wallet?.publicKey?.toString()}
+                dappAddress={DAPP_ADDRESS}
+                customWalletAdapter={wallet}
+                config={{ environment: 'production' }}
+            >
+                <div className="dialect-setup" style={{ maxHeight: '300px', overflow: 'auto' }}>
+                    <NotificationsButton theme="dark" channels={['telegram']} />
+                </div>
+            </DialectSolanaSdk>
+        </div>
+    );
 };
 
-// Single-view modal
-const NotificationModal = ({ isOpen, onClose, wallet }) => {
-    const [error, setError] = useState(null);
-    const containerRef = React.useRef(null);
-
-    useEffect(() => {
-        if (isOpen) {
-            injectDialectStyles();
-            setError(null);
-        }
-    }, [isOpen]);
-
-    // Hide ledger toggle whenever DOM changes
-    useEffect(() => {
-        if (!isOpen || !containerRef.current) return;
-        
-        const hide = () => hideLedgerToggle(containerRef.current);
-        hide();
-        
-        // Watch for changes
-        const observer = new MutationObserver(hide);
-        observer.observe(containerRef.current, { childList: true, subtree: true });
-        
-        // Also run periodically
-        const interval = setInterval(hide, 200);
-        
-        return () => {
-            observer.disconnect();
-            clearInterval(interval);
-        };
-    }, [isOpen]);
+// Main Modal
+const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
+    const [toast, setToast] = useState(null);
 
     if (!isOpen) return null;
-
-    const walletKey = wallet?.publicKey?.toString();
 
     return (
         <div style={overlay} onClick={onClose}>
             <div style={modal} onClick={e => e.stopPropagation()}>
                 <div style={header}>
                     <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '18px' }}>🔔 Notifications</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}>×</button>
                 </div>
-                <div ref={containerRef} className="dialect" data-theme="dark" style={{ minHeight: '300px', maxHeight: '70vh', overflowY: 'auto', background: '#1b1b1c' }}>
-                    {error ? (
-                        <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
-                            <p>Error: {error}</p>
-                            <button onClick={() => setError(null)} style={{ marginTop: '10px', padding: '8px 16px', background: '#00d4aa', color: '#0a0a0f', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Retry</button>
-                        </div>
-                    ) : (
-                        <DialectErrorBoundary>
-                            <DialectSolanaSdk
-                                key={walletKey}
-                                dappAddress={DAPP_ADDRESS}
-                                customWalletAdapter={wallet}
-                                config={{ environment: 'production' }}
-                            >
-                                <Notifications
-                                    theme="dark"
-                                    channels={['telegram']}
-                                />
-                            </DialectSolanaSdk>
-                        </DialectErrorBoundary>
-                    )}
+
+                <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                    <TelegramSetup wallet={wallet} />
+                    <AlertForm
+                        wallet={wallet}
+                        labels={labels}
+                        wallets={wallets}
+                        onSave={(msg, err) => {
+                            if (err) setToast({ msg: err, type: 'error' });
+                            else if (msg) setToast({ msg, type: 'success' });
+                            setTimeout(() => setToast(null), 3000);
+                        }}
+                    />
                 </div>
+
+                {toast && (
+                    <div style={{
+                        position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+                        background: toast.type === 'error' ? '#ff6b6b' : '#00d4aa',
+                        color: toast.type === 'error' ? '#fff' : '#0a0a0f',
+                        padding: '8px 16px', borderRadius: '6px', fontSize: '13px'
+                    }}>
+                        {toast.msg}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -211,23 +254,28 @@ const NotificationModal = ({ isOpen, onClose, wallet }) => {
 const DialectNotifications = () => {
     const wallet = useWallet();
     const [open, setOpen] = useState(false);
+    const [labels, setLabels] = useState([]);
+    const [wallets, setWallets] = useState([]);
 
-    console.log('DialectNotifications - wallet:', wallet?.publicKey?.toString());
+    useEffect(() => {
+        const load = () => {
+            if (window.userLabels) setLabels(window.userLabels);
+            try {
+                const s = localStorage.getItem('portfolio_wallets');
+                if (s) setWallets(JSON.parse(s));
+            } catch { }
+        };
+        load();
+        const i = setInterval(load, 2000);
+        return () => clearInterval(i);
+    }, []);
 
     if (!wallet) return null;
 
     return (
         <>
-            <button
-                onClick={() => { console.log('Bell clicked'); setOpen(true); }}
-                style={bellBtn}
-                onMouseOver={e => { e.currentTarget.style.background = '#00d4aa'; e.currentTarget.style.color = '#0a0a0f'; }}
-                onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#00d4aa'; }}
-                title="Notifications"
-            >
-                🔔
-            </button>
-            <NotificationModal isOpen={open} onClose={() => setOpen(false)} wallet={wallet} />
+            <button onClick={() => setOpen(true)} style={bellBtn} title="Notifications">🔔</button>
+            <NotificationModal isOpen={open} onClose={() => setOpen(false)} wallet={wallet} labels={labels} wallets={wallets} />
         </>
     );
 };
@@ -235,7 +283,6 @@ const DialectNotifications = () => {
 export function mountDialectNotifications(id) {
     const el = document.getElementById(id);
     if (el && !el._dialectRoot) {
-        console.log('Mounting DialectNotifications to', id);
         const root = createRoot(el);
         el._dialectRoot = root;
         root.render(<DialectNotifications />);
