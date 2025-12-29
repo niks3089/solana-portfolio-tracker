@@ -1,90 +1,102 @@
 /**
- * Dialect Notification Service
- * Uses REST API to send notifications to subscribed users
+ * Dialect SDK Notification Service
+ * Uses @dialectlabs/sdk for notifications
  */
 
-import { CONFIG } from '../config.js';
+import { Dialect } from '@dialectlabs/sdk';
+import { SolanaSdkFactory, NodeDialectSolanaWalletAdapter } from '@dialectlabs/blockchain-sdk-solana';
+import { Keypair, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
+import { CONFIG, HELIUS_RPC } from '../config.js';
 
-const DAPP_ID = 'ffb32fc6-5e32-47ba-acdf-3c77ce999360'; // saul.run app ID
-const API_BASE = 'https://alerts-api.dial.to/v2';
+let sdk = null;
+let dapp = null;
 
-let initialized = false;
-
-// Initialize (just validates API key exists)
+// Initialize Dialect SDK
 export async function initDialectSDK() {
-    if (!CONFIG.DIALECT_API_KEY) {
-        console.warn('⚠️ DIALECT_API_KEY not set, notifications disabled');
+    if (!CONFIG.DIALECT_PRIVATE_KEY) {
+        console.warn('⚠️ DIALECT_PRIVATE_KEY not set, notifications disabled');
         return null;
     }
 
-    initialized = true;
-    console.log('✓ Dialect notifications enabled');
-    return true;
+    try {
+        // Parse private key (supports JSON array, base58, or base64)
+        let secretKey;
+        if (CONFIG.DIALECT_PRIVATE_KEY.startsWith('[')) {
+            secretKey = new Uint8Array(JSON.parse(CONFIG.DIALECT_PRIVATE_KEY));
+        } else if (CONFIG.DIALECT_PRIVATE_KEY.includes('/') || CONFIG.DIALECT_PRIVATE_KEY.includes('+')) {
+            secretKey = new Uint8Array(Buffer.from(CONFIG.DIALECT_PRIVATE_KEY, 'base64'));
+        } else {
+            secretKey = bs58.decode(CONFIG.DIALECT_PRIVATE_KEY);
+        }
+
+        const keypair = Keypair.fromSecretKey(secretKey);
+        console.log(`✓ Dialect keypair: ${keypair.publicKey.toString().slice(0, 8)}...`);
+
+        // Create wallet adapter
+        const wallet = NodeDialectSolanaWalletAdapter.create(keypair);
+
+        // Create Solana SDK factory
+        const solanaSdk = SolanaSdkFactory.create({
+            wallet,
+            rpcUrl: HELIUS_RPC,
+        });
+
+        // Initialize Dialect SDK
+        sdk = Dialect.sdk({ environment: 'production' }, solanaSdk);
+
+        // Find or create dapp
+        try {
+            dapp = await sdk.dapps.find();
+            if (dapp) {
+                console.log('✓ Dialect dapp found');
+            }
+        } catch (e) {
+            console.log('No dapp found, creating...');
+        }
+
+        if (!dapp) {
+            try {
+                dapp = await sdk.dapps.create({
+                    name: 'Saul.run',
+                    description: 'Solana Portfolio Tracker',
+                });
+                console.log('✓ Dialect dapp created');
+            } catch (e) {
+                console.error('Failed to create dapp:', e.message);
+            }
+        }
+
+        console.log('✓ Dialect SDK initialized');
+        return sdk;
+    } catch (error) {
+        console.error('Dialect SDK init error:', error.message);
+        return null;
+    }
 }
 
-// Send notification via REST API
-async function sendMessage(payload) {
-    if (!initialized || !CONFIG.DIALECT_API_KEY) {
-        console.warn('Dialect not initialized');
+// Send notification
+export async function sendNotification({ recipient, title, message }) {
+    if (!sdk || !dapp) {
+        console.warn('Dialect SDK not ready');
         return false;
     }
 
     try {
-        const response = await fetch(`${API_BASE}/${DAPP_ID}/send`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Dialect-Client-Key': CONFIG.DIALECT_API_KEY,
-            },
-            body: JSON.stringify(payload),
+        await dapp.messages.send({
+            recipient: new PublicKey(recipient),
+            message: { title, body: message },
         });
-
-        if (response.ok || response.status === 202) {
-            console.log('✓ Notification sent');
-            return true;
-        } else {
-            const text = await response.text();
-            console.error(`Dialect API error (${response.status}):`, text);
-            return false;
-        }
+        console.log(`✓ Notification sent to ${recipient.slice(0, 8)}...`);
+        return true;
     } catch (error) {
         console.error('Dialect send error:', error.message);
         return false;
     }
 }
 
-// Send notification to a specific wallet
-export async function sendNotification({ recipient, title, message, notificationTypeId, actionUrl, actionLabel }) {
-    const payload = {
-        recipient: {
-            type: 'walletAddress',
-            walletAddress: recipient,
-        },
-        message: {
-            title,
-            body: message,
-        },
-    };
-
-    // Add notification type if specified
-    if (notificationTypeId) {
-        payload.notificationTypeId = notificationTypeId;
-    }
-
-    // Add action if specified
-    if (actionUrl && actionLabel) {
-        payload.message.actions = [{
-            type: 'link',
-            label: actionLabel,
-            url: actionUrl,
-        }];
-    }
-
-    return sendMessage(payload);
-}
-
 // Send wallet activity notification
-export async function sendWalletActivityNotification(walletAddress, txType, displayName) {
+export async function sendWalletActivityNotification(walletAddress, txType, amount, displayName) {
     let title, message;
 
     if (txType === 'incoming') {
@@ -98,14 +110,7 @@ export async function sendWalletActivityNotification(walletAddress, txType, disp
         message = `Activity detected on ${displayName}`;
     }
 
-    return sendNotification({
-        recipient: walletAddress,
-        title,
-        message,
-        notificationTypeId: 'wallet-activity',
-        actionUrl: 'https://saul.run',
-        actionLabel: 'View Portfolio',
-    });
+    return sendNotification({ recipient: walletAddress, title, message });
 }
 
 // Send portfolio change notification
@@ -114,32 +119,9 @@ export async function sendPortfolioChangeNotification(walletAddress, percentChan
     const emoji = isPositive ? '📈' : '📉';
     const direction = isPositive ? 'up' : 'down';
 
-    const title = `${emoji} Portfolio ${direction} ${Math.abs(percentChange).toFixed(1)}%`;
-    const message = `Your portfolio is now worth $${newValue.toLocaleString()}.`;
-
     return sendNotification({
         recipient: walletAddress,
-        title,
-        message,
-        notificationTypeId: 'portfolio-change',
-        actionUrl: 'https://saul.run',
-        actionLabel: 'View Details',
+        title: `${emoji} Portfolio ${direction} ${Math.abs(percentChange).toFixed(1)}%`,
+        message: `Your portfolio is now worth $${newValue.toLocaleString()}.`,
     });
 }
-
-// Broadcast to all subscribers
-export async function broadcastNotification({ title, message, notificationTypeId }) {
-    const payload = {
-        message: {
-            title,
-            body: message,
-        },
-    };
-
-    if (notificationTypeId) {
-        payload.notificationTypeId = notificationTypeId;
-    }
-
-    return sendMessage(payload);
-}
-
