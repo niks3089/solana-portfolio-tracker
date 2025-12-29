@@ -2,28 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DialectSolanaSdk } from '@dialectlabs/react-sdk-blockchain-solana';
 import { Notifications } from '@dialectlabs/react-ui';
-import '@dialectlabs/react-ui/index.css';
 
 const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
-
-// Inject CSS to hide ledger toggle and clean up Dialect UI
-const injectHideStyles = () => {
-    if (document.getElementById('dialect-hide-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'dialect-hide-styles';
-    style.textContent = `
-        /* Hide Using Ledger toggle */
-        .dialect-wrapper label:has(input[type="checkbox"]):has(span),
-        .dialect-wrapper div:has(> label):has(input[type="checkbox"]):not(:has(button)) {
-            display: none !important;
-        }
-        [data-testid*="ledger" i], [aria-label*="ledger" i] {
-            display: none !important;
-        }
-    `;
-    document.head.appendChild(style);
-};
-if (typeof document !== 'undefined') injectHideStyles();
 
 // Wallet adapter
 let cachedWalletAdapter = null;
@@ -60,10 +40,15 @@ const useWallet = () => {
     useEffect(() => {
         const check = () => {
             const w = getWalletAdapter();
-            setWallet(prev => (w && !prev) ? w : (!w && prev) ? null : prev);
+            setWallet(prev => {
+                if (w && !prev) return w;
+                if (!w && prev) return null;
+                if (w && prev && w.publicKey?.toString() !== prev.publicKey?.toString()) return w;
+                return prev;
+            });
         };
         check();
-        const interval = setInterval(check, 1500);
+        const interval = setInterval(check, 1000);
         return () => clearInterval(interval);
     }, []);
     return wallet;
@@ -75,44 +60,93 @@ const modal = { background: '#1b1b1c', borderRadius: '12px', width: '420px', max
 const header = { padding: '20px 24px', borderBottom: '1px solid #2a2a2b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const bellBtn = { width: '32px', height: '32px', borderRadius: '6px', background: 'transparent', border: '1px solid #00d4aa', color: '#00d4aa', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' };
 
-// Dialect wrapper - hides unwanted UI elements
-const DialectWrapper = () => {
-    const wrapperRef = React.useRef(null);
-
-    useEffect(() => {
-        const hideUnwanted = () => {
-            if (!wrapperRef.current) return;
-            wrapperRef.current.querySelectorAll('label, div, span').forEach(el => {
-                const text = el.textContent?.toLowerCase() || '';
-                if (text.includes('using ledger') || text === 'using ledger?') {
-                    el.style.display = 'none';
-                    let parent = el.parentElement;
-                    while (parent && parent !== wrapperRef.current) {
-                        if (parent.children.length <= 2) parent.style.display = 'none';
-                        parent = parent.parentElement;
-                    }
-                }
-            });
-            wrapperRef.current.querySelectorAll('[class*="ledger" i]').forEach(el => el.style.display = 'none');
-        };
-
-        hideUnwanted();
-        const observer = new MutationObserver(hideUnwanted);
-        if (wrapperRef.current) observer.observe(wrapperRef.current, { childList: true, subtree: true, attributes: true });
-        const interval = setInterval(hideUnwanted, 500);
-        return () => { observer.disconnect(); clearInterval(interval); };
-    }, []);
-
-    return (
-        <div ref={wrapperRef} className="dialect-wrapper" style={{ padding: '0' }}>
-            <Notifications theme="dark" channels={['telegram']} />
-        </div>
-    );
+// CSS to hide ledger and style Dialect - inject once
+const injectDialectStyles = () => {
+    if (document.getElementById('dialect-custom-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dialect-custom-styles';
+    style.textContent = `
+        /* Hide "Using ledger?" checkbox specifically */
+        .dialect-notifications-modal label[class*="dt-"]:has(input[type="checkbox"]):has(span:not([class*="toggle"])) {
+            display: none !important;
+        }
+        
+        /* Style overrides for dark theme */
+        .dialect-notifications-modal {
+            --dt-bg-primary: #1b1b1c;
+            --dt-bg-secondary: #232324;
+            --dt-bg-tertiary: #2a2a2b;
+            --dt-text-primary: #ffffff;
+            --dt-text-secondary: #c4c6c8;
+            --dt-accent-brand: #00d4aa;
+            --dt-button-primary: #00d4aa;
+        }
+        
+        /* Green buttons */
+        .dialect-notifications-modal button[class*="dt-bg"] {
+            background-color: #00d4aa !important;
+            color: #0a0a0f !important;
+        }
+        
+        /* Green accents */
+        .dialect-notifications-modal [class*="accent"],
+        .dialect-notifications-modal a {
+            color: #00d4aa !important;
+        }
+        
+        /* Hide version footer */
+        .dialect-notifications-modal [class*="caption"]:has(span) {
+            display: none !important;
+        }
+    `;
+    document.head.appendChild(style);
 };
 
-// Single-view modal - just Dialect's Notifications, like Drift
+// Error boundary for Dialect
+class DialectErrorBoundary extends React.Component {
+    state = { hasError: false, error: null };
+    
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    
+    componentDidCatch(error, info) {
+        console.error('Dialect Error:', error, info);
+    }
+    
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
+                    <p>Failed to load notifications</p>
+                    <button 
+                        onClick={() => this.setState({ hasError: false, error: null })}
+                        style={{ background: '#00d4aa', color: '#0a0a0f', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', marginTop: '10px' }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+// Single-view modal
 const NotificationModal = ({ isOpen, onClose, wallet }) => {
+    const [error, setError] = useState(null);
+    
+    useEffect(() => {
+        if (isOpen) {
+            injectDialectStyles();
+            setError(null);
+        }
+    }, [isOpen]);
+
     if (!isOpen) return null;
+
+    const walletKey = wallet?.publicKey?.toString();
+    console.log('NotificationModal wallet:', walletKey);
 
     return (
         <div style={overlay} onClick={onClose}>
@@ -121,15 +155,27 @@ const NotificationModal = ({ isOpen, onClose, wallet }) => {
                     <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '18px' }}>🔔 Notifications</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer', lineHeight: 1 }}>×</button>
                 </div>
-                <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                    <DialectSolanaSdk
-                        key={wallet?.publicKey?.toString()}
-                        dappAddress={DAPP_ADDRESS}
-                        customWalletAdapter={wallet}
-                        config={{ environment: 'production' }}
-                    >
-                        <DialectWrapper />
-                    </DialectSolanaSdk>
+                <div className="dialect" data-theme="dark" style={{ minHeight: '300px', maxHeight: '70vh', overflowY: 'auto', background: '#1b1b1c' }}>
+                    {error ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#ff6b6b' }}>
+                            <p>Error: {error}</p>
+                            <button onClick={() => setError(null)} style={{ marginTop: '10px', padding: '8px 16px', background: '#00d4aa', color: '#0a0a0f', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Retry</button>
+                        </div>
+                    ) : (
+                        <DialectErrorBoundary>
+                            <DialectSolanaSdk
+                                key={walletKey}
+                                dappAddress={DAPP_ADDRESS}
+                                customWalletAdapter={wallet}
+                                config={{ environment: 'production' }}
+                            >
+                                <Notifications 
+                                    theme="dark" 
+                                    channels={['telegram']}
+                                />
+                            </DialectSolanaSdk>
+                        </DialectErrorBoundary>
+                    )}
                 </div>
             </div>
         </div>
@@ -140,12 +186,14 @@ const DialectNotifications = () => {
     const wallet = useWallet();
     const [open, setOpen] = useState(false);
 
+    console.log('DialectNotifications - wallet:', wallet?.publicKey?.toString());
+
     if (!wallet) return null;
 
     return (
         <>
             <button
-                onClick={() => setOpen(true)}
+                onClick={() => { console.log('Bell clicked'); setOpen(true); }}
                 style={bellBtn}
                 onMouseOver={e => { e.currentTarget.style.background = '#00d4aa'; e.currentTarget.style.color = '#0a0a0f'; }}
                 onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#00d4aa'; }}
@@ -161,6 +209,7 @@ const DialectNotifications = () => {
 export function mountDialectNotifications(id) {
     const el = document.getElementById(id);
     if (el && !el._dialectRoot) {
+        console.log('Mounting DialectNotifications to', id);
         const root = createRoot(el);
         el._dialectRoot = root;
         root.render(<DialectNotifications />);
@@ -174,7 +223,7 @@ if (typeof window !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => mountDialectNotifications('dialect-notifications-root'));
     } else {
-        mountDialectNotifications('dialect-notifications-root');
+        setTimeout(() => mountDialectNotifications('dialect-notifications-root'), 100);
     }
 }
 
