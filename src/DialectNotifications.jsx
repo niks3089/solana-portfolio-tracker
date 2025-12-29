@@ -106,7 +106,7 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
             const data = {
                 owner_wallet: wallet.publicKey.toString(),
                 label_id: isPortfolio ? parseInt(target.split(':')[1]) : null,
-                target_wallet: !isPortfolio ? target : (selectedWallets.length > 0 ? selectedWallets.join(',') : null),
+                target_wallet: !isPortfolio ? target : null,
                 alert_type: portfolioChange ? 'threshold' : 'any_tx',
                 threshold_percent: portfolioChange ? threshold : null,
                 telegram_username: telegramUser.trim().replace('@', ''),
@@ -203,9 +203,9 @@ const AlertForm = ({ wallet, labels, wallets, onSave, onCancel, editAlert }) => 
             {/* Telegram Username */}
             <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Telegram Username</label>
-                <input 
-                    type="text" 
-                    value={telegramUser} 
+                <input
+                    type="text"
+                    value={telegramUser}
                     onChange={e => setTelegramUser(e.target.value)}
                     placeholder="@username"
                     style={{ ...selectStyle, marginTop: '4px' }}
