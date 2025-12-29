@@ -6,6 +6,27 @@ import '@dialectlabs/react-ui/index.css';
 
 const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 
+// Inject CSS to hide ledger toggle
+const injectHideStyles = () => {
+    if (document.getElementById('dialect-hide-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dialect-hide-styles';
+    style.textContent = `
+        /* Hide Using Ledger toggle */
+        .dialect-wrapper label:has(input[type="checkbox"]):has(span),
+        .dialect-wrapper div:has(> label):has(input[type="checkbox"]):not(:has(button)) {
+            display: none !important;
+        }
+        /* Aggressive: hide any element containing "ledger" text via attribute */
+        [data-testid*="ledger" i],
+        [aria-label*="ledger" i] {
+            display: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+};
+if (typeof document !== 'undefined') injectHideStyles();
+
 // Wallet adapter singleton
 let cachedWalletAdapter = null;
 let cachedPublicKey = null;
@@ -74,44 +95,60 @@ const tabActiveStyle = { ...tabStyle, color: '#00d4aa', borderBottomColor: '#00d
 
 // Dialect wrapper that hides "Using ledger?" and cleans up UI
 const DialectWrapper = () => {
+    const wrapperRef = React.useRef(null);
+    
     useEffect(() => {
-        // Hide "Using ledger?" and other unwanted elements
         const hideUnwanted = () => {
-            // Find and hide ledger checkbox by text content
-            document.querySelectorAll('label').forEach(label => {
-                if (label.textContent?.toLowerCase().includes('ledger')) {
-                    label.style.display = 'none';
-                    // Also hide parent if it's a wrapper
-                    if (label.parentElement?.children.length === 1) {
-                        label.parentElement.style.display = 'none';
+            if (!wrapperRef.current) return;
+            
+            // Hide "Using ledger?" by finding labels with that text
+            wrapperRef.current.querySelectorAll('label, div, span').forEach(el => {
+                const text = el.textContent?.toLowerCase() || '';
+                if (text.includes('using ledger') || text === 'using ledger?') {
+                    el.style.display = 'none';
+                    // Hide parent container too
+                    let parent = el.parentElement;
+                    while (parent && parent !== wrapperRef.current) {
+                        if (parent.children.length <= 2) {
+                            parent.style.display = 'none';
+                        }
+                        parent = parent.parentElement;
                     }
                 }
             });
-            // Hide "Powered by" footer
-            document.querySelectorAll('div, span, p').forEach(el => {
-                if (el.textContent?.toLowerCase().includes('powered by')) {
-                    el.style.display = 'none';
-                }
-            });
-            // Hide version numbers
-            document.querySelectorAll('div, span').forEach(el => {
-                if (el.textContent?.match(/^\d+\.\d+\.\d+\s*\/\s*\d+\.\d+\.\d+$/)) {
-                    el.style.display = 'none';
-                }
+            
+            // Also hide by class patterns
+            wrapperRef.current.querySelectorAll('[class*="ledger" i], [class*="Ledger"]').forEach(el => {
+                el.style.display = 'none';
             });
         };
 
-        // Run multiple times as Dialect renders async
+        // Initial hide + MutationObserver for async renders
         hideUnwanted();
-        const intervals = [100, 300, 500, 1000, 2000].map(ms =>
-            setTimeout(hideUnwanted, ms)
-        );
+        
+        const observer = new MutationObserver(() => {
+            hideUnwanted();
+        });
+        
+        if (wrapperRef.current) {
+            observer.observe(wrapperRef.current, { 
+                childList: true, 
+                subtree: true,
+                attributes: true 
+            });
+        }
+        
+        // Also run on intervals as backup
+        const interval = setInterval(hideUnwanted, 500);
 
-        return () => intervals.forEach(clearTimeout);
+        return () => {
+            observer.disconnect();
+            clearInterval(interval);
+        };
     }, []);
 
     return (
-        <div className="dialect-wrapper" style={{ padding: '0' }}>
+        <div ref={wrapperRef} className="dialect-wrapper" style={{ padding: '0' }}>
             <Notifications
                 theme="dark"
                 channels={['telegram']}
