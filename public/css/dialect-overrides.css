@@ -1,7 +1,6 @@
-/* Dialect UI Overrides for saul.run - Simplified view like Drift */
+/* Dialect UI Overrides - Clean single-page like Drift */
 
-/* Force dark theme on everything */
-.dialect {
+.dialect, .dialect-notifications-wrapper {
   --dt-bg-primary: #1b1b1c !important;
   --dt-bg-secondary: #232324 !important;
   --dt-bg-tertiary: #2a2a2b !important;
@@ -13,55 +12,36 @@
   --dt-text-accent: #00d4aa !important;
   --dt-stroke-primary: #323335 !important;
   --dt-button-primary: #00d4aa !important;
-  --dt-button-secondary: #323335 !important;
 }
 
-/* Hide tabs completely */
-.dialect [role="tablist"] {
-  display: none !important;
-}
-
-/* Hide any tab buttons */
+/* Hide tabs - we only want single view */
+.dialect [role="tablist"],
 .dialect button[role="tab"] {
   display: none !important;
 }
 
-/* Hide "Manage" link/button - target by class patterns */
-.dialect a[href*="manage"],
-.dialect button[class*="manage" i] {
-  display: none !important;
-}
-
 /* Hide footer/version info */
-.dialect .dt-text-caption {
+.dialect .dt-text-caption,
+.dialect-notifications-wrapper .dt-text-caption {
   display: none !important;
 }
 
-/* Hide email input section - hide any form with email */
+/* Hide email input - telegram only */
 .dialect input[type="email"],
-.dialect input[placeholder*="email" i] {
-  display: none !important;
-}
-
-/* Hide parent containers of email */
+.dialect input[placeholder*="email" i],
 .dialect div:has(> input[type="email"]),
 .dialect div:has(> input[placeholder*="email" i]) {
   display: none !important;
 }
 
-/* Style the modal header green */
-.dialect .dt-text-h2 {
+/* Style headers green */
+.dialect .dt-text-h2,
+.dialect .dt-text-h3 {
   color: #00d4aa !important;
 }
 
-/* Make notification cards look better */
-.dialect .dt-rounded-\[--dt-border-radius-m\] {
-  background: rgba(0, 212, 170, 0.05) !important;
-  border-color: rgba(0, 212, 170, 0.2) !important;
-}
-
 /* Green toggle when checked */
-.dialect input:checked+div,
+.dialect input:checked + div,
 .dialect .dt-bg-\[--dt-input-checked\] {
   background-color: #00d4aa !important;
 }
@@ -77,50 +57,39 @@
 }
 
 /* Hide "Using ledger?" */
-.dialect label:has(> input[type="checkbox"]) {
+.dialect label:has(> input[type="checkbox"]):has(span:contains("Ledger")) {
   display: none !important;
 }
 
-/* Green text for links */
+/* Green links */
 .dialect a {
   color: #00d4aa !important;
 }
 
-/* Hide the gear/settings icon in header, replace with + via parent component */
-
-/* Inline Telegram setup styles */
-.dialect-telegram-setup {
-  background: #232324;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
+/* Nice card styling */
+.dialect .dt-rounded-lg {
+  border-color: #323335 !important;
 }
 
-.dialect-telegram-setup .dialect {
-  width: 100%;
+/* Make notification type cards look better */
+.dialect-notifications-wrapper .dt-rounded-\[--dt-border-radius-m\] {
+  background: rgba(0, 212, 170, 0.05) !important;
+  border-color: rgba(0, 212, 170, 0.2) !important;
 }
 
-/* Make Dialect modal not appear as overlay when embedded */
-.dialect-telegram-setup .dt-fixed {
-  position: relative !important;
-  background: transparent !important;
-}
-
-.dialect-telegram-setup .dt-absolute {
-  position: relative !important;
-}
-
-/* Hide modal backdrop in embedded mode */
-.dialect-telegram-setup>div>div:first-child {
-  background: transparent !important;
-}
-
-/* Compact the embedded Dialect UI */
-.dialect-telegram-setup .dt-p-4 {
+/* Clean up padding */
+.dialect-notifications-wrapper > div {
   padding: 0 !important;
 }
 
-.dialect-telegram-setup .dt-rounded-lg {
-  border-radius: 0 !important;
-  box-shadow: none !important;
+/* Style the modal content area */
+.dialect-notifications-wrapper {
+  background: #1b1b1c;
+  min-height: 300px;
+}
+
+/* Hide "Manage" links */
+.dialect a[href*="manage"],
+.dialect button:contains("Manage") {
+  display: none !important;
 }
