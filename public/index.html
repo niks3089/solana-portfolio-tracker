@@ -4075,7 +4075,7 @@
         ctx.stroke();
       }
 
-      // Draw smooth line
+      // Draw smooth line using Catmull-Rom spline (passes through all points)
       const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
       ctx.beginPath();
       ctx.strokeStyle = lineColor;
@@ -4083,39 +4083,48 @@
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
 
-      ctx.moveTo(xScale(0), yScale(dataPoints[0].value));
-      for (let i = 1; i < dataPoints.length; i++) {
-        const prev = dataPoints[i - 1];
-        const curr = dataPoints[i];
-        const prevX = xScale(i - 1);
-        const prevY = yScale(prev.value);
-        const currX = xScale(i);
-        const currY = yScale(curr.value);
-        const cpX = (prevX + currX) / 2;
-        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
-      }
-      const last = dataPoints[dataPoints.length - 1];
-      ctx.lineTo(xScale(dataPoints.length - 1), yScale(last.value));
-      ctx.stroke();
+      // Convert data points to coordinates
+      const points = dataPoints.map((d, i) => ({ x: xScale(i), y: yScale(d.value) }));
 
-      // Draw gradient fill
+      // Draw Catmull-Rom spline
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[Math.min(points.length - 1, i + 1)];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        // Catmull-Rom to cubic bezier conversion
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      ctx.stroke();
+      const last = dataPoints[dataPoints.length - 1];
+
+      // Draw gradient fill using same Catmull-Rom spline
       const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
       gradient.addColorStop(0, change >= 0 ? 'rgba(0,212,170,0.2)' : 'rgba(255,68,102,0.2)');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
       ctx.beginPath();
-      ctx.moveTo(xScale(0), yScale(dataPoints[0].value));
-      for (let i = 1; i < dataPoints.length; i++) {
-        const prev = dataPoints[i - 1];
-        const curr = dataPoints[i];
-        const prevX = xScale(i - 1);
-        const prevY = yScale(prev.value);
-        const currX = xScale(i);
-        const currY = yScale(curr.value);
-        const cpX = (prevX + currX) / 2;
-        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[Math.min(points.length - 1, i + 1)];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
-      ctx.lineTo(xScale(dataPoints.length - 1), yScale(last.value));
       ctx.lineTo(width - padding.right, height - padding.bottom);
       ctx.lineTo(padding.left, height - padding.bottom);
       ctx.closePath();
@@ -4359,7 +4368,10 @@
         }
       }
 
-      // Draw smooth line - green unless significant loss (>1%)
+      // Convert to coordinate points for Catmull-Rom spline
+      const points = chartData.map((d, i) => ({ x: xScale(i), y: yScale(d.value) }));
+
+      // Draw smooth line using Catmull-Rom spline (passes through all points)
       const lineColor = isPositive ? '#00d4aa' : '#ff4466';
       ctx.beginPath();
       ctx.strokeStyle = lineColor;
@@ -4367,38 +4379,44 @@
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
 
-      ctx.moveTo(xScale(0), yScale(chartData[0].value));
-      for (let i = 1; i < chartData.length; i++) {
-        const prev = chartData[i - 1];
-        const curr = chartData[i];
-        const prevX = xScale(i - 1);
-        const prevY = yScale(prev.value);
-        const currX = xScale(i);
-        const currY = yScale(curr.value);
-        const cpX = (prevX + currX) / 2;
-        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[Math.min(points.length - 1, i + 1)];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
-      ctx.lineTo(xScale(chartData.length - 1), yScale(currentValue));
       ctx.stroke();
 
-      // Draw gradient fill
+      // Draw gradient fill using same Catmull-Rom spline
       const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
       gradient.addColorStop(0, isPositive ? 'rgba(0,212,170,0.25)' : 'rgba(255,68,102,0.25)');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
       ctx.beginPath();
-      ctx.moveTo(xScale(0), yScale(chartData[0].value));
-      for (let i = 1; i < chartData.length; i++) {
-        const prevX = xScale(i - 1);
-        const prevY = yScale(chartData[i - 1].value);
-        const currX = xScale(i);
-        const currY = yScale(chartData[i].value);
-        const cpX = (prevX + currX) / 2;
-        ctx.quadraticCurveTo(prevX, prevY, cpX, (prevY + currY) / 2);
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[Math.min(points.length - 1, i + 1)];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
-      ctx.lineTo(xScale(chartData.length - 1), yScale(currentValue));
-      ctx.lineTo(xScale(chartData.length - 1), height - padding.bottom);
-      ctx.lineTo(xScale(0), height - padding.bottom);
+      ctx.lineTo(points[points.length - 1].x, height - padding.bottom);
+      ctx.lineTo(points[0].x, height - padding.bottom);
       ctx.closePath();
       ctx.fillStyle = gradient;
       ctx.fill();
