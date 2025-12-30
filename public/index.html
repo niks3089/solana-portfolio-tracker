@@ -2387,20 +2387,20 @@
     <div class="top-section">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">Total Assets</div>
-          <div class="stat-value" id="statAssets">$0</div>
-        </div>
-        <div class="stat-card">
           <div class="stat-label">Net Worth</div>
           <div class="stat-value" id="statNetWorth">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Assets</div>
+          <div class="stat-value" id="statAssets">$0</div>
         </div>
         <div class="stat-card" id="pnlCard">
           <div class="stat-label">All-Time P&L</div>
           <div class="stat-value" id="statPnL">$0</div>
         </div>
         <div class="stat-card" id="defiCard">
-          <div class="stat-label">DeFi Deposits</div>
-          <div class="stat-value positive" id="statDeposits">$0</div>
+          <div class="stat-label">Liabilities</div>
+          <div class="stat-value negative" id="statLiabilities">$0</div>
         </div>
       </div>
       <div class="chart-card">
@@ -3293,11 +3293,11 @@
         refreshData();
       } else {
         // Clear display when no wallets
-        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
         document.getElementById('statPnL').className = 'stat-value';
-        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
         document.getElementById('defiContent').innerHTML = '';
         renderDonutChart([], 0);
@@ -3531,10 +3531,10 @@
       renderLabelWalletTags(label);
 
       // Show loading states
-      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
-      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statLiabilities').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading ' + escapeHtml(label.name) + '...</div>';
       document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
 
@@ -3549,10 +3549,10 @@
         // Update stats
         const p = data.portfolio;
         const totalAssets = p.totalAssets || (p.totalTokens + p.defiDeposits);
-        document.getElementById('statAssets').textContent = fmtUsd(totalAssets);
         document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
+        document.getElementById('statAssets').textContent = fmtUsd(totalAssets);
         document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
-        document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits);
+        document.getElementById('statLiabilities').textContent = p.defiBorrows ? fmtUsd(p.defiBorrows) : '$0';
 
         // Load P&L in background for label wallets
         const labelWallets = (label.wallets || []).map(w => w.address);
@@ -3644,10 +3644,10 @@
         refreshDataForWallets(walletAddrs);
       } else {
         // No wallets left in view - show empty state
-        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
-        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '<div class="loading">All wallets hidden. Click portfolio again to reset.</div>';
         document.getElementById('defiContent').innerHTML = '';
         renderDonutChart([], 0);
@@ -3794,11 +3794,11 @@
       const wallets = getActiveWallets();
       if (!wallets.length) {
         // Clear all stats when no wallets
-        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statNetWorth').textContent = '$0';
+        document.getElementById('statAssets').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
         document.getElementById('statPnL').className = 'stat-value';
-        document.getElementById('statDeposits').textContent = '$0';
+        document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '';
         document.getElementById('defiContent').innerHTML = '';
         renderDonutChart([], 0);
@@ -3808,10 +3808,10 @@
       }
 
       // Show loading states
-      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
-      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statLiabilities').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading tokens...</div>';
       document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
 
@@ -3841,15 +3841,15 @@
     function renderFastData(data, wallets) {
       try {
         const a = data.aggregate || {};
-        document.getElementById('statAssets').textContent = fmtUsd(a.totalAssets);
         document.getElementById('statNetWorth').textContent = fmtUsd(a.totalNetWorth);
+        document.getElementById('statAssets').textContent = fmtUsd(a.totalAssets);
 
         // P&L shows loading state until background fetch completes
         const pnlEl = document.getElementById('statPnL');
         pnlEl.innerHTML = '<span class="loading-text" style="font-size:0.9em">Loading P&L...</span>';
         pnlEl.className = 'stat-value';
 
-        document.getElementById('statDeposits').textContent = fmtUsd(a.defiDeposits);
+        document.getElementById('statLiabilities').textContent = a.defiBorrows ? fmtUsd(a.defiBorrows) : '$0';
 
         // Blur P&L and DeFi cards for free users (unless viewing demo)
         const hasProView = shouldShowProView();
@@ -4281,7 +4281,7 @@
           const isToday = closestPoint.data.index === dataPoints.length - 1;
           const dateStr = isToday ? 'Now' : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
           tooltipDate.textContent = dateStr;
-          
+
           // Position tooltip
           const tooltipX = closestPoint.x + 15;
           const tooltipY = closestPoint.y - 40;
@@ -4612,10 +4612,10 @@
 
         if (closestPoint) {
           tooltipValue.textContent = fmtUsd(closestPoint.data.value);
-          const dateStr = closestPoint.data.label === 'Now' ? 'Now' : 
+          const dateStr = closestPoint.data.label === 'Now' ? 'Now' :
             new Date(closestPoint.data.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
           tooltipDate.textContent = dateStr;
-          
+
           // Position tooltip
           const tooltipX = closestPoint.x + 15;
           const tooltipY = closestPoint.y - 40;
@@ -4816,11 +4816,11 @@
       document.getElementById('walletTags').innerHTML = '';
 
       // Reset all stats to $0
-      document.getElementById('statAssets').textContent = '$0';
       document.getElementById('statNetWorth').textContent = '$0';
+      document.getElementById('statAssets').textContent = '$0';
       document.getElementById('statPnL').textContent = '$0';
       document.getElementById('statPnL').className = 'stat-value';
-      document.getElementById('statDeposits').textContent = '$0';
+      document.getElementById('statLiabilities').textContent = '$0';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
       document.getElementById('defiContent').innerHTML = '<div class="loading">No DeFi positions</div>';
       renderDonutChart([], 0);
