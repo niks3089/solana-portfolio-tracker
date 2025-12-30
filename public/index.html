@@ -319,6 +319,7 @@
 
     .growth-chart-container {
       padding: 1rem 1.5rem 1.5rem;
+      position: relative;
     }
 
     #growthChart,
@@ -326,6 +327,36 @@
       width: 100%;
       height: 180px;
       border-radius: 8px;
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .chart-tooltip.visible {
+      opacity: 1;
+    }
+
+    .chart-tooltip-value {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+
+    .chart-tooltip-date {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      margin-top: 0.15rem;
     }
 
     .growth-stats {
@@ -2397,6 +2428,10 @@
       </div>
       <div class="growth-chart-container">
         <canvas id="growthChart" width="800" height="200"></canvas>
+        <div class="chart-tooltip" id="growthTooltip">
+          <div class="chart-tooltip-value" id="growthTooltipValue">$0</div>
+          <div class="chart-tooltip-date" id="growthTooltipDate">Date</div>
+        </div>
         <div class="growth-stats">
           <div class="growth-stat">
             <span class="growth-stat-label">Period Change</span>
@@ -2421,6 +2456,10 @@
       </div>
       <div class="growth-chart-container">
         <canvas id="trackingChart" width="800" height="200"></canvas>
+        <div class="chart-tooltip" id="trackingTooltip">
+          <div class="chart-tooltip-value" id="trackingTooltipValue">$0</div>
+          <div class="chart-tooltip-date" id="trackingTooltipDate">Date</div>
+        </div>
         <div class="growth-stats">
           <div class="growth-stat">
             <span class="growth-stat-label">Since Created</span>
@@ -4185,24 +4224,81 @@
         ctx.fillText(label, x, height - padding.bottom + 8);
       }
 
-      // Draw current value dot with glow
-      const dotX = xScale(dataPoints.length - 1);
-      const dotY = yScale(currentValue);
+      // Draw all data points and store positions for hover
+      const dataPointPositions = [];
+      for (let i = 0; i < dataPoints.length; i++) {
+        const x = xScale(i);
+        const y = yScale(dataPoints[i].value);
+        dataPointPositions.push({ x, y, data: dataPoints[i] });
 
-      ctx.beginPath();
-      ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
-      ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
-      ctx.fill();
+        // Glow
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = change >= 0 ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+        ctx.fill();
 
-      ctx.beginPath();
-      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
-      ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
-      ctx.fill();
+        // Dot
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
+        ctx.fill();
 
-      ctx.beginPath();
-      ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
+        // Inner white dot
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+
+      // Setup hover tooltip
+      const tooltip = document.getElementById('growthTooltip');
+      const tooltipValue = document.getElementById('growthTooltipValue');
+      const tooltipDate = document.getElementById('growthTooltipDate');
+
+      // Remove old listeners
+      canvas.onmousemove = null;
+      canvas.onmouseleave = null;
+
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Find closest point
+        let closestPoint = null;
+        let closestDist = Infinity;
+        for (const pt of dataPointPositions) {
+          const dist = Math.sqrt(Math.pow(mouseX - pt.x, 2) + Math.pow(mouseY - pt.y, 2));
+          if (dist < closestDist && dist < 30) {
+            closestDist = dist;
+            closestPoint = pt;
+          }
+        }
+
+        if (closestPoint) {
+          tooltipValue.textContent = fmtUsd(closestPoint.data.value);
+          const date = new Date(closestPoint.data.timestamp);
+          const isToday = closestPoint.data.index === dataPoints.length - 1;
+          const dateStr = isToday ? 'Now' : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          tooltipDate.textContent = dateStr;
+          
+          // Position tooltip
+          const tooltipX = closestPoint.x + 15;
+          const tooltipY = closestPoint.y - 40;
+          tooltip.style.left = tooltipX + 'px';
+          tooltip.style.top = tooltipY + 'px';
+          tooltip.classList.add('visible');
+          canvas.style.cursor = 'pointer';
+        } else {
+          tooltip.classList.remove('visible');
+          canvas.style.cursor = 'default';
+        }
+      };
+
+      canvas.onmouseleave = () => {
+        tooltip.classList.remove('visible');
+        canvas.style.cursor = 'default';
+      };
     }
 
     // ============================================================================
@@ -4463,10 +4559,12 @@
         }
       }
 
-      // Draw data points with glow
+      // Draw data points with glow and store positions for hover
+      const dataPointPositions = [];
       for (let i = 0; i < chartData.length; i++) {
         const x = xScale(i);
         const y = yScale(chartData[i].value);
+        dataPointPositions.push({ x, y, data: chartData[i] });
 
         // Glow
         ctx.beginPath();
@@ -4486,6 +4584,55 @@
         ctx.fillStyle = '#fff';
         ctx.fill();
       }
+
+      // Setup hover tooltip
+      const tooltip = document.getElementById('trackingTooltip');
+      const tooltipValue = document.getElementById('trackingTooltipValue');
+      const tooltipDate = document.getElementById('trackingTooltipDate');
+
+      // Remove old listeners
+      canvas.onmousemove = null;
+      canvas.onmouseleave = null;
+
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Find closest point
+        let closestPoint = null;
+        let closestDist = Infinity;
+        for (const pt of dataPointPositions) {
+          const dist = Math.sqrt(Math.pow(mouseX - pt.x, 2) + Math.pow(mouseY - pt.y, 2));
+          if (dist < closestDist && dist < 30) {
+            closestDist = dist;
+            closestPoint = pt;
+          }
+        }
+
+        if (closestPoint) {
+          tooltipValue.textContent = fmtUsd(closestPoint.data.value);
+          const dateStr = closestPoint.data.label === 'Now' ? 'Now' : 
+            new Date(closestPoint.data.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          tooltipDate.textContent = dateStr;
+          
+          // Position tooltip
+          const tooltipX = closestPoint.x + 15;
+          const tooltipY = closestPoint.y - 40;
+          tooltip.style.left = tooltipX + 'px';
+          tooltip.style.top = tooltipY + 'px';
+          tooltip.classList.add('visible');
+          canvas.style.cursor = 'pointer';
+        } else {
+          tooltip.classList.remove('visible');
+          canvas.style.cursor = 'default';
+        }
+      };
+
+      canvas.onmouseleave = () => {
+        tooltip.classList.remove('visible');
+        canvas.style.cursor = 'default';
+      };
     }
 
     // Period tab click handlers
