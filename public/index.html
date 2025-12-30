@@ -501,6 +501,32 @@
       background: var(--bg-tertiary);
     }
 
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    th.sortable:hover {
+      color: var(--accent);
+      background: var(--bg-secondary);
+    }
+
+    th.sortable.active {
+      color: var(--accent);
+    }
+
+    .sort-icon {
+      font-size: 0.6rem;
+      opacity: 0.5;
+      margin-left: 0.25rem;
+    }
+
+    th.sortable:hover .sort-icon,
+    th.sortable.active .sort-icon {
+      opacity: 1;
+    }
+
     td {
       border-top: 1px solid var(--border);
       font-family: monospace;
@@ -2524,6 +2550,112 @@
     let allTokens = [];
     let allDefiPositions = [];
 
+    // Sorting state
+    let tokenSortColumn = 'value';
+    let tokenSortDirection = 'desc';
+    let defiSortColumn = 'value';
+    let defiSortDirection = 'desc';
+
+    function sortTokens(column) {
+      if (tokenSortColumn === column) {
+        tokenSortDirection = tokenSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        tokenSortColumn = column;
+        tokenSortDirection = 'desc';
+      }
+      tokenPage = 0;
+      renderTokensPage();
+    }
+
+    function sortDefi(column) {
+      if (defiSortColumn === column) {
+        defiSortDirection = defiSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        defiSortColumn = column;
+        defiSortDirection = 'desc';
+      }
+      defiPage = 0;
+      renderDefiPage();
+    }
+
+    function getSortedTokens(tokens) {
+      const sorted = [...tokens];
+      const dir = tokenSortDirection === 'asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        let aVal, bVal;
+        switch (tokenSortColumn) {
+          case 'wallet':
+            aVal = (a.walletShort || '').toLowerCase();
+            bVal = (b.walletShort || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'token':
+            aVal = (a.symbol || '').toLowerCase();
+            bVal = (b.symbol || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'balance':
+            aVal = a.balance || 0;
+            bVal = b.balance || 0;
+            break;
+          case 'price':
+            aVal = a.price || 0;
+            bVal = b.price || 0;
+            break;
+          case 'value':
+            aVal = a.value || 0;
+            bVal = b.value || 0;
+            break;
+          case 'pnl':
+            aVal = a.pnl?.totalPnL || 0;
+            bVal = b.pnl?.totalPnL || 0;
+            break;
+          default:
+            return 0;
+        }
+        return dir * (aVal - bVal);
+      });
+      return sorted;
+    }
+
+    function getSortedDefi(positions) {
+      const sorted = [...positions];
+      const dir = defiSortDirection === 'asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        let aVal, bVal;
+        switch (defiSortColumn) {
+          case 'wallet':
+            aVal = (a.walletShort || '').toLowerCase();
+            bVal = (b.walletShort || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'protocol':
+            aVal = (a.protocol || '').toLowerCase();
+            bVal = (b.protocol || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'type':
+            aVal = (a.type || '').toLowerCase();
+            bVal = (b.type || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'asset':
+            aVal = (a.token || '').toLowerCase();
+            bVal = (b.token || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'value':
+            // For value, borrows are negative
+            aVal = a.type === 'borrow' ? -(a.value || 0) : (a.value || 0);
+            bVal = b.type === 'borrow' ? -(b.value || 0) : (b.value || 0);
+            break;
+          default:
+            return 0;
+        }
+        return dir * (aVal - bVal);
+      });
+      return sorted;
+    }
+
+    function getSortIcon(currentColumn, activeColumn, direction) {
+      if (currentColumn !== activeColumn) return ' ↕';
+      return direction === 'asc' ? ' ↑' : ' ↓';
+    }
+
     // Get active wallet addresses
     // When connected: only show connected wallet (not demo)
     // When disconnected: show demo wallet
@@ -3764,7 +3896,8 @@
     }
 
     function renderTokensPage() {
-      const tokens = allTokens;
+      // Apply sorting before pagination
+      const tokens = getSortedTokens(allTokens);
       // Show wallet column if multiple wallets OR if viewing a label with multiple wallets
       const labelWalletCount = activeLabelId ? (userLabels.find(l => l.id === activeLabelId)?.wallets?.length || 0) : 0;
       const showWalletCol = getActiveWallets().length > 1 || labelWalletCount > 1;
@@ -3786,9 +3919,21 @@
       const visibleTokens = pageTokens.slice(0, visibleLimit);
       const blurredTokens = hasProView ? [] : pageTokens.slice(visibleLimit);
 
+      // Helper to build sortable header
+      const sortableHeader = (col, label) => {
+        const isActive = tokenSortColumn === col;
+        const icon = getSortIcon(col, tokenSortColumn, tokenSortDirection);
+        return '<th class="sortable' + (isActive ? ' active' : '') + '" onclick="sortTokens(\'' + col + '\')">' + label + '<span class="sort-icon">' + icon + '</span></th>';
+      };
+
       let html = '<table><thead><tr>';
-      if (showWalletCol) html += '<th>Wallet</th>';
-      html += '<th>Token</th><th>Balance</th><th>Price</th><th>Value</th><th>P&L</th></tr></thead><tbody>';
+      if (showWalletCol) html += sortableHeader('wallet', 'Wallet');
+      html += sortableHeader('token', 'Token');
+      html += sortableHeader('balance', 'Balance');
+      html += sortableHeader('price', 'Price');
+      html += sortableHeader('value', 'Value');
+      html += sortableHeader('pnl', 'P&L');
+      html += '</tr></thead><tbody>';
 
       for (const t of visibleTokens) {
         const pnl = t.pnl ? t.pnl.totalPnL : null;
@@ -4309,7 +4454,8 @@
     });
 
     function renderDefiPage() {
-      const positions = allDefiPositions;
+      // Apply sorting before pagination
+      const positions = getSortedDefi(allDefiPositions);
       // Show wallet column if multiple wallets OR if viewing a label with multiple wallets
       const labelWalletCount = activeLabelId ? (userLabels.find(l => l.id === activeLabelId)?.wallets?.length || 0) : 0;
       const showWalletCol = getActiveWallets().length > 1 || labelWalletCount > 1;
@@ -4331,9 +4477,20 @@
       const visiblePositions = pagePositions.slice(0, visibleLimit);
       const blurredPositions = hasProView ? [] : pagePositions.slice(visibleLimit);
 
+      // Helper to build sortable header
+      const sortableHeader = (col, label) => {
+        const isActive = defiSortColumn === col;
+        const icon = getSortIcon(col, defiSortColumn, defiSortDirection);
+        return '<th class="sortable' + (isActive ? ' active' : '') + '" onclick="sortDefi(\'' + col + '\')">' + label + '<span class="sort-icon">' + icon + '</span></th>';
+      };
+
       let html = '<table><thead><tr>';
-      if (showWalletCol) html += '<th>Wallet</th>';
-      html += '<th>Protocol</th><th>Type</th><th>Asset</th><th>Value</th></tr></thead><tbody>';
+      if (showWalletCol) html += sortableHeader('wallet', 'Wallet');
+      html += sortableHeader('protocol', 'Protocol');
+      html += sortableHeader('type', 'Type');
+      html += sortableHeader('asset', 'Asset');
+      html += sortableHeader('value', 'Value');
+      html += '</tr></thead><tbody>';
 
       for (const p of visiblePositions) {
         const isBorrow = p.type === 'borrow';

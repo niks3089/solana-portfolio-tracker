@@ -4,30 +4,30 @@ import { createRoot } from 'react-dom/client';
 // Use the wallet from main page
 const useWallet = () => {
     const [wallet, setWallet] = useState(null);
-    
+
     useEffect(() => {
         const check = () => {
             const provider = window.connectedProvider;
             const walletAddr = window.connectedWallet;
-            
+
             if (!provider || !walletAddr) {
                 if (wallet) setWallet(null);
                 return;
             }
-            
+
             if (wallet?.publicKey?.toString() === walletAddr) return;
-            
+
             setWallet({
                 publicKey: provider.publicKey,
                 address: walletAddr,
             });
         };
-        
+
         check();
         const interval = setInterval(check, 500);
         return () => clearInterval(interval);
     }, [wallet]);
-    
+
     return wallet;
 };
 
@@ -50,13 +50,13 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
     const [saving, setSaving] = useState(false);
     const [alerts, setAlerts] = useState([]);
     const [toast, setToast] = useState(null);
-    
+
     const isPortfolio = target.startsWith('portfolio:');
-    
+
     useEffect(() => {
         if (isOpen && wallet) loadAlerts();
     }, [isOpen, wallet]);
-    
+
     const loadAlerts = async () => {
         if (!wallet?.address) return;
         try {
@@ -65,7 +65,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
             setAlerts(data.alerts || []);
         } catch (e) { setAlerts([]); }
     };
-    
+
     const save = async () => {
         if (!target) return;
         setSaving(true);
@@ -90,13 +90,13 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                 const err = await res.json();
                 setToast({ msg: err.error || 'Failed', type: 'error' });
             }
-        } catch (e) { 
-            setToast({ msg: 'Failed to create alert', type: 'error' }); 
+        } catch (e) {
+            setToast({ msg: 'Failed to create alert', type: 'error' });
         }
         setSaving(false);
         setTimeout(() => setToast(null), 3000);
     };
-    
+
     const deleteAlert = async (id) => {
         try {
             await fetch(`/api/alerts/${id}`, {
@@ -107,11 +107,11 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
             loadAlerts();
             setToast({ msg: 'Alert deleted', type: 'success' });
             setTimeout(() => setToast(null), 2000);
-        } catch (e) {}
+        } catch (e) { }
     };
-    
+
     if (!isOpen) return null;
-    
+
     return (
         <div style={overlay} onClick={onClose}>
             <div style={modal} onClick={e => e.stopPropagation()}>
@@ -119,7 +119,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                     <h3 style={{ margin: 0, color: '#00d4aa', fontSize: '16px' }}>🔔 Alerts</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
                 </div>
-                
+
                 <div style={{ padding: '16px 20px', maxHeight: '60vh', overflowY: 'auto' }}>
                     {/* Existing Alerts */}
                     {alerts.length > 0 && (
@@ -128,7 +128,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                                 <div key={alert.id} style={alertCard}>
                                     <div>
                                         <div style={{ color: '#fff', fontSize: '14px' }}>
-                                            {alert.label_name || `${alert.target_wallet?.slice(0,6)}...${alert.target_wallet?.slice(-4)}`}
+                                            {alert.label_name || `${alert.target_wallet?.slice(0, 6)}...${alert.target_wallet?.slice(-4)}`}
                                         </div>
                                         <div style={{ color: '#888', fontSize: '12px' }}>
                                             {alert.alert_type === 'threshold' ? `${alert.threshold_percent}% change` : 'Transactions'}
@@ -139,11 +139,11 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                             ))}
                         </div>
                     )}
-                    
+
                     {/* New Alert Form */}
                     <div style={{ borderTop: alerts.length > 0 ? '1px solid #2a2a2b' : 'none', paddingTop: alerts.length > 0 ? '16px' : '0' }}>
                         <div style={{ color: '#00d4aa', fontSize: '13px', marginBottom: '12px', fontWeight: '500' }}>+ New Alert</div>
-                        
+
                         <select style={selectStyle} value={target} onChange={e => setTarget(e.target.value)}>
                             <option value="">Select portfolio or wallet...</option>
                             {labels.length > 0 && (
@@ -153,18 +153,18 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                             )}
                             {wallets.length > 0 && (
                                 <optgroup label="👛 Wallets">
-                                    {wallets.map(w => <option key={w.address} value={w.address}>{w.label || `${w.address.slice(0,4)}...${w.address.slice(-4)}`}</option>)}
+                                    {wallets.map(w => <option key={w.address} value={w.address}>{w.label || `${w.address.slice(0, 4)}...${w.address.slice(-4)}`}</option>)}
                                 </optgroup>
                             )}
                         </select>
-                        
+
                         {target && (
                             <>
                                 <label style={checkboxLabel}>
                                     <input type="checkbox" checked={walletTx} onChange={e => setWalletTx(e.target.checked)} style={{ accentColor: '#00d4aa', width: '16px', height: '16px' }} />
                                     Wallet Transactions
                                 </label>
-                                
+
                                 {isPortfolio && (
                                     <>
                                         <label style={checkboxLabel}>
@@ -176,23 +176,23 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                                         )}
                                     </>
                                 )}
-                                
+
                                 <button onClick={save} disabled={saving || (!walletTx && !portfolioChange)} style={{ ...btnPrimary, opacity: (saving || (!walletTx && !portfolioChange)) ? 0.5 : 1, marginTop: '8px' }}>
                                     {saving ? 'Creating...' : 'Create Alert'}
                                 </button>
                             </>
                         )}
                     </div>
-                    
+
                     {/* Info */}
                     <div style={{ marginTop: '20px', padding: '12px', background: '#232324', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
                         💡 Alerts are sent via Telegram. Make sure you've connected Telegram to @DialectBots
                     </div>
                 </div>
-                
+
                 {/* Toast */}
                 {toast && (
-                    <div style={{ 
+                    <div style={{
                         position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
                         background: toast.type === 'error' ? '#ff6b6b' : '#00d4aa',
                         color: toast.type === 'error' ? '#fff' : '#0a0a0f',
@@ -211,26 +211,26 @@ const DialectNotifications = () => {
     const [open, setOpen] = useState(false);
     const [labels, setLabels] = useState([]);
     const [wallets, setWallets] = useState([]);
-    
+
     useEffect(() => {
         const load = () => {
             if (window.userLabels) setLabels(window.userLabels);
-            try { 
-                const s = localStorage.getItem('portfolio_wallets'); 
-                if (s) setWallets(JSON.parse(s)); 
-            } catch {}
+            try {
+                const s = localStorage.getItem('portfolio_wallets');
+                if (s) setWallets(JSON.parse(s));
+            } catch { }
         };
         load();
         const i = setInterval(load, 2000);
         return () => clearInterval(i);
     }, []);
-    
+
     if (!wallet) return null;
-    
+
     return (
         <>
-            <button 
-                onClick={() => setOpen(true)} 
+            <button
+                onClick={() => setOpen(true)}
                 style={bellBtn}
                 onMouseOver={e => { e.currentTarget.style.background = '#00d4aa'; e.currentTarget.style.color = '#0a0a0f'; }}
                 onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#00d4aa'; }}
