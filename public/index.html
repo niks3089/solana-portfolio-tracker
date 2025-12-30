@@ -2391,8 +2391,8 @@
           <div class="stat-value" id="statNetWorth">$0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Assets</div>
-          <div class="stat-value" id="statAssets">$0</div>
+          <div class="stat-label">DeFi Deposits</div>
+          <div class="stat-value positive" id="statDeposits">$0</div>
         </div>
         <div class="stat-card" id="pnlCard">
           <div class="stat-label">All-Time P&L</div>
@@ -3294,7 +3294,7 @@
       } else {
         // Clear display when no wallets
         document.getElementById('statNetWorth').textContent = '$0';
-        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statDeposits').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
         document.getElementById('statPnL').className = 'stat-value';
         document.getElementById('statLiabilities').textContent = '$0';
@@ -3532,7 +3532,7 @@
 
       // Show loading states
       document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
-      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statLiabilities').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading ' + escapeHtml(label.name) + '...</div>';
@@ -3548,9 +3548,8 @@
 
         // Update stats
         const p = data.portfolio;
-        const totalAssets = p.totalAssets || (p.totalTokens + p.defiDeposits);
         document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
-        document.getElementById('statAssets').textContent = fmtUsd(totalAssets);
+        document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits || 0);
         document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
         document.getElementById('statLiabilities').textContent = p.defiBorrows ? fmtUsd(p.defiBorrows) : '$0';
 
@@ -3645,7 +3644,7 @@
       } else {
         // No wallets left in view - show empty state
         document.getElementById('statNetWorth').textContent = '$0';
-        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statDeposits').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
         document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '<div class="loading">All wallets hidden. Click portfolio again to reset.</div>';
@@ -3795,7 +3794,7 @@
       if (!wallets.length) {
         // Clear all stats when no wallets
         document.getElementById('statNetWorth').textContent = '$0';
-        document.getElementById('statAssets').textContent = '$0';
+        document.getElementById('statDeposits').textContent = '$0';
         document.getElementById('statPnL').textContent = '$0';
         document.getElementById('statPnL').className = 'stat-value';
         document.getElementById('statLiabilities').textContent = '$0';
@@ -3809,7 +3808,7 @@
 
       // Show loading states
       document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
-      document.getElementById('statAssets').innerHTML = '<span class="loading-text">Loading...</span>';
+      document.getElementById('statDeposits').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('statLiabilities').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading tokens...</div>';
@@ -3842,7 +3841,7 @@
       try {
         const a = data.aggregate || {};
         document.getElementById('statNetWorth').textContent = fmtUsd(a.totalNetWorth);
-        document.getElementById('statAssets').textContent = fmtUsd(a.totalAssets);
+        document.getElementById('statDeposits').textContent = fmtUsd(a.defiDeposits || 0);
 
         // P&L shows loading state until background fetch completes
         const pnlEl = document.getElementById('statPnL');
@@ -4817,7 +4816,7 @@
 
       // Reset all stats to $0
       document.getElementById('statNetWorth').textContent = '$0';
-      document.getElementById('statAssets').textContent = '$0';
+      document.getElementById('statDeposits').textContent = '$0';
       document.getElementById('statPnL').textContent = '$0';
       document.getElementById('statPnL').className = 'stat-value';
       document.getElementById('statLiabilities').textContent = '$0';
