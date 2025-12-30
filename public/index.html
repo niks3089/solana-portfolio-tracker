@@ -4768,8 +4768,8 @@
         const bellClass = hasAlert ? 'header-bell active' : 'header-bell';
         document.getElementById('walletStatus').innerHTML =
           '<div class="wallet-status-row">' +
-          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + connectedWallet + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
           '<div class="connected-badge" onclick="disconnectWallet()" title="Click to disconnect">' + shortAddr + '</div>' +
+          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + connectedWallet + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
           '</div>';
       } else {
         document.getElementById('walletStatus').innerHTML =
