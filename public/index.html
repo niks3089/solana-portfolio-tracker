@@ -376,6 +376,11 @@
       color: var(--negative);
     }
 
+    .muted {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
     .chart-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -3937,8 +3942,8 @@
 
       for (const t of visibleTokens) {
         const pnl = t.pnl ? t.pnl.totalPnL : null;
-        const pnlClass = pnl != null ? (pnl >= 0 ? 'positive' : 'negative') : '';
-        const pnlStr = hasProView && pnl != null ? ((pnl >= 0 ? '+' : '') + fmtUsd(pnl)) : (hasProView ? '—' : '<span class="blurred-text">+$XX.XX</span>');
+        const pnlClass = pnl != null ? (pnl >= 0 ? 'positive' : 'negative') : 'muted';
+        const pnlStr = hasProView && pnl != null ? ((pnl >= 0 ? '+' : '') + fmtUsd(pnl)) : (hasProView ? '<span title="P&L data not available for this token">N/A</span>' : '<span class="blurred-text">+$XX.XX</span>');
         html += '<tr>';
         if (showWalletCol) html += '<td><span class="badge badge-wallet">' + (t.walletShort || '?') + '</span></td>';
         html += '<td><div class="token-cell">';

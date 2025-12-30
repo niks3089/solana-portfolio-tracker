@@ -250,7 +250,7 @@ router.post('/aggregate/fast', async (req, res) => {
 router.post('/pnl', async (req, res) => {
     try {
         const { wallets, tokens } = req.body;
-        
+
         metrics.requests.total++;
         metrics.requests.byEndpoint['/api/portfolio/pnl'] = (metrics.requests.byEndpoint['/api/portfolio/pnl'] || 0) + 1;
 
