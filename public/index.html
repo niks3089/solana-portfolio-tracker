@@ -706,23 +706,6 @@
       color: var(--text-primary);
     }
 
-    .wallet-tag-bell {
-      cursor: pointer;
-      font-size: 0.75rem;
-      opacity: 0.4;
-      margin-left: 0.25rem;
-      transition: opacity 0.2s;
-    }
-
-    .wallet-tag-bell:hover {
-      opacity: 1;
-    }
-
-    .wallet-tag-bell.active {
-      opacity: 1;
-      color: var(--accent);
-    }
-
     .wallet-tag-remove {
       cursor: pointer;
       color: var(--text-secondary);
@@ -1614,6 +1597,30 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
+    }
+
+    .wallet-status-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-bell {
+      cursor: pointer;
+      font-size: 1.1rem;
+      opacity: 0.5;
+      transition: all 0.2s;
+      padding: 0.25rem;
+    }
+
+    .header-bell:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .header-bell.active {
+      opacity: 1;
+      filter: drop-shadow(0 0 4px var(--accent));
     }
 
     .alert-bell {
@@ -3345,12 +3352,9 @@
       document.getElementById('walletTags').innerHTML = visibleWallets.map(w => {
         const shortAddr = w.address.slice(0, 4) + '...' + w.address.slice(-4);
         const displayName = w.label || shortAddr;
-        const hasAlert = userAlerts && userAlerts.some(a => a.wallet === w.address);
-        const bellClass = hasAlert ? 'wallet-tag-bell active' : 'wallet-tag-bell';
         return '<div class="wallet-tag">' +
           '<span class="wallet-tag-name" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + displayName + '</span>' +
           '<span class="wallet-tag-addr" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + shortAddr + '</span>' +
-          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + w.address + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
           '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWallet(\'' + w.address + '\')">×</span></div>';
       }).join('');
     }
@@ -4759,9 +4763,14 @@
     // Wallet status UI
     function updateWalletStatusUI() {
       if (connectedWallet) {
+        const shortAddr = connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4);
+        const hasAlert = userAlerts && userAlerts.some(a => a.wallet === connectedWallet);
+        const bellClass = hasAlert ? 'header-bell active' : 'header-bell';
         document.getElementById('walletStatus').innerHTML =
-          '<div class="connected-badge" onclick="disconnectWallet()" title="Click to disconnect">' +
-          connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4) + '</div>';
+          '<div class="wallet-status-row">' +
+          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + connectedWallet + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
+          '<div class="connected-badge" onclick="disconnectWallet()" title="Click to disconnect">' + shortAddr + '</div>' +
+          '</div>';
       } else {
         document.getElementById('walletStatus').innerHTML =
           '<button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>';
