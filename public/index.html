@@ -706,6 +706,23 @@
       color: var(--text-primary);
     }
 
+    .wallet-tag-bell {
+      cursor: pointer;
+      font-size: 0.75rem;
+      opacity: 0.4;
+      margin-left: 0.25rem;
+      transition: opacity 0.2s;
+    }
+
+    .wallet-tag-bell:hover {
+      opacity: 1;
+    }
+
+    .wallet-tag-bell.active {
+      opacity: 1;
+      color: var(--accent);
+    }
+
     .wallet-tag-remove {
       cursor: pointer;
       color: var(--text-secondary);
@@ -3328,9 +3345,12 @@
       document.getElementById('walletTags').innerHTML = visibleWallets.map(w => {
         const shortAddr = w.address.slice(0, 4) + '...' + w.address.slice(-4);
         const displayName = w.label || shortAddr;
+        const hasAlert = userAlerts && userAlerts.some(a => a.wallet === w.address);
+        const bellClass = hasAlert ? 'wallet-tag-bell active' : 'wallet-tag-bell';
         return '<div class="wallet-tag">' +
           '<span class="wallet-tag-name" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + displayName + '</span>' +
           '<span class="wallet-tag-addr" onclick="copyWalletAddress(\'' + w.address + '\')" title="Click to copy">' + shortAddr + '</span>' +
+          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + w.address + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
           '<span class="wallet-tag-remove" onclick="event.stopPropagation();removeWallet(\'' + w.address + '\')">×</span></div>';
       }).join('');
     }
@@ -5605,6 +5625,60 @@
 
     function closeAlertModal() {
       document.getElementById('alertModal').classList.remove('active');
+    }
+
+    async function showAlertModalForWallet(walletAddress) {
+      // Show the alert modal pre-selecting this wallet
+      editingAlertId = null;
+      selectedAlertType = 'any_tx';
+      const modal = document.getElementById('alertModal');
+      const titleEl = document.getElementById('alertModalTitle');
+      const targetSelect = document.getElementById('alertTargetSelect');
+      const telegramInput = document.getElementById('telegramUsername');
+
+      // First ensure Dialect subscription (one-time signature)
+      const statusDiv = document.createElement('div');
+      statusDiv.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
+      const subscribed = await ensureDialectSubscription(statusDiv);
+      if (!subscribed) {
+        return;
+      }
+
+      titleEl.textContent = 'Create Alert';
+      telegramInput.value = localStorage.getItem('telegramUsername') || '';
+
+      // Populate target options with the specific wallet pre-selected
+      const shortAddr = walletAddress.slice(0, 4) + '...' + walletAddress.slice(-4);
+      let options = `<option value="wallet:${walletAddress}" selected>${shortAddr}</option>`;
+
+      // Add other wallets
+      for (const w of walletData) {
+        if (w.address !== walletAddress) {
+          const otherShort = w.address.slice(0, 4) + '...' + w.address.slice(-4);
+          const displayName = w.label || otherShort;
+          options += `<option value="wallet:${w.address}">${displayName}</option>`;
+        }
+      }
+
+      // Add portfolios
+      for (const label of userLabels) {
+        options += `<option value="label:${label.id}">${escapeHtml(label.name)}</option>`;
+      }
+
+      targetSelect.innerHTML = options;
+
+      // Hide wallet select
+      document.getElementById('walletSelectGroup').style.display = 'none';
+
+      // Reset checkboxes
+      document.getElementById('check-activity').classList.remove('checked');
+      document.getElementById('check-threshold').classList.remove('checked');
+      document.getElementById('thresholdRange').value = 5;
+      document.getElementById('thresholdCurrent').textContent = '5%';
+      document.getElementById('portfolioChangeOption').style.display = 'none';
+
+      document.getElementById('alertModalStatus').textContent = '';
+      modal.classList.add('active');
     }
 
     function toggleThresholdAlert() {
