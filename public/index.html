@@ -2293,6 +2293,21 @@
       </div>
     </div>
 
+    <!-- Delete Portfolio Modal -->
+    <div class="label-modal" id="deleteLabelModal">
+      <div class="label-modal-content" style="max-width:360px">
+        <div class="label-modal-header">
+          <h3>Delete Portfolio</h3>
+          <span class="label-modal-close" onclick="closeDeleteLabelModal()">&times;</span>
+        </div>
+        <p style="color:var(--text-secondary);margin:1rem 0;line-height:1.5">Are you sure you want to delete this portfolio? Historical tracking data will be permanently lost.</p>
+        <div class="label-modal-actions">
+          <button class="btn" onclick="closeDeleteLabelModal()">Cancel</button>
+          <button class="btn btn-danger" onclick="confirmDeleteLabel()">Delete</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Label Modal -->
     <div class="label-modal" id="labelModal">
       <div class="label-modal-content">
@@ -5109,7 +5124,7 @@
     async function addWalletToLabel() {
       const input = document.getElementById('newWalletInput');
       let address = input.value.trim();
-      
+
       if (!address) return;
 
       // Resolve SNS domain if needed
@@ -5150,11 +5165,11 @@
       // Clear input and re-render
       input.value = '';
       renderLabelWallets(editingLabelId);
-      
+
       // Check the newly added wallet
       const newCheckbox = document.getElementById('lw_' + address);
       if (newCheckbox) newCheckbox.checked = true;
-      
+
       document.getElementById('labelModalStatus').innerHTML = '<span style="color:var(--accent)">Wallet added!</span>';
       setTimeout(() => document.getElementById('labelModalStatus').innerHTML = '', 2000);
     }
@@ -5203,8 +5218,8 @@
         const isNew = w.source === 'new';
         const checked = isInLabel || isNew ? 'checked' : '';
         const name = w.name || shortAddr;
-        const tagText = w.source === 'portfolio' ? ' <span style="color:var(--text-secondary);font-size:0.75rem">(saved)</span>' 
-                      : w.source === 'new' ? ' <span style="color:var(--accent);font-size:0.75rem">(new)</span>' 
+        const tagText = w.source === 'portfolio' ? ' <span style="color:var(--text-secondary);font-size:0.75rem">(saved)</span>'
+                      : w.source === 'new' ? ' <span style="color:var(--accent);font-size:0.75rem">(new)</span>'
                       : '';
         return `
           <div class="label-wallet-item${w.source === 'portfolio' ? ' from-portfolio' : ''}${isNew ? ' new-wallet' : ''}">
@@ -5304,12 +5319,17 @@
       }
     }
 
-    async function deleteLabel() {
+    function deleteLabel() {
       if (!editingLabelId) return;
+      document.getElementById('deleteLabelModal').classList.add('active');
+    }
 
-      if (!confirm('Are you sure you want to delete this portfolio? Historical data will be lost.')) {
-        return;
-      }
+    function closeDeleteLabelModal() {
+      document.getElementById('deleteLabelModal').classList.remove('active');
+    }
+
+    async function confirmDeleteLabel() {
+      if (!editingLabelId) return;
 
       try {
         const res = await fetch('/api/labels/' + editingLabelId, {
@@ -5320,6 +5340,7 @@
 
         const data = await res.json();
         if (data.error) {
+          closeDeleteLabelModal();
           alert(data.error);
           return;
         }
@@ -5329,10 +5350,12 @@
           activeLabelId = null;
         }
 
+        closeDeleteLabelModal();
         closeLabelModal();
         await loadLabels();
       } catch (e) {
         console.error('Delete portfolio error:', e);
+        closeDeleteLabelModal();
         alert('Failed to delete portfolio');
       }
     }
