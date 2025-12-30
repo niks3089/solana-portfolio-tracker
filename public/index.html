@@ -3528,12 +3528,14 @@
       // Toggle the label filter
       if (activeLabelId === labelId) {
         activeLabelId = null;
+        localStorage.removeItem('activeLabelId');
         document.getElementById('walletInput').value = '';
         renderLabels();
         renderWalletTags();
         refreshData();
       } else {
         activeLabelId = labelId;
+        localStorage.setItem('activeLabelId', labelId);
         renderLabels();
         loadLabelPortfolio(labelId);
       }
@@ -4799,6 +4801,7 @@
       // Clear portfolios (they belong to the connected wallet)
       userLabels = [];
       activeLabelId = null;
+      localStorage.removeItem('activeLabelId');
       hiddenLabelWallets = [];
       renderLabels();
 
@@ -5195,6 +5198,21 @@
         userLabels = data.labels || [];
         window.userLabels = userLabels; // Expose for React component
         renderLabels();
+
+        // Restore previously selected portfolio from localStorage
+        const savedLabelId = localStorage.getItem('activeLabelId');
+        if (savedLabelId) {
+          const labelId = parseInt(savedLabelId);
+          const labelExists = userLabels.some(l => l.id === labelId);
+          if (labelExists) {
+            activeLabelId = labelId;
+            renderLabels();
+            loadLabelPortfolio(labelId);
+          } else {
+            // Label no longer exists, clear saved value
+            localStorage.removeItem('activeLabelId');
+          }
+        }
       } catch (e) {
         console.error('Failed to load labels:', e);
         userLabels = [];
@@ -5530,6 +5548,7 @@
       if (activeLabelId === labelId) {
         // Clear filter - show all wallets
         activeLabelId = null;
+        localStorage.removeItem('activeLabelId');
         hiddenLabelWallets = []; // Reset hidden wallets
         document.getElementById('walletInput').value = '';
         document.getElementById('walletInput').placeholder = 'Add wallet';
@@ -5539,6 +5558,7 @@
         refreshData();
       } else {
         activeLabelId = labelId;
+        localStorage.setItem('activeLabelId', labelId);
         hiddenLabelWallets = []; // Reset hidden wallets when switching
         renderLabels();
         loadLabelPortfolio(labelId);
