@@ -3566,11 +3566,18 @@
 
       try {
         const res = await fetch('/api/labels/' + labelId + '/portfolio');
-        const data = await res.json();
 
-        if (data.error) {
-          throw new Error(data.error);
+        if (res.status === 429) {
+          const errData = await res.json();
+          throw new Error(errData.message || 'Rate limit exceeded. Please wait and try again.');
         }
+        if (!res.ok) {
+          throw new Error('Server error (' + res.status + '). Please try again.');
+        }
+
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.success === false) throw new Error(data.message || 'Request failed');
 
         // Update stats
         const p = data.portfolio;
@@ -3623,7 +3630,13 @@
 
       } catch (e) {
         console.error('Load portfolio error:', e);
-        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">Error loading portfolio</div>';
+        document.getElementById('statNetWorth').textContent = '--';
+        document.getElementById('statDeposits').textContent = '--';
+        document.getElementById('statPnL').textContent = '--';
+        document.getElementById('statLiabilities').textContent = '--';
+        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">' + escapeHtml(e.message) + '</div>';
+        document.getElementById('defiContent').innerHTML = '';
+        renderDonutChart([], 0);
       }
     }
 
@@ -3688,11 +3701,22 @@
           headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
+
+        if (fastRes.status === 429) {
+          const errData = await fastRes.json();
+          throw new Error(errData.message || 'Rate limit exceeded');
+        }
+        if (!fastRes.ok) {
+          throw new Error('Server error (' + fastRes.status + ')');
+        }
+
         const data = await fastRes.json();
         if (data.error) throw new Error(data.error);
+        if (data.success === false) throw new Error(data.message || 'Request failed');
         renderFastData(data, wallets);
       } catch (e) {
         console.error('Refresh error:', e);
+        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">' + escapeHtml(e.message) + '</div>';
       }
     }
 
@@ -3847,8 +3871,19 @@
           headers: getAuthHeaders(),
           body: JSON.stringify({ wallets })
         });
+
+        // Check for rate limit (429) or other errors
+        if (fastRes.status === 429) {
+          const errData = await fastRes.json();
+          throw new Error(errData.message || 'Rate limit exceeded. Please wait and try again.');
+        }
+        if (!fastRes.ok) {
+          throw new Error('Server error (' + fastRes.status + '). Please try again.');
+        }
+
         const data = await fastRes.json();
         if (data.error) throw new Error(data.error);
+        if (data.success === false) throw new Error(data.message || 'Request failed');
 
         // Show fast data immediately
         renderFastData(data, wallets);
@@ -3859,7 +3894,13 @@
 
       } catch (error) {
         console.error('Refresh error:', error);
-        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">Error loading data. Try again.</div>';
+        document.getElementById('statNetWorth').textContent = '--';
+        document.getElementById('statDeposits').textContent = '--';
+        document.getElementById('statPnL').textContent = '--';
+        document.getElementById('statLiabilities').textContent = '--';
+        document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">' + escapeHtml(error.message) + '</div>';
+        document.getElementById('defiContent').innerHTML = '';
+        renderDonutChart([], 0);
       }
     }
 
