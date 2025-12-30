@@ -1133,6 +1133,11 @@
       height: 16px;
     }
 
+    .label-wallet-item.new-wallet {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
     .label-wallet-addr {
       font-family: monospace;
       font-size: 0.85rem;
@@ -2310,6 +2315,13 @@
             <div class="color-option" data-color="#44ffaa" style="background:#44ffaa"></div>
             <div class="color-option" data-color="#ff6644" style="background:#ff6644"></div>
             <div class="color-option" data-color="#44aaff" style="background:#44aaff"></div>
+          </div>
+        </div>
+        <div class="label-form-group">
+          <label>Add New Wallet</label>
+          <div style="display:flex;gap:0.5rem">
+            <input type="text" class="label-form-input" id="newWalletInput" placeholder="Paste wallet address or .sol domain" style="flex:1" onkeypress="if(event.key==='Enter'){event.preventDefault();addWalletToLabel()}">
+            <button class="btn btn-accent" onclick="addWalletToLabel()" style="padding:0.5rem 1rem">Add</button>
           </div>
         </div>
         <div class="label-form-group">
@@ -5052,11 +5064,16 @@
       return div.innerHTML;
     }
 
+    // Track newly added wallets in the modal
+    let newlyAddedWallets = [];
+
     function showLabelModal(labelId = null) {
       editingLabelId = labelId;
+      newlyAddedWallets = []; // Reset newly added wallets
       const modal = document.getElementById('labelModal');
       const titleEl = document.getElementById('labelModalTitle');
       const nameInput = document.getElementById('labelNameInput');
+      const newWalletInput = document.getElementById('newWalletInput');
       const deleteBtn = document.getElementById('deleteLabelBtn');
 
       if (labelId) {
@@ -5074,6 +5091,9 @@
         deleteBtn.style.display = 'none';
       }
 
+      // Clear new wallet input
+      if (newWalletInput) newWalletInput.value = '';
+
       // Update color picker selection
       document.querySelectorAll('.color-option').forEach(opt => {
         opt.classList.toggle('selected', opt.dataset.color === selectedLabelColor);
@@ -5084,6 +5104,59 @@
 
       modal.classList.add('active');
       nameInput.focus();
+    }
+
+    async function addWalletToLabel() {
+      const input = document.getElementById('newWalletInput');
+      let address = input.value.trim();
+      
+      if (!address) return;
+
+      // Resolve SNS domain if needed
+      if (address.endsWith('.sol')) {
+        try {
+          const res = await fetch('/api/portfolio/' + encodeURIComponent(address));
+          const data = await res.json();
+          if (data.wallet) {
+            address = data.wallet;
+          }
+        } catch (e) {
+          console.error('SNS resolution failed:', e);
+        }
+      }
+
+      // Validate it looks like a Solana address
+      if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+        document.getElementById('labelModalStatus').innerHTML = '<span style="color:var(--negative)">Invalid wallet address</span>';
+        setTimeout(() => document.getElementById('labelModalStatus').innerHTML = '', 3000);
+        return;
+      }
+
+      // Check if already in the list
+      const existingCheckbox = document.getElementById('lw_' + address);
+      if (existingCheckbox) {
+        existingCheckbox.checked = true;
+        input.value = '';
+        document.getElementById('labelModalStatus').innerHTML = '<span style="color:var(--accent)">Wallet already in list - selected!</span>';
+        setTimeout(() => document.getElementById('labelModalStatus').innerHTML = '', 2000);
+        return;
+      }
+
+      // Add to newly added wallets
+      if (!newlyAddedWallets.find(w => w.address === address)) {
+        newlyAddedWallets.push({ address, name: '' });
+      }
+
+      // Clear input and re-render
+      input.value = '';
+      renderLabelWallets(editingLabelId);
+      
+      // Check the newly added wallet
+      const newCheckbox = document.getElementById('lw_' + address);
+      if (newCheckbox) newCheckbox.checked = true;
+      
+      document.getElementById('labelModalStatus').innerHTML = '<span style="color:var(--accent)">Wallet added!</span>';
+      setTimeout(() => document.getElementById('labelModalStatus').innerHTML = '', 2000);
     }
 
     function renderLabelWallets(labelId) {
@@ -5100,33 +5173,44 @@
 
       // Add search box wallets first
       searchBoxWallets.forEach(w => {
-        allWalletsMap.set(w.address, { address: w.address, name: w.label || '' });
+        allWalletsMap.set(w.address, { address: w.address, name: w.label || '', source: 'searchbox' });
       });
 
       // Add portfolio wallets that aren't in search box
       labelWallets.forEach(w => {
         if (!allWalletsMap.has(w.address)) {
-          allWalletsMap.set(w.address, { address: w.address, name: w.name || '' });
+          allWalletsMap.set(w.address, { address: w.address, name: w.name || '', source: 'portfolio' });
+        }
+      });
+
+      // Add newly added wallets from the modal
+      newlyAddedWallets.forEach(w => {
+        if (!allWalletsMap.has(w.address)) {
+          allWalletsMap.set(w.address, { address: w.address, name: w.name || '', source: 'new' });
         }
       });
 
       const allWallets = Array.from(allWalletsMap.values());
 
       if (allWallets.length === 0) {
-        container.innerHTML = '<div class="labels-empty">No wallets added yet. Add wallets above first.</div>';
+        container.innerHTML = '<div class="labels-empty">No wallets added yet. Paste a wallet address above to add.</div>';
         return;
       }
 
       container.innerHTML = allWallets.map(w => {
         const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
-        const checked = labelWalletAddrs.includes(w.address) ? 'checked' : '';
+        const isInLabel = labelWalletAddrs.includes(w.address);
+        const isNew = w.source === 'new';
+        const checked = isInLabel || isNew ? 'checked' : '';
         const name = w.name || shortAddr;
-        const isFromPortfolio = !searchBoxWallets.some(sw => sw.address === w.address);
+        const tagText = w.source === 'portfolio' ? ' <span style="color:var(--text-secondary);font-size:0.75rem">(saved)</span>' 
+                      : w.source === 'new' ? ' <span style="color:var(--accent);font-size:0.75rem">(new)</span>' 
+                      : '';
         return `
-          <div class="label-wallet-item${isFromPortfolio ? ' from-portfolio' : ''}">
+          <div class="label-wallet-item${w.source === 'portfolio' ? ' from-portfolio' : ''}${isNew ? ' new-wallet' : ''}">
             <input type="checkbox" id="lw_${w.address}" value="${w.address}" ${checked}>
             <div>
-              <div class="label-wallet-name">${escapeHtml(name)}${isFromPortfolio ? ' <span style="color:var(--text-muted);font-size:0.75rem">(saved)</span>' : ''}</div>
+              <div class="label-wallet-name">${escapeHtml(name)}${tagText}</div>
               <div class="label-wallet-addr">${shortAddr}</div>
             </div>
           </div>
