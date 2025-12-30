@@ -246,25 +246,50 @@ router.post('/aggregate/fast', async (req, res) => {
     }
 });
 
-// Get P&L for tokens
+// Get P&L for tokens (accepts wallets array, fetches holdings and calculates P&L)
 router.post('/pnl', async (req, res) => {
     try {
-        const { tokens } = req.body;
-        if (!tokens?.length) {
-            return res.json({ pnl: [] });
-        }
-
+        const { wallets, tokens } = req.body;
+        
         metrics.requests.total++;
         metrics.requests.byEndpoint['/api/portfolio/pnl'] = (metrics.requests.byEndpoint['/api/portfolio/pnl'] || 0) + 1;
 
+        let tokenList = [];
+
+        // If wallets provided, fetch holdings first to get token list
+        if (wallets?.length) {
+            const resolvedWallets = await Promise.all(wallets.map(w => resolveSNS(w)));
+            const holdingsResults = await Promise.all(
+                resolvedWallets.map(async (wallet) => {
+                    try {
+                        const holdings = await getHoldings(wallet);
+                        return (holdings.tokens || []).map(t => ({ address: t.address, wallet }));
+                    } catch (e) {
+                        return [];
+                    }
+                })
+            );
+            tokenList = holdingsResults.flat();
+        } else if (tokens?.length) {
+            tokenList = tokens;
+        }
+
+        if (!tokenList.length) {
+            return res.json({ totalPnL: 0, tokenPnLs: [] });
+        }
+
+        // Fetch P&L for each token
         const pnlResults = await Promise.all(
-            tokens.map(async ({ address, wallet }) => {
+            tokenList.map(async ({ address, wallet }) => {
                 const pnl = await getTokenPnL(address, wallet);
-                return pnl ? { ...pnl, wallet } : null;
+                return pnl ? { ...pnl, address, wallet } : null;
             })
         );
 
-        res.json({ pnl: pnlResults.filter(Boolean) });
+        const validPnLs = pnlResults.filter(Boolean);
+        const totalPnL = validPnLs.reduce((sum, p) => sum + (p.totalPnL || 0), 0);
+
+        res.json({ totalPnL, tokenPnLs: validPnLs });
     } catch (error) {
         console.error('PnL error:', error);
         res.status(500).json({ error: 'Failed to fetch P&L' });
