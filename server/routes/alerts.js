@@ -6,8 +6,12 @@ import { Router } from 'express';
 import { pool } from '../db.js';
 import { CONFIG } from '../config.js';
 import { heliusWS } from '../services/helius-ws.js';
+import { authMiddleware } from '../middleware/turnstile.js';
 
 const router = Router();
+
+// Require JWT for all alert routes
+router.use(authMiddleware);
 
 // Get all alerts for a wallet
 router.get('/:wallet', async (req, res) => {

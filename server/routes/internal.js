@@ -1,5 +1,5 @@
 /**
- * Internal API Routes (Snapshots, Metrics)
+ * Internal API Routes (Snapshots, Metrics, Auth)
  */
 
 import { Router } from 'express';
@@ -7,6 +7,8 @@ import { pool } from '../db.js';
 import { CONFIG } from '../config.js';
 import { metrics, updateCacheSizes, getPercentile } from '../metrics.js';
 import { getHoldings, getDefiPositionsFast } from '../services/portfolio.js';
+import { validateTurnstileToken } from '../middleware/turnstile.js';
+import { generateJwtToken } from '../utils/jwt.js';
 
 const router = Router();
 
@@ -156,6 +158,52 @@ router.get('/metrics', async (req, res) => {
 // Health check
 router.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Turnstile config (returns site key for frontend)
+router.get('/turnstile-config', (req, res) => {
+    res.json({
+        siteKey: CONFIG.TURNSTILE_SITE_KEY || null,
+        enabled: !!CONFIG.TURNSTILE_SECRET_KEY,
+    });
+});
+
+// Turnstile verification - exchanges Turnstile token for JWT
+router.post('/turnstile/verify', async (req, res) => {
+    const token = req.body?.token || req.body?.['cf-turnstile-response'];
+
+    if (!token) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing Turnstile token',
+        });
+    }
+
+    const remoteip = req.headers['cf-connecting-ip'] ||
+                     req.headers['x-real-ip'] ||
+                     req.ip;
+
+    const result = await validateTurnstileToken(token, remoteip);
+
+    if (!result.success) {
+        console.log(`🤖 Turnstile verify failed: ${remoteip} | ${result.error}`);
+        return res.status(403).json({
+            success: false,
+            error: 'Verification failed',
+            details: result.error,
+        });
+    }
+
+    // Generate JWT token (valid for 1 hour)
+    const jwtToken = generateJwtToken();
+
+    console.log(`✅ JWT issued: ${remoteip}`);
+
+    res.json({
+        success: true,
+        token: jwtToken,
+        expiresIn: 3600, // 1 hour in seconds
+    });
 });
 
 export default router;

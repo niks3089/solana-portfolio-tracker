@@ -24,6 +24,139 @@
 
   <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
   <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+
+  <!-- Cloudflare Turnstile + JWT Bot Protection -->
+  <link rel="preconnect" href="https://challenges.cloudflare.com">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script>
+    // Auth state
+    window.TURNSTILE_SITE_KEY = null;
+    window.turnstileWidgetId = null;
+    window.jwtToken = localStorage.getItem('jwt_token') || null;
+    window.jwtExpiry = parseInt(localStorage.getItem('jwt_expiry') || '0');
+
+    // Check if JWT is still valid
+    window.isJwtValid = function() {
+      return window.jwtToken && Date.now() < window.jwtExpiry;
+    };
+
+    // Store JWT
+    window.setJwt = function(token, expiresIn) {
+      window.jwtToken = token;
+      window.jwtExpiry = Date.now() + (expiresIn * 1000) - 60000; // 1 min buffer
+      localStorage.setItem('jwt_token', token);
+      localStorage.setItem('jwt_expiry', window.jwtExpiry.toString());
+    };
+
+    // Clear JWT
+    window.clearJwt = function() {
+      window.jwtToken = null;
+      window.jwtExpiry = 0;
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('jwt_expiry');
+    };
+
+    // Exchange Turnstile token for JWT
+    window.exchangeTurnstileForJwt = async function(turnstileToken) {
+      try {
+        const res = await fetch('/api/turnstile/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
+        const data = await res.json();
+        if (data.success && data.token) {
+          window.setJwt(data.token, data.expiresIn || 3600);
+          console.log('✅ JWT obtained (valid for 1 hour)');
+          return true;
+        }
+        console.warn('JWT exchange failed:', data.error);
+        return false;
+      } catch (e) {
+        console.error('JWT exchange error:', e);
+        return false;
+      }
+    };
+
+    // Initialize Turnstile widget
+    window.initTurnstile = function() {
+      if (!window.TURNSTILE_SITE_KEY) return;
+      if (window.turnstileWidgetId !== null) return;
+      if (typeof turnstile === 'undefined') return;
+
+      try {
+        window.turnstileWidgetId = turnstile.render('#turnstile-container', {
+          sitekey: window.TURNSTILE_SITE_KEY,
+          size: 'invisible',
+          callback: async function(token) {
+            console.log('✅ Turnstile challenge passed');
+            await window.exchangeTurnstileForJwt(token);
+          },
+          'error-callback': function(error) {
+            console.warn('Turnstile error:', error);
+          },
+          'expired-callback': function() {
+            console.log('Turnstile: Refreshing...');
+            if (window.turnstileWidgetId !== null) {
+              turnstile.reset(window.turnstileWidgetId);
+            }
+          },
+        });
+        console.log('✅ Turnstile widget ready');
+      } catch (e) {
+        console.warn('Turnstile init error:', e.message);
+      }
+    };
+
+    // Trigger Turnstile challenge
+    window.triggerTurnstile = function() {
+      if (window.turnstileWidgetId !== null && typeof turnstile !== 'undefined') {
+        turnstile.reset(window.turnstileWidgetId);
+      }
+    };
+
+    // Check when Turnstile script is ready
+    (function checkTurnstileReady() {
+      if (typeof turnstile !== 'undefined') {
+        window.initTurnstile();
+      } else {
+        setTimeout(checkTurnstileReady, 100);
+      }
+    })();
+
+    // Enhanced fetch with JWT auth and auto-retry on 401
+    window.apiFetch = async function(url, options = {}) {
+      const headers = { ...(options.headers || {}) };
+
+      // Add JWT if valid
+      if (window.isJwtValid()) {
+        headers['Authorization'] = 'Bearer ' + window.jwtToken;
+      }
+
+      const response = await fetch(url, { ...options, headers });
+
+      // Handle 401 - need new JWT
+      if (response.status === 401) {
+        const data = await response.json().catch(() => ({}));
+        if (data.requiresTurnstile) {
+          console.log('🔄 JWT expired, triggering Turnstile...');
+          window.clearJwt();
+          window.triggerTurnstile();
+          // Wait for new JWT (up to 10s)
+          for (let i = 0; i < 100; i++) {
+            await new Promise(r => setTimeout(r, 100));
+            if (window.isJwtValid()) {
+              // Retry request with new token
+              headers['Authorization'] = 'Bearer ' + window.jwtToken;
+              return fetch(url, { ...options, headers });
+            }
+          }
+        }
+      }
+
+      return response;
+    };
+  </script>
   <style>
     :root {
       --bg-primary: #0a0a0f;
@@ -407,6 +540,10 @@
       color: var(--negative);
     }
 
+    .purple {
+      color: #a855f7;
+    }
+
     .muted {
       color: var(--text-secondary);
       opacity: 0.6;
@@ -439,6 +576,7 @@
       width: 100%;
       height: 100%;
       border-radius: 50%;
+      cursor: pointer;
     }
 
     .donut-hole {
@@ -481,6 +619,32 @@
     .donut-label {
       font-size: 0.7rem;
       color: var(--text-secondary);
+    }
+
+    .donut-tooltip {
+      position: absolute;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .donut-tooltip.visible {
+      opacity: 1;
+    }
+    .donut-tooltip-label {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+    .donut-tooltip-value {
+      font-weight: 600;
+      color: var(--text-primary);
     }
 
     .chart-legend {
@@ -2412,11 +2576,11 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Net Worth</div>
-          <div class="stat-value" id="statNetWorth">$0</div>
+          <div class="stat-value positive" id="statNetWorth">$0</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">DeFi Deposits</div>
-          <div class="stat-value positive" id="statDeposits">$0</div>
+          <div class="stat-value purple" id="statDeposits">$0</div>
         </div>
         <div class="stat-card" id="pnlCard">
           <div class="stat-label">All-Time P&L</div>
@@ -2427,8 +2591,8 @@
           <div class="stat-value negative" id="statLiabilities">$0</div>
         </div>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Position Breakdown</div>
+      <div class="chart-card" style="position: relative;">
+        <div class="chart-title">Total Value Locked</div>
         <div class="donut-chart" id="donutChart">
           <div class="donut-ring" style="background: var(--bg-tertiary);"></div>
           <div class="donut-hole"></div>
@@ -2437,6 +2601,7 @@
             <span class="donut-label">Total</span>
           </div>
         </div>
+        <div class="donut-tooltip" id="donutTooltip"></div>
         <div class="chart-legend" id="chartLegend"></div>
       </div>
     </div>
@@ -2484,14 +2649,22 @@
           <div class="chart-tooltip-value" id="trackingTooltipValue">$0</div>
           <div class="chart-tooltip-date" id="trackingTooltipDate">Date</div>
         </div>
-        <div class="growth-stats">
-          <div class="growth-stat">
-            <span class="growth-stat-label">Since Created</span>
-            <span class="growth-stat-value" id="trackingChange">—</span>
-          </div>
+        <div class="growth-stats" style="gap: 2.5rem;">
           <div class="growth-stat">
             <span class="growth-stat-label">Peak</span>
             <span class="growth-stat-value" id="trackingPeak">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">24h</span>
+            <span class="growth-stat-value" id="tracking1d">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">7d</span>
+            <span class="growth-stat-value" id="tracking7d">—</span>
+          </div>
+          <div class="growth-stat">
+            <span class="growth-stat-label">Since Created</span>
+            <span class="growth-stat-value" id="trackingChange">—</span>
           </div>
         </div>
       </div>
@@ -2635,7 +2808,28 @@
       if (connectedWallet) {
         headers['x-connected-wallet'] = connectedWallet;
       }
+      // Include JWT token for auth
+      if (window.isJwtValid && window.isJwtValid()) {
+        headers['Authorization'] = 'Bearer ' + window.jwtToken;
+      }
       return headers;
+    }
+
+    // Wait for JWT to be ready (up to 15 seconds)
+    async function waitForJwt() {
+      if (!window.TURNSTILE_SITE_KEY) return true; // Turnstile not enabled
+      if (window.isJwtValid && window.isJwtValid()) return true;
+
+      console.log('⏳ Waiting for JWT...');
+      for (let i = 0; i < 150; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        if (window.isJwtValid && window.isJwtValid()) {
+          console.log('✅ JWT ready');
+          return true;
+        }
+      }
+      console.warn('⚠️ JWT timeout');
+      return false;
     }
 
     // Pagination state
@@ -3565,7 +3759,9 @@
       document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
 
       try {
-        const res = await fetch('/api/labels/' + labelId + '/portfolio');
+        const res = await fetch('/api/labels/' + labelId + '/portfolio', {
+          headers: getAuthHeaders()
+        });
 
         if (res.status === 429) {
           const errData = await res.json();
@@ -3786,9 +3982,20 @@
       refreshData();
     }
 
+    // Store segments globally for hover detection
+    let donutSegments = [];
+
     function renderDonutChart(segments, total) {
       const legend = document.getElementById('chartLegend');
       const donutChart = document.getElementById('donutChart');
+      const tooltip = document.getElementById('donutTooltip');
+
+      // Store for hover detection
+      donutSegments = segments.map((seg, i) => ({
+        ...seg,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+        percent: total > 0 ? (seg.value / total) * 100 : 0
+      }));
 
       // Blur for non-Pro users (unless viewing demo wallet)
       if (!shouldShowProView()) {
@@ -3834,6 +4041,59 @@
         </div>
       `;
 
+      // Add hover listeners for tooltip
+      const ring = donutChart.querySelector('.donut-ring');
+      const chartCard = donutChart.closest('.chart-card');
+
+      ring.addEventListener('mousemove', (e) => {
+        const rect = ring.getBoundingClientRect();
+        const cardRect = chartCard.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+
+        // Check if in the ring (not the hole)
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const outerRadius = rect.width / 2;
+        const innerRadius = outerRadius * 0.67; // ~120/180
+
+        if (dist < innerRadius || dist > outerRadius) {
+          tooltip.classList.remove('visible');
+          return;
+        }
+
+        // Calculate angle (0 = top, clockwise)
+        let angle = Math.atan2(dx, -dy) * (180 / Math.PI);
+        if (angle < 0) angle += 360;
+
+        // Find which segment
+        let cumPercent = 0;
+        let hoveredSeg = null;
+        for (const seg of donutSegments) {
+          cumPercent += seg.percent;
+          if (angle <= cumPercent * 3.6) { // 360/100 = 3.6
+            hoveredSeg = seg;
+            break;
+          }
+        }
+
+        if (hoveredSeg) {
+          tooltip.innerHTML = `
+            <div class="donut-tooltip-label">${hoveredSeg.label}</div>
+            <div class="donut-tooltip-value">${fmtUsd(hoveredSeg.value)} (${hoveredSeg.percent.toFixed(1)}%)</div>
+          `;
+          // Position relative to the chart card
+          tooltip.style.left = (e.clientX - cardRect.left + 15) + 'px';
+          tooltip.style.top = (e.clientY - cardRect.top - 10) + 'px';
+          tooltip.classList.add('visible');
+        }
+      });
+
+      ring.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+      });
+
       legend.innerHTML = segments.map((seg, i) =>
         '<div class="legend-item"><span class="legend-dot" style="background:' + CHART_COLORS[i % CHART_COLORS.length] + '"></span>' + seg.label + '</div>'
       ).join('');
@@ -3863,6 +4123,9 @@
       document.getElementById('statLiabilities').innerHTML = '<span class="loading-text">Loading...</span>';
       document.getElementById('tokensContent').innerHTML = '<div class="loading">Loading tokens...</div>';
       document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
+
+      // Wait for JWT authentication
+      await waitForJwt();
 
       try {
         // STEP 1: Fast load (tokens + DeFi, no P&L) - ~3-5 seconds
@@ -4129,7 +4392,9 @@
       let history = growthHistoryCache[cacheKey];
       if (!history) {
         try {
-          const res = await fetch(`/api/portfolio/history/${wallet}?days=${currentGrowthPeriod}`);
+          const res = await fetch(`/api/portfolio/history/${wallet}?days=${currentGrowthPeriod}`, {
+            headers: getAuthHeaders()
+          });
           const data = await res.json();
           if (data.success && data.history?.length > 0) {
             history = data.history;
@@ -4388,7 +4653,9 @@
 
       try {
         // Fetch snapshot history from our database
-        const res = await fetch('/api/labels/' + labelId + '/history?days=90');
+        const res = await fetch('/api/labels/' + labelId + '/history?days=90', {
+          headers: getAuthHeaders()
+        });
         const data = await res.json();
 
         let history = data.history || [];
@@ -4497,11 +4764,40 @@
       const changePercent = startValue > 0 ? (change / startValue) * 100 : 0;
       const daysTracked = chartData.length;
 
+      // Calculate 1d and 7d changes
+      const value1dAgo = chartData.length > 1 ? chartData[Math.max(0, chartData.length - 2)].value : currentValue;
+      const value7dAgo = chartData.length > 7 ? chartData[Math.max(0, chartData.length - 8)].value : chartData[0].value;
+
+      const change1d = currentValue - value1dAgo;
+      const change1dPercent = value1dAgo > 0 ? (change1d / value1dAgo) * 100 : 0;
+
+      const change7d = currentValue - value7dAgo;
+      const change7dPercent = value7dAgo > 0 ? (change7d / value7dAgo) * 100 : 0;
+
       // Only show as negative (red) if loss > 1%, otherwise treat as flat (green)
       const isSignificantLoss = changePercent < -1;
       const isPositive = !isSignificantLoss;
 
-      // Update stats display
+      // Helper to format change with color
+      const formatChange = (pct) => {
+        const isPos = pct >= -1; // Treat small losses as flat/positive
+        const sign = pct >= 0 ? '+' : '';
+        return { text: sign + pct.toFixed(1) + '%', isPositive: isPos };
+      };
+
+      // Update 1d stat
+      const el1d = document.getElementById('tracking1d');
+      const fmt1d = formatChange(change1dPercent);
+      el1d.textContent = fmt1d.text;
+      el1d.className = 'growth-stat-value ' + (fmt1d.isPositive ? 'positive' : 'negative');
+
+      // Update 7d stat
+      const el7d = document.getElementById('tracking7d');
+      const fmt7d = formatChange(change7dPercent);
+      el7d.textContent = fmt7d.text;
+      el7d.className = 'growth-stat-value ' + (fmt7d.isPositive ? 'positive' : 'negative');
+
+      // Update since created stats
       const changeEl = document.getElementById('trackingChange');
       changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
       changeEl.className = 'growth-stat-value ' + (isPositive ? 'positive' : 'negative');
@@ -5242,8 +5538,13 @@
 
       document.getElementById('labelsSection').style.display = 'block';
 
+      // Wait for JWT authentication
+      await waitForJwt();
+
       try {
-        const res = await fetch('/api/labels/' + connectedWallet);
+        const res = await fetch('/api/labels/' + connectedWallet, {
+          headers: getAuthHeaders()
+        });
         const data = await res.json();
         userLabels = data.labels || [];
         window.userLabels = userLabels; // Expose for React component
@@ -5364,7 +5665,9 @@
       // Resolve SNS domain if needed
       if (address.endsWith('.sol')) {
         try {
-          const res = await fetch('/api/portfolio/' + encodeURIComponent(address));
+          const res = await fetch('/api/portfolio/' + encodeURIComponent(address), {
+            headers: getAuthHeaders()
+          });
           const data = await res.json();
           if (data.wallet) {
             address = data.wallet;
@@ -5512,7 +5815,7 @@
           // Update existing label
           res = await fetch('/api/labels/' + editingLabelId, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
               owner_wallet: connectedWallet,
               name,
@@ -5524,7 +5827,7 @@
           // Create new label
           res = await fetch('/api/labels', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
               owner_wallet: connectedWallet,
               name,
@@ -5568,7 +5871,7 @@
       try {
         const res = await fetch('/api/labels/' + editingLabelId, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ owner_wallet: connectedWallet })
         });
 
@@ -6101,7 +6404,7 @@
             };
             await fetch('/api/alerts', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getAuthHeaders(),
               body: JSON.stringify(payload)
             });
           }
@@ -6118,7 +6421,7 @@
               };
               await fetch('/api/alerts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(payload)
               });
             }
@@ -6135,7 +6438,7 @@
             };
             await fetch('/api/alerts', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getAuthHeaders(),
               body: JSON.stringify(payload)
             });
           }
@@ -6153,7 +6456,7 @@
       try {
         await fetch('/api/alerts/' + alertId, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             owner_wallet: connectedWallet,
             enabled: enabled
@@ -6182,7 +6485,7 @@
       try {
         await fetch('/api/alerts/' + pendingDeleteAlertId, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ owner_wallet: connectedWallet })
         });
         await loadAlerts();
@@ -6231,6 +6534,35 @@
 
   <!-- Dialect Notifications React Component -->
   <script src="/js/dialect-notifications.js?v=22"></script>
+
+  <!-- Turnstile invisible widget container -->
+  <div id="turnstile-container"></div>
+
+  <!-- Load Turnstile config and initialize auth -->
+  <script>
+    (async function() {
+      try {
+        const res = await fetch('/api/turnstile-config');
+        const data = await res.json();
+        if (data.siteKey && data.enabled) {
+          window.TURNSTILE_SITE_KEY = data.siteKey;
+          console.log('✅ Turnstile enabled');
+          window.initTurnstile();
+
+          // If no valid JWT, trigger Turnstile immediately
+          if (!window.isJwtValid()) {
+            console.log('🔄 No valid JWT, getting new one...');
+            // Wait for widget to be ready then trigger
+            setTimeout(() => window.triggerTurnstile(), 500);
+          } else {
+            console.log('✅ JWT valid until', new Date(window.jwtExpiry).toLocaleTimeString());
+          }
+        }
+      } catch (e) {
+        // Turnstile not configured, continue without bot protection
+      }
+    })();
+  </script>
 </body>
 
 </html>

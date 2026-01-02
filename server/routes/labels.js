@@ -5,8 +5,12 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { getHoldings, getDefiPositionsFast } from '../services/portfolio.js';
+import { authMiddleware } from '../middleware/turnstile.js';
 
 const router = Router();
+
+// Require JWT for all label routes
+router.use(authMiddleware);
 
 // Get all labels for a wallet
 router.get('/:wallet', async (req, res) => {

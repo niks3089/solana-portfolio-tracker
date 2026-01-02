@@ -46,6 +46,23 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Trust proxy for Cloudflare
+app.set('trust proxy', true);
+
+// API request logging (for debugging bot traffic)
+app.use('/api/', (req, res, next) => {
+    const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+    const country = req.headers['cf-ipcountry'] || '??';
+    const ua = req.headers['user-agent']?.slice(0, 50) || 'no-ua';
+    const isCf = req.headers['cf-ray'] ? '✓CF' : '⚠DIRECT';
+
+    // Log API requests (skip static files)
+    if (req.path.startsWith('/api/portfolio') || req.path.startsWith('/api/labels') || req.path.startsWith('/api/alerts')) {
+        console.log(`[${isCf}] ${req.method} ${req.path} | IP: ${ip} | ${country} | ${ua}`);
+    }
+    next();
+});
+
 // Static files
 app.use(express.static(join(__dirname, '../public')));
 

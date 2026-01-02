@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { metrics } from '../metrics.js';
 import { resolveSNS } from '../utils/sns.js';
+import { authMiddleware } from '../middleware/turnstile.js';
 import {
     getHoldings,
     getTokenPnL,
@@ -15,6 +16,9 @@ import {
 } from '../services/portfolio.js';
 
 const router = Router();
+
+// Require JWT authentication for all portfolio routes
+router.use(authMiddleware);
 
 // Get single wallet portfolio
 router.get('/:wallet', async (req, res) => {

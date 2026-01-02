@@ -16,6 +16,9 @@ export const CONFIG = {
     METRICS_SECRET: process.env.METRICS_SECRET || 'metrics_s3cr3t_2024',
     // Free mode - everything unlocked, no wallet connection required
     FREE_MODE: process.env.FREE_MODE === 'true',
+    // Cloudflare Turnstile (invisible bot protection)
+    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || '0x4AAAAAAACKJGQuYaxLIxYqL',
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || '0x4AAAAAAACKJGaz4ap-ZuTNtZVKv3a4q7qY',
 };
 
 export const DISCOUNT_CODES = {
