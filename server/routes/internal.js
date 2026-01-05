@@ -12,6 +12,40 @@ import { generateJwtToken } from '../utils/jwt.js';
 
 const router = Router();
 
+// Health check endpoint (no auth required)
+router.get('/health', async (req, res) => {
+    try {
+        // Test database connection
+        const dbResult = await pool.query('SELECT 1 as ok');
+        const dbOk = dbResult.rows[0]?.ok === 1;
+
+        // Get basic stats
+        const statsResult = await pool.query(`
+            SELECT 
+                (SELECT COUNT(*) FROM users) as users,
+                (SELECT COUNT(*) FROM labels) as portfolios
+        `);
+        const stats = statsResult.rows[0];
+
+        res.json({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            database: dbOk ? 'connected' : 'error',
+            stats: {
+                users: parseInt(stats.users),
+                portfolios: parseInt(stats.portfolios)
+            }
+        });
+    } catch (error) {
+        console.error('Health check error:', error);
+        res.status(500).json({
+            status: 'unhealthy',
+            timestamp: new Date().toISOString(),
+            error: error.message
+        });
+    }
+});
+
 // Daily snapshot cron endpoint
 router.post('/snapshot', async (req, res) => {
     try {

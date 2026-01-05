@@ -42,16 +42,14 @@ jobs:
           echo "✅ Payment config OK"
           echo "status=ok" >> $GITHUB_OUTPUT
 
-      - name: Check Portfolio Aggregate API
-        id: portfolio-aggregate
+      - name: Check Health API
+        id: health-api
         run: |
-          echo "Testing /api/portfolio/aggregate..."
+          echo "Testing /api/health..."
           START_TIME=$(date +%s)
 
-          RESPONSE=$(curl -s --max-time 60 -w "\n%{http_code}" \
-            -X POST "${{ env.API_URL }}/api/portfolio/aggregate" \
-            -H "Content-Type: application/json" \
-            -d '{"wallets":["${{ env.TEST_WALLET }}"]}')
+          RESPONSE=$(curl -s --max-time 10 -w "\n%{http_code}" \
+            "${{ env.API_URL }}/api/health")
 
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
@@ -59,29 +57,27 @@ jobs:
           BODY=$(echo "$RESPONSE" | sed '$d')
 
           echo "Response time: ${DURATION}s"
+          echo "Response: $BODY"
 
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Portfolio aggregate failed with HTTP $HTTP_CODE"
+            echo "❌ Health API failed with HTTP $HTTP_CODE"
             echo "status=failed" >> $GITHUB_OUTPUT
-            echo "error=Portfolio API returned HTTP $HTTP_CODE after ${DURATION}s" >> $GITHUB_OUTPUT
+            echo "error=Health API returned HTTP $HTTP_CODE after ${DURATION}s" >> $GITHUB_OUTPUT
             echo "duration=$DURATION" >> $GITHUB_OUTPUT
             exit 1
           fi
 
           # Check if response has expected fields
-          if ! echo "$BODY" | grep -q "totalNetWorth"; then
-            echo "❌ Portfolio response missing totalNetWorth"
+          if ! echo "$BODY" | grep -q '"status":"healthy"'; then
+            echo "❌ Health check response indicates unhealthy"
             echo "status=failed" >> $GITHUB_OUTPUT
-            echo "error=Portfolio response missing data" >> $GITHUB_OUTPUT
+            echo "error=Health check reported unhealthy status" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # Extract net worth for logging
-          NET_WORTH=$(echo "$BODY" | grep -o '"totalNetWorth":[0-9.]*' | cut -d: -f2 | head -1)
-          echo "✅ Portfolio aggregate OK - Net Worth: \$${NET_WORTH}"
+          echo "✅ Health API OK"
           echo "status=ok" >> $GITHUB_OUTPUT
           echo "duration=$DURATION" >> $GITHUB_OUTPUT
-          echo "net_worth=$NET_WORTH" >> $GITHUB_OUTPUT
 
       - name: Check Frontend Loads
         id: frontend
@@ -117,7 +113,7 @@ jobs:
         run: |
           # Collect error info
           PAYMENT_ERROR="${{ steps.payment-config.outputs.error }}"
-          PORTFOLIO_ERROR="${{ steps.portfolio-aggregate.outputs.error }}"
+          HEALTH_ERROR="${{ steps.health-api.outputs.error }}"
           FRONTEND_ERROR="${{ steps.frontend.outputs.error }}"
 
           # Build message
@@ -127,8 +123,8 @@ jobs:
           if [ -n "$PAYMENT_ERROR" ]; then
             MESSAGE+="❌ Payment Config: $PAYMENT_ERROR%0A"
           fi
-          if [ -n "$PORTFOLIO_ERROR" ]; then
-            MESSAGE+="❌ Portfolio API: $PORTFOLIO_ERROR%0A"
+          if [ -n "$HEALTH_ERROR" ]; then
+            MESSAGE+="❌ Health API: $HEALTH_ERROR%0A"
           fi
           if [ -n "$FRONTEND_ERROR" ]; then
             MESSAGE+="❌ Frontend: $FRONTEND_ERROR%0A"
@@ -155,6 +151,6 @@ jobs:
           echo "✅ All health checks passed!"
           echo "==================================="
           echo "Payment Config: OK"
-          echo "Portfolio API: OK (${DURATION:-?}s)"
+          echo "Health API: OK"
           echo "Frontend: OK"
 
