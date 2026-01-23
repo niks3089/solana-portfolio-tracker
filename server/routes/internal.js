@@ -17,18 +17,18 @@ const router = Router();
 router.get('/resolve/:domain', async (req, res) => {
     try {
         const { domain } = req.params;
-        
+
         if (!domain.endsWith('.sol')) {
             return res.json({ address: domain });
         }
-        
+
         const address = await resolveSNS(domain);
-        
+
         if (address === domain) {
             // Resolution failed, domain returned as-is
             return res.status(404).json({ error: 'Domain not found', domain });
         }
-        
+
         res.json({ address, domain });
     } catch (error) {
         console.error('Resolve domain error:', error);
@@ -245,8 +245,8 @@ router.post('/turnstile/verify', async (req, res) => {
     }
 
     const remoteip = req.headers['cf-connecting-ip'] ||
-                     req.headers['x-real-ip'] ||
-                     req.ip;
+        req.headers['x-real-ip'] ||
+        req.ip;
 
     const result = await validateTurnstileToken(token, remoteip);
 

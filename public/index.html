@@ -3374,7 +3374,7 @@
           const response = await fetch('/api/resolve/' + encodeURIComponent(input));
           const data = await response.json();
 
-          if (data.success && data.address) {
+          if (data.address && !data.error) {
             // Use the resolved address, keep domain as label
             const domainLabel = input.toLowerCase();
             input = data.address;
