@@ -42,13 +42,13 @@ router.post('/', async (req, res) => {
             [owner_wallet]
         );
 
-        // Check label count
+        // Check label count (limit 10 portfolios per user)
         const countResult = await pool.query(
             'SELECT COUNT(*) FROM labels WHERE owner_wallet = $1',
             [owner_wallet]
         );
-        if (parseInt(countResult.rows[0].count) >= 3) {
-            return res.status(400).json({ error: 'Maximum 3 labels per wallet' });
+        if (parseInt(countResult.rows[0].count) >= 10) {
+            return res.status(400).json({ error: 'Maximum 10 portfolios per account' });
         }
 
         const result = await pool.query(

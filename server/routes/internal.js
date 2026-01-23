@@ -21,7 +21,7 @@ router.get('/health', async (req, res) => {
 
         // Get basic stats
         const statsResult = await pool.query(`
-            SELECT 
+            SELECT
                 (SELECT COUNT(*) FROM users) as users,
                 (SELECT COUNT(*) FROM labels) as portfolios
         `);
@@ -49,10 +49,17 @@ router.get('/health', async (req, res) => {
 // Daily snapshot cron endpoint
 router.post('/snapshot', async (req, res) => {
     try {
+        const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+        const ua = req.headers['user-agent']?.slice(0, 60) || 'no-ua';
+        console.log(`📸 [SNAPSHOT] Called from IP: ${ip} | UA: ${ua}`);
+
         const providedSecret = req.query.secret || req.headers['x-snapshot-secret'];
         if (providedSecret !== CONFIG.SNAPSHOT_SECRET) {
+            console.log(`📸 [SNAPSHOT] ❌ Unauthorized attempt from IP: ${ip}`);
             return res.status(401).json({ error: 'Unauthorized' });
         }
+
+        console.log(`📸 [SNAPSHOT] ✓ Authorized, processing labels...`);
 
         // Get labels that haven't been snapshotted today
         const labelsResult = await pool.query(`

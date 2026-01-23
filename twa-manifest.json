@@ -1,6 +1,6 @@
 {
-  "packageId": "run.saul.portfolio",
-  "host": "saul.run",
+  "packageId": "com.niks3089.portfolio",
+  "host": "portfolio.niks3089.com",
   "name": "Solana Portfolio",
   "launcherName": "Portfolio",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "backgroundColor": "#0a0a0f",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://saul.run/icon-512.png",
+  "iconUrl": "https://portfolio.niks3089.com/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./portfolio-key.keystore",
@@ -19,5 +19,5 @@
   "appVersion": "1.0.0",
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://saul.run/manifest.json"
+  "webManifestUrl": "https://portfolio.niks3089.com/manifest.json"
 }

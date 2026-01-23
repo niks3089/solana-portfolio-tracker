@@ -4,7 +4,7 @@
 # ============================================================================
 
 # Domain (production has SSL)
-domain_name: saul.run
+domain_name: portfolio.niks3089.com
 enable_ssl: true
 
 # Metrics secret (different per environment)

@@ -20,6 +20,14 @@ const router = Router();
 // Require JWT authentication for all portfolio routes
 router.use(authMiddleware);
 
+// Temporary debug logging for all portfolio requests
+router.use((req, res, next) => {
+    const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+    const ua = req.headers['user-agent']?.slice(0, 60) || 'no-ua';
+    console.log(`📊 [PORTFOLIO] ${req.method} ${req.path} | IP: ${ip} | UA: ${ua}`);
+    next();
+});
+
 // Get single wallet portfolio
 router.get('/:wallet', async (req, res) => {
     try {
@@ -54,6 +62,10 @@ router.get('/:wallet', async (req, res) => {
 router.post('/aggregate', async (req, res) => {
     try {
         const { wallets: inputWallets } = req.body;
+        const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+
+        console.log(`📦 [AGGREGATE] Request from IP: ${ip} | wallets: ${inputWallets?.length || 0}`);
+
         if (!inputWallets?.length) {
             return res.status(400).json({ error: 'wallets array required' });
         }
@@ -179,6 +191,10 @@ router.get('/fast/:wallet', async (req, res) => {
 router.post('/aggregate/fast', async (req, res) => {
     try {
         const { wallets: inputWallets } = req.body;
+        const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+
+        console.log(`⚡ [AGGREGATE/FAST] Request from IP: ${ip} | wallets: ${inputWallets?.length || 0}`);
+
         if (!inputWallets?.length) {
             return res.status(400).json({ error: 'wallets array required' });
         }
@@ -254,6 +270,9 @@ router.post('/aggregate/fast', async (req, res) => {
 router.post('/pnl', async (req, res) => {
     try {
         const { wallets, tokens } = req.body;
+        const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+
+        console.log(`💰 [PNL] Request from IP: ${ip} | wallets: ${wallets?.length || 0}, tokens: ${tokens?.length || 0}`);
 
         metrics.requests.total++;
         metrics.requests.byEndpoint['/api/portfolio/pnl'] = (metrics.requests.byEndpoint['/api/portfolio/pnl'] || 0) + 1;
@@ -263,6 +282,7 @@ router.post('/pnl', async (req, res) => {
         // If wallets provided, fetch holdings first to get token list
         if (wallets?.length) {
             const resolvedWallets = await Promise.all(wallets.map(w => resolveSNS(w)));
+            console.log(`💰 [PNL] Fetching holdings for ${resolvedWallets.length} wallets...`);
             const holdingsResults = await Promise.all(
                 resolvedWallets.map(async (wallet) => {
                     try {
@@ -274,6 +294,7 @@ router.post('/pnl', async (req, res) => {
                 })
             );
             tokenList = holdingsResults.flat();
+            console.log(`💰 [PNL] Found ${tokenList.length} tokens across all wallets - will make ${tokenList.length} Birdeye P&L calls!`);
         } else if (tokens?.length) {
             tokenList = tokens;
         }
@@ -292,6 +313,8 @@ router.post('/pnl', async (req, res) => {
 
         const validPnLs = pnlResults.filter(Boolean);
         const totalPnL = validPnLs.reduce((sum, p) => sum + (p.totalPnL || 0), 0);
+
+        console.log(`💰 [PNL] Complete: ${validPnLs.length} P&L results, total: $${totalPnL.toFixed(2)}`);
 
         res.json({ totalPnL, tokenPnLs: validPnLs });
     } catch (error) {

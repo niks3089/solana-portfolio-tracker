@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 env:
-  API_URL: https://saul.run
+  API_URL: https://portfolio.niks3089.com
   TEST_WALLET: 5bAMwPjsGKrovga3csb9QX59RE8x3xneSBpDP1t8Hibb
 
 jobs:
@@ -117,7 +117,7 @@ jobs:
           FRONTEND_ERROR="${{ steps.frontend.outputs.error }}"
 
           # Build message
-          MESSAGE="🚨 *Saul.run Health Check Failed*%0A%0A"
+          MESSAGE="🚨 *Portfolio Health Check Failed*%0A%0A"
           MESSAGE+="Time: $(date -u '+%Y-%m-%d %H:%M UTC')%0A%0A"
 
           if [ -n "$PAYMENT_ERROR" ]; then

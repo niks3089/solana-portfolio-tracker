@@ -141,7 +141,7 @@ jobs:
         run: |
           sleep 5
           chmod +x scripts/sanity-test.sh
-          ./scripts/sanity-test.sh "https://saul.run"
+          ./scripts/sanity-test.sh "https://portfolio.niks3089.com"
 
   # ============================================================================
   # Notify on failure

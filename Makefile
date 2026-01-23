@@ -49,7 +49,7 @@ status-staging:
 # PRODUCTION - Only after staging passes!
 # ============================================================================
 deploy:
-	@echo "⚠️  Deploying to PRODUCTION (saul.run)..."
+	@echo "⚠️  Deploying to PRODUCTION (portfolio.niks3089.com)..."
 	@echo "    Make sure staging tests passed first!"
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	cd deployment && ansible-playbook -i inventory/prod.yml deploy.yml -e @vars/prod.yml
@@ -64,7 +64,7 @@ init:
 
 test-prod:
 	@echo "🧪 Running sanity tests on PRODUCTION..."
-	./scripts/sanity-test.sh https://saul.run
+	./scripts/sanity-test.sh https://portfolio.niks3089.com
 
 # ============================================================================
 # SAFE DEPLOY - Staging → Tests → Prod (recommended!)
@@ -114,7 +114,7 @@ metrics-staging:
 	@curl -s "http://45.76.155.10:3000/api/metrics?secret=staging_m3tr1cs_s3cr3t" | jq .
 
 metrics-prod:
-	@curl -s "https://saul.run/api/metrics?secret=saul_m3tr1cs_s3cr3t_2024" | jq .
+	@curl -s "https://portfolio.niks3089.com/api/metrics?secret=saul_m3tr1cs_s3cr3t_2024" | jq .
 
 # ============================================================================
 # Vault management

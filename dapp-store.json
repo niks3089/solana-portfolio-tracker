@@ -4,25 +4,25 @@
     "short_description": "Track your crypto wealth across Solana wallets",
     "long_description": "A privacy-focused portfolio tracker for Solana. Track multiple wallets, view token holdings, DeFi positions (Kamino, Marginfi, Drift, etc.), and historical portfolio growth.\n\nFeatures:\n• Track unlimited wallets\n• View token balances and values\n• See DeFi deposits, borrows, and rewards\n• Portfolio growth charts\n• Create portfolio groups/labels\n• No sign-up required\n• Privacy-first: no tracking or data collection\n\nPro features:\n• Track multiple personal wallets\n• Portfolio snapshots and historical tracking\n• Priority support",
     "publisher": {
-        "name": "Saul",
-        "website": "https://saul.run",
-        "contact": "https://saul.run"
+        "name": "Nikhil",
+        "website": "https://portfolio.niks3089.com",
+        "contact": "https://portfolio.niks3089.com"
     },
-    "android_package": "run.saul.portfolio",
+    "android_package": "com.niks3089.portfolio",
     "release": {
         "address": "",
         "media": [
             {
                 "mime": "image/png",
                 "purpose": "icon",
-                "uri": "https://saul.run/icon-512.png",
+                "uri": "https://portfolio.niks3089.com/icon-512.png",
                 "width": 512,
                 "height": 512
             }
         ]
     },
     "solana_mobile_dapp_publisher_portal": {
-        "google_store_package": "run.saul.portfolio",
+        "google_store_package": "com.niks3089.portfolio",
         "testing_instructions": "1. Open app\n2. Enter any Solana wallet address\n3. View portfolio data\n4. (Optional) Connect wallet to access Pro features"
     },
     "category": "finance",
@@ -34,9 +34,9 @@
         }
     },
     "urls": {
-        "website": "https://saul.run",
-        "privacy_policy": "https://saul.run/privacy.html",
-        "support": "https://saul.run"
+        "website": "https://portfolio.niks3089.com",
+        "privacy_policy": "https://portfolio.niks3089.com/privacy.html",
+        "support": "https://portfolio.niks3089.com"
     },
     "age_rating": "everyone"
 }

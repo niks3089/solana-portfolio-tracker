@@ -89,7 +89,7 @@ export async function sendNotification({ recipient, title, body, notificationTyp
     }
 
     const msgTitle = String(title || 'Alert');
-    const msgBody = String(body || 'Notification from saul.run');
+    const msgBody = String(body || 'Notification from portfolio.niks3089.com');
 
     console.log(`📤 Sending notification: to=${recipient.slice(0, 8)}... title="${msgTitle}" body="${msgBody}"`);
 

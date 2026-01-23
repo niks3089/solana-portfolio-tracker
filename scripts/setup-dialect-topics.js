@@ -1,5 +1,5 @@
 /**
- * Setup Dialect notification topics for saul.run
+ * Setup Dialect notification topics for portfolio.niks3089.com
  * Run this once to register notification types
  *
  * Usage: DAPP_PRIVATE_KEY=your_dapp_private_key node scripts/setup-dialect-topics.js
@@ -13,7 +13,7 @@ import bs58 from 'bs58';
 const DAPP_PRIVATE_KEY = process.env.DAPP_PRIVATE_KEY; // Base58 encoded private key
 
 async function setupTopics() {
-    console.log('🔧 Setting up Dialect notification topics for saul.run...\n');
+    console.log('🔧 Setting up Dialect notification topics for portfolio.niks3089.com...\n');
 
     if (!DAPP_PRIVATE_KEY) {
         console.log('❌ DAPP_PRIVATE_KEY not set');

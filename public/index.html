@@ -2684,26 +2684,6 @@
       </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-      <div class="footer-content">
-        <a href="https://t.me/+SBvwWPXfYA8wMGY1" target="_blank" class="support-link">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-          </svg>
-          Telegram
-        </a>
-        <a href="https://x.com/ratio_hunter_10" target="_blank" class="support-link">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-          Twitter
-        </a>
-        <span class="footer-text">Built for Solana degens 🚀</span>
-      </div>
-    </footer>
   </div>
 
   <!-- Wallet Connect Modal -->
@@ -4099,7 +4079,23 @@
       ).join('');
     }
 
+    // Debounce refreshData to prevent rapid duplicate requests
+    let refreshDataTimer = null;
+    let refreshInProgress = false;
+
     async function refreshData() {
+      // Clear any pending refresh timer
+      if (refreshDataTimer) {
+        clearTimeout(refreshDataTimer);
+      }
+
+      // If a refresh is in progress, queue another one
+      if (refreshInProgress) {
+        console.log('⏳ Refresh in progress, queuing next refresh...');
+        refreshDataTimer = setTimeout(() => refreshData(), 500);
+        return;
+      }
+
       const wallets = getActiveWallets();
       if (!wallets.length) {
         // Clear all stats when no wallets
@@ -4115,6 +4111,9 @@
         allDefiPositions = [];
         return;
       }
+
+      refreshInProgress = true;
+      console.log('🔄 refreshData() starting for', wallets.length, 'wallets');
 
       // Show loading states
       document.getElementById('statNetWorth').innerHTML = '<span class="loading-text">Loading...</span>';
@@ -4164,6 +4163,9 @@
         document.getElementById('tokensContent').innerHTML = '<div class="loading" style="color:var(--negative)">' + escapeHtml(error.message) + '</div>';
         document.getElementById('defiContent').innerHTML = '';
         renderDonutChart([], 0);
+      } finally {
+        refreshInProgress = false;
+        console.log('✅ refreshData() complete');
       }
     }
 
@@ -4220,79 +4222,150 @@
       }
     }
 
+    // Debounce PnL requests to prevent rapid duplicate calls
+    let pnlRequestTimer = null;
+    let pnlRequestInProgress = false;
+    let pendingPnlWallets = null;
+    let pendingPnlFastData = null;
+
     async function loadPnLInBackground(wallets, fastData) {
-      try {
-        const pnlRes = await fetch('/api/portfolio/pnl', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ wallets })
-        });
-        const pnlData = await pnlRes.json();
+      // Store the latest request params
+      pendingPnlWallets = wallets;
+      pendingPnlFastData = fastData;
 
-        // Update P&L display
-        const pnlEl = document.getElementById('statPnL');
-        const totalPnL = pnlData.totalPnL || 0;
-        pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + fmtUsd(totalPnL);
-        pnlEl.className = 'stat-value ' + (totalPnL >= 0 ? 'positive' : 'negative');
-
-        // Update token P&L in the list
-        if (pnlData.tokenPnLs) {
-          const pnlMap = new Map();
-          for (const p of pnlData.tokenPnLs) {
-            pnlMap.set(`${p.address}_${p.wallet}`, p);
-          }
-
-          // Update allTokens with P&L data
-          allTokens = allTokens.map(token => {
-            const pnl = pnlMap.get(`${token.address}_${token.wallet}`);
-            return pnl ? { ...token, pnl } : token;
-          });
-
-          // Re-render tokens with P&L
-          renderTokensPage();
-        }
-      } catch (err) {
-        console.error('P&L load error:', err);
-        // Show error state but don't break the UI
-        const pnlEl = document.getElementById('statPnL');
-        pnlEl.textContent = '—';
-        pnlEl.className = 'stat-value';
+      // Clear any pending debounce timer
+      if (pnlRequestTimer) {
+        clearTimeout(pnlRequestTimer);
       }
+
+      // If a request is in progress, just wait for it to finish and let it use updated params
+      if (pnlRequestInProgress) {
+        console.log('⏳ PnL request in progress, queuing...');
+        return;
+      }
+
+      // Debounce: wait 300ms before making the actual request
+      pnlRequestTimer = setTimeout(async () => {
+        if (pnlRequestInProgress) return;
+
+        pnlRequestInProgress = true;
+        const walletsToFetch = pendingPnlWallets;
+        const dataToUse = pendingPnlFastData;
+
+        console.log('📊 Loading PnL for', walletsToFetch?.length || 0, 'wallets');
+
+        try {
+          const pnlRes = await fetch('/api/portfolio/pnl', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ wallets: walletsToFetch })
+          });
+          const pnlData = await pnlRes.json();
+
+          // Update P&L display
+          const pnlEl = document.getElementById('statPnL');
+          const totalPnL = pnlData.totalPnL || 0;
+          pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + fmtUsd(totalPnL);
+          pnlEl.className = 'stat-value ' + (totalPnL >= 0 ? 'positive' : 'negative');
+
+          // Update token P&L in the list
+          if (pnlData.tokenPnLs) {
+            const pnlMap = new Map();
+            for (const p of pnlData.tokenPnLs) {
+              pnlMap.set(`${p.address}_${p.wallet}`, p);
+            }
+
+            // Update allTokens with P&L data
+            allTokens = allTokens.map(token => {
+              const pnl = pnlMap.get(`${token.address}_${token.wallet}`);
+              return pnl ? { ...token, pnl } : token;
+            });
+
+            // Re-render tokens with P&L
+            renderTokensPage();
+          }
+        } catch (err) {
+          console.error('P&L load error:', err);
+          // Show error state but don't break the UI
+          const pnlEl = document.getElementById('statPnL');
+          pnlEl.textContent = '—';
+          pnlEl.className = 'stat-value';
+        } finally {
+          pnlRequestInProgress = false;
+
+          // Check if there's a newer request waiting
+          if (pendingPnlWallets !== walletsToFetch) {
+            console.log('🔄 New PnL request queued, executing...');
+            loadPnLInBackground(pendingPnlWallets, pendingPnlFastData);
+          }
+        }
+      }, 300);
     }
 
+    // Debounce Dialect requests
+    let dialectRequestTimer = null;
+    let dialectRequestInProgress = false;
+    let pendingDialectWallets = null;
+
     async function loadDialectInBackground(wallets) {
-      try {
-        const dialectRes = await fetch('/api/portfolio/dialect', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ wallets })
-        });
-        const dialectData = await dialectRes.json();
+      pendingDialectWallets = wallets;
 
-        if (dialectData.positions && dialectData.positions.length > 0) {
-          // Merge Dialect positions with existing DeFi positions
-          // Dedupe by protocol|token|type key
-          const existingKeys = new Set(
-            allDefiPositions.map(p => `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`)
-          );
+      if (dialectRequestTimer) {
+        clearTimeout(dialectRequestTimer);
+      }
 
-          const newPositions = dialectData.positions.filter(p => {
-            const key = `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`;
-            return !existingKeys.has(key);
+      if (dialectRequestInProgress) {
+        console.log('⏳ Dialect request in progress, queuing...');
+        return;
+      }
+
+      dialectRequestTimer = setTimeout(async () => {
+        if (dialectRequestInProgress) return;
+
+        dialectRequestInProgress = true;
+        const walletsToFetch = pendingDialectWallets;
+
+        console.log('🎯 Loading Dialect for', walletsToFetch?.length || 0, 'wallets');
+
+        try {
+          const dialectRes = await fetch('/api/portfolio/dialect', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ wallets: walletsToFetch })
           });
+          const dialectData = await dialectRes.json();
 
-          if (newPositions.length > 0) {
-            allDefiPositions = [...allDefiPositions, ...newPositions]
-              .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+          if (dialectData.positions && dialectData.positions.length > 0) {
+            // Merge Dialect positions with existing DeFi positions
+            // Dedupe by protocol|token|type key
+            const existingKeys = new Set(
+              allDefiPositions.map(p => `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`)
+            );
 
-            // Re-render DeFi with rewards
-            renderDefiPage();
+            const newPositions = dialectData.positions.filter(p => {
+              const key = `${(p.protocol || '').toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`;
+              return !existingKeys.has(key);
+            });
+
+            if (newPositions.length > 0) {
+              allDefiPositions = [...allDefiPositions, ...newPositions]
+                .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+
+              // Re-render DeFi with rewards
+              renderDefiPage();
+            }
+          }
+        } catch (err) {
+          console.error('Dialect load error:', err);
+          // Silent fail - Lambda data is already showing
+        } finally {
+          dialectRequestInProgress = false;
+
+          if (pendingDialectWallets !== walletsToFetch) {
+            loadDialectInBackground(pendingDialectWallets);
           }
         }
-      } catch (err) {
-        console.error('Dialect load error:', err);
-        // Silent fail - Lambda data is already showing
-      }
+      }, 300);
     }
 
     function renderTokensPage() {
@@ -5101,12 +5174,10 @@
     function updateWalletStatusUI() {
       if (connectedWallet) {
         const shortAddr = connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4);
-        const hasAlert = userAlerts && userAlerts.some(a => a.wallet === connectedWallet);
-        const bellClass = hasAlert ? 'header-bell active' : 'header-bell';
+        // Bell icon is now provided by Dialect notifications component
         document.getElementById('walletStatus').innerHTML =
           '<div class="wallet-status-row">' +
           '<div class="connected-badge" onclick="disconnectWallet()" title="Click to disconnect">' + shortAddr + '</div>' +
-          '<span class="' + bellClass + '" onclick="event.stopPropagation();showAlertModalForWallet(\'' + connectedWallet + '\')" title="' + (hasAlert ? 'Alert enabled' : 'Set alert') + '">🔔</span>' +
           '</div>';
       } else {
         document.getElementById('walletStatus').innerHTML =
@@ -6533,7 +6604,7 @@
   </script>
 
   <!-- Dialect Notifications React Component -->
-  <script src="/js/dialect-notifications.js?v=22"></script>
+  <script src="/js/dialect-notifications.js?v=23"></script>
 
   <!-- Turnstile invisible widget container -->
   <div id="turnstile-container"></div>

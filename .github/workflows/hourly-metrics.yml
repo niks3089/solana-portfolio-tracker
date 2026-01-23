@@ -15,7 +15,7 @@ jobs:
         id: metrics
         run: |
           # Fetch metrics from production
-          METRICS=$(curl -s "https://saul.run/api/metrics?secret=${{ secrets.METRICS_SECRET }}" || echo '{"error":"failed"}')
+          METRICS=$(curl -s "https://portfolio.niks3089.com/api/metrics?secret=${{ secrets.METRICS_SECRET }}" || echo '{"error":"failed"}')
 
           # Parse metrics
           UPTIME=$(echo "$METRICS" | jq -r '.uptime // "N/A"')
@@ -96,7 +96,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           # Build message
-          MESSAGE="📊 *Saul.run Hourly Report*%0A"
+          MESSAGE="📊 *Portfolio Hourly Report*%0A"
           MESSAGE+="─────────────────%0A"
           MESSAGE+="⏱ *Uptime:* ${{ steps.metrics.outputs.uptime }}%0A"
           MESSAGE+="📈 *Total Requests:* ${{ steps.metrics.outputs.requests }}%0A"

@@ -15,7 +15,7 @@ jobs:
         run: |
           echo "📸 Taking portfolio snapshots (stale labels only)..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://saul.run/api/internal/snapshot?secret=${{ secrets.SNAPSHOT_SECRET }}" \
+            "https://portfolio.niks3089.com/api/internal/snapshot?secret=${{ secrets.SNAPSHOT_SECRET }}" \
             -H "Content-Type: application/json")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)

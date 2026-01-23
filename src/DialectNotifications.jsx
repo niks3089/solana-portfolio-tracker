@@ -7,18 +7,16 @@ const useWallet = () => {
 
     useEffect(() => {
         const check = () => {
-            const provider = window.connectedProvider;
             const walletAddr = window.connectedWallet;
 
-            if (!provider || !walletAddr) {
+            if (!walletAddr) {
                 if (wallet) setWallet(null);
                 return;
             }
 
-            if (wallet?.publicKey?.toString() === walletAddr) return;
+            if (wallet?.address === walletAddr) return;
 
             setWallet({
-                publicKey: provider.publicKey,
                 address: walletAddr,
             });
         };

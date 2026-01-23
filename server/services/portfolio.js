@@ -12,12 +12,15 @@ const WRAPPED_SOL = 'So11111111111111111111111111111111111111112';
 
 // Get token holdings from Birdeye
 export async function getHoldings(wallet) {
+    const walletShort = `${wallet.slice(0,4)}...${wallet.slice(-4)}`;
     const cached = holdingsCache.get(wallet);
     if (cached) {
         metrics.cache.hits++;
+        console.log(`💾 [CACHE HIT] getHoldings(${walletShort})`);
         return cached;
     }
     metrics.cache.misses++;
+    console.log(`📡 [CACHE MISS] getHoldings(${walletShort}) - calling Birdeye`);
 
     const data = await fetchJSON(
         `https://public-api.birdeye.so/v1/wallet/token_list?wallet=${wallet}`,
@@ -52,13 +55,17 @@ export async function getHoldings(wallet) {
 // Get P&L for a token
 export async function getTokenPnL(tokenAddress, wallet) {
     const cacheKey = `${wallet}:${tokenAddress}`;
+    const walletShort = `${wallet.slice(0,4)}...${wallet.slice(-4)}`;
+    const tokenShort = `${tokenAddress.slice(0,4)}...${tokenAddress.slice(-4)}`;
 
     const cached = pnlCache.get(cacheKey);
     if (cached !== undefined) {
         metrics.cache.hits++;
+        console.log(`💾 [CACHE HIT] getTokenPnL(${tokenShort}, ${walletShort})`);
         return cached;
     }
     metrics.cache.misses++;
+    console.log(`📡 [CACHE MISS] getTokenPnL(${tokenShort}, ${walletShort}) - calling Birdeye`);
 
     try {
         const data = await fetchJSON(
@@ -93,12 +100,15 @@ export async function getTokenPnL(tokenAddress, wallet) {
 
 // Get DeFi positions from Dialect
 export async function getDialectPositions(wallet) {
+    const walletShort = `${wallet.slice(0,4)}...${wallet.slice(-4)}`;
     const cached = dialectDefiCache.get(wallet);
     if (cached) {
         metrics.cache.hits++;
+        console.log(`💾 [CACHE HIT] getDialectPositions(${walletShort})`);
         return cached;
     }
     metrics.cache.misses++;
+    console.log(`📡 [CACHE MISS] getDialectPositions(${walletShort}) - calling Dialect`);
 
     try {
         const data = await fetchJSON(
@@ -144,12 +154,15 @@ export async function getDialectPositions(wallet) {
 
 // Get DeFi positions from Lambda P2P
 export async function getLambdaPositions(wallet) {
+    const walletShort = `${wallet.slice(0,4)}...${wallet.slice(-4)}`;
     const cached = lambdaDefiCache.get(wallet);
     if (cached) {
         metrics.cache.hits++;
+        console.log(`💾 [CACHE HIT] getLambdaPositions(${walletShort})`);
         return cached;
     }
     metrics.cache.misses++;
+    console.log(`📡 [CACHE MISS] getLambdaPositions(${walletShort}) - calling Lambda`);
 
     try {
         const data = await fetchJSON(

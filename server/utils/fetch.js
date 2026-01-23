@@ -11,6 +11,13 @@ export async function fetchJSON(url, options = {}, timeoutMs = 15000) {
     const urlHost = new URL(url).hostname;
     const provider = getApiProvider(url);
 
+    // Extract wallet/address from URL for debugging
+    const urlPath = new URL(url).pathname;
+    const walletMatch = url.match(/wallet[s]?=([A-Za-z0-9]{32,44})/i) || url.match(/\/([A-Za-z0-9]{32,44})(?:\/|$|\?)/);
+    const walletShort = walletMatch ? `${walletMatch[1].slice(0,4)}...${walletMatch[1].slice(-4)}` : 'N/A';
+
+    console.log(`🌐 [API] ${provider?.toUpperCase() || urlHost} | ${urlPath.slice(0,50)} | wallet: ${walletShort}`);
+
     try {
         const response = await fetch(url, {
             ...options,
