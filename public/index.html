@@ -4927,31 +4927,33 @@
       }
 
       // Convert to coordinate points for Catmull-Rom spline
-      const points = chartData.map((d, i) => ({ x: xScale(i), y: yScale(d.value) }));
+      const points = chartData.map((d, i) => ({ x: xScale(i), y: yScale(d.value), value: d.value }));
 
-      // Draw smooth line using Catmull-Rom spline (passes through all points)
-      const lineColor = isPositive ? '#00d4aa' : '#ff4466';
-      ctx.beginPath();
-      ctx.strokeStyle = lineColor;
+      // Draw smooth line segment by segment with color based on direction
       ctx.lineWidth = 2.5;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
 
-      ctx.moveTo(points[0].x, points[0].y);
       for (let i = 0; i < points.length - 1; i++) {
         const p0 = points[Math.max(0, i - 1)];
         const p1 = points[i];
         const p2 = points[Math.min(points.length - 1, i + 1)];
         const p3 = points[Math.min(points.length - 1, i + 2)];
 
+        // Determine segment color based on direction (going up = green, going down = red)
+        const segmentColor = p2.value >= p1.value ? '#00d4aa' : '#ff4466';
+
         const cp1x = p1.x + (p2.x - p0.x) / 6;
         const cp1y = p1.y + (p2.y - p0.y) / 6;
         const cp2x = p2.x - (p3.x - p1.x) / 6;
         const cp2y = p2.y - (p3.y - p1.y) / 6;
 
+        ctx.beginPath();
+        ctx.strokeStyle = segmentColor;
+        ctx.moveTo(p1.x, p1.y);
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        ctx.stroke();
       }
-      ctx.stroke();
 
       // Draw gradient fill using same Catmull-Rom spline
       const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
@@ -5001,16 +5003,22 @@
         const y = yScale(chartData[i].value);
         dataPointPositions.push({ x, y, data: chartData[i] });
 
+        // Determine point color based on change from previous point
+        const prevValue = i > 0 ? chartData[i - 1].value : chartData[i].value;
+        const pointIsUp = chartData[i].value >= prevValue;
+        const pointColor = pointIsUp ? '#00d4aa' : '#ff4466';
+        const pointGlow = pointIsUp ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+
         // Glow
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = isPositive ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
+        ctx.fillStyle = pointGlow;
         ctx.fill();
 
         // Dot
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = isPositive ? '#00d4aa' : '#ff4466';
+        ctx.fillStyle = pointColor;
         ctx.fill();
 
         // Inner white dot
