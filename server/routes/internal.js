@@ -9,8 +9,32 @@ import { metrics, updateCacheSizes, getPercentile } from '../metrics.js';
 import { getHoldings, getDefiPositionsFast } from '../services/portfolio.js';
 import { validateTurnstileToken } from '../middleware/turnstile.js';
 import { generateJwtToken } from '../utils/jwt.js';
+import { resolveSNS } from '../utils/sns.js';
 
 const router = Router();
+
+// Resolve .sol domain to wallet address
+router.get('/resolve/:domain', async (req, res) => {
+    try {
+        const { domain } = req.params;
+        
+        if (!domain.endsWith('.sol')) {
+            return res.json({ address: domain });
+        }
+        
+        const address = await resolveSNS(domain);
+        
+        if (address === domain) {
+            // Resolution failed, domain returned as-is
+            return res.status(404).json({ error: 'Domain not found', domain });
+        }
+        
+        res.json({ address, domain });
+    } catch (error) {
+        console.error('Resolve domain error:', error);
+        res.status(500).json({ error: 'Failed to resolve domain' });
+    }
+});
 
 // Health check endpoint (no auth required)
 router.get('/health', async (req, res) => {
