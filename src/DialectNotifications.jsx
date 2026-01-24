@@ -143,17 +143,20 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Call Dialect API to verify the code
-            const res = await fetch('https://alerts-api.dial.to/v2/channel/telegram/verify', {
+            // Call our backend to verify
+            const res = await fetch('/api/alerts/telegram/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     wallet: wallet?.address,
-                    code: code
+                    code: code,
+                    username: telegramUsername
                 })
             });
 
-            if (res.ok) {
+            const data = await res.json();
+
+            if (res.ok && data.success) {
                 // Success
                 localStorage.setItem('telegram_verified', 'true');
                 setTelegramVerified(true);

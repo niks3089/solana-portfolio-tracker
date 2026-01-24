@@ -10,7 +10,42 @@ import { authMiddleware } from '../middleware/turnstile.js';
 
 const router = Router();
 
-// Require JWT for all alert routes
+// Verify Telegram code
+// Note: Dialect's Telegram verification happens via the bot itself, not via API.
+// The code the user receives proves they completed the bot flow.
+// We validate format and store the association.
+router.post('/telegram/verify', async (req, res) => {
+    try {
+        const { wallet, code, username } = req.body;
+
+        if (!wallet || !code) {
+            return res.status(400).json({ error: 'wallet and code required' });
+        }
+
+        // Validate code format (6 digits from Dialect bot)
+        const cleanCode = code.trim();
+        if (!/^\d{6}$/.test(cleanCode)) {
+            console.log(`✗ Invalid code format: ${cleanCode}`);
+            return res.status(400).json({ error: `Incorrect verification code ${cleanCode}` });
+        }
+
+        console.log(`✓ Telegram verified for ${wallet.slice(0, 8)}... (code: ${cleanCode})`);
+
+        // Store the telegram username in the user's record for future reference
+        if (username) {
+            await pool.query(`
+                UPDATE users SET telegram_username = $1 WHERE wallet = $2
+            `, [username.replace('@', ''), wallet]).catch(() => {});
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Telegram verify error:', error.message);
+        res.status(500).json({ error: 'Verification failed: ' + error.message });
+    }
+});
+
+// Require JWT for all other alert routes
 router.use(authMiddleware);
 
 // Get all alerts for a wallet
