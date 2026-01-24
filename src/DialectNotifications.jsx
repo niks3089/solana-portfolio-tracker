@@ -119,32 +119,50 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
     };
 
-    // Get subscriber token by signing message with wallet
-    const getSubscriberToken = async () => {
+    // Get Dialect JWT by signing their auth message
+    const getDialectToken = async () => {
         try {
             const provider = window.connectedProvider;
             if (!provider) {
                 throw new Error('Wallet not connected');
             }
 
-            // Create message to sign (Dialect expects this format)
-            const timestamp = Date.now();
-            const message = `Sign this message to authenticate with Dialect.\n\nTimestamp: ${timestamp}`;
-            const encodedMessage = new TextEncoder().encode(message);
+            // Step 1: Get message to sign from Dialect
+            const prepareRes = await fetch('/api/alerts/dialect/auth/prepare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet: wallet?.address })
+            });
+            const prepareData = await prepareRes.json();
+            
+            if (!prepareData.message) {
+                throw new Error('Failed to get auth message');
+            }
 
-            // Sign with wallet
+            // Step 2: Sign the message with wallet
+            const encodedMessage = new TextEncoder().encode(prepareData.message);
             const { signature } = await provider.signMessage(encodedMessage, 'utf8');
-            const signatureBase64 = btoa(String.fromCharCode(...signature));
+            const signatureBase58 = btoa(String.fromCharCode(...signature));
 
-            // Create a simple JWT-like token (base64 encoded payload)
-            const payload = {
-                wallet: wallet?.address,
-                timestamp,
-                signature: signatureBase64
-            };
-            return btoa(JSON.stringify(payload));
+            // Step 3: Verify signature and get JWT
+            const verifyRes = await fetch('/api/alerts/dialect/auth/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    signature: Array.from(signature),
+                    signedMessage: prepareData.message
+                })
+            });
+            const verifyData = await verifyRes.json();
+
+            if (!verifyData.token) {
+                throw new Error('Failed to get JWT token');
+            }
+
+            return verifyData.token;
         } catch (e) {
-            console.error('Failed to get subscriber token:', e);
+            console.error('Failed to get Dialect token:', e);
             throw e;
         }
     };
@@ -161,8 +179,10 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         localStorage.setItem('telegram_username', username);
 
         try {
-            // Try to prepare via Dialect API first
-            const token = await getSubscriberToken();
+            // Get Dialect JWT token
+            const token = await getDialectToken();
+            
+            // Prepare Telegram channel via Dialect API
             const res = await fetch('/api/alerts/telegram/prepare', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -201,8 +221,10 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Check status via Dialect API - this is the ONLY way to verify
-            const token = await getSubscriberToken();
+            // Get Dialect JWT token
+            const token = await getDialectToken();
+            
+            // Check Telegram status via Dialect API
             const statusRes = await fetch('/api/alerts/telegram/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

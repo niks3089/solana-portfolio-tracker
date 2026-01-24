@@ -14,6 +14,80 @@ const router = Router();
 const DIALECT_CLIENT_KEY = CONFIG.DIALECT_CLIENT_KEY || 'pk_rjryqg4hkgb4tbxrhau62sdq';
 const DIALECT_API_KEY = CONFIG.DIALECT_API_KEY || 'sk_uv96kdjlybayt1va0cb0cj5o';
 
+// Step 1: Prepare Dialect auth - get message to sign
+router.post('/dialect/auth/prepare', async (req, res) => {
+    try {
+        const { wallet } = req.body;
+        if (!wallet) {
+            return res.status(400).json({ error: 'wallet required' });
+        }
+
+        console.log(`Preparing Dialect auth for ${wallet.slice(0, 8)}...`);
+
+        const response = await fetch('https://alerts-api.dial.to/v2/auth/solana/prepare', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+            },
+            body: JSON.stringify({ walletAddress: wallet })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        console.log('Dialect auth prepare response:', response.status, JSON.stringify(data).slice(0, 200));
+
+        if (response.ok && data.message) {
+            return res.json({ message: data.message });
+        } else {
+            return res.status(response.status).json({ error: data.message || 'Failed to prepare auth' });
+        }
+    } catch (error) {
+        console.error('Dialect auth prepare error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Step 2: Verify Dialect auth - exchange signature for JWT
+router.post('/dialect/auth/verify', async (req, res) => {
+    try {
+        const { wallet, signature, signedMessage } = req.body;
+        if (!wallet || !signature || !signedMessage) {
+            return res.status(400).json({ error: 'wallet, signature, and signedMessage required' });
+        }
+
+        console.log(`Verifying Dialect auth for ${wallet.slice(0, 8)}...`);
+
+        // Convert signature array to base58
+        const bs58 = await import('bs58');
+        const signatureBase58 = bs58.default.encode(new Uint8Array(signature));
+
+        const response = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+            },
+            body: JSON.stringify({
+                walletAddress: wallet,
+                signature: signatureBase58,
+                signedMessage: signedMessage
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        console.log('Dialect auth verify response:', response.status, data.token ? 'got token' : JSON.stringify(data).slice(0, 200));
+
+        if (response.ok && data.token) {
+            return res.json({ token: data.token });
+        } else {
+            return res.status(response.status).json({ error: data.message || 'Failed to verify auth' });
+        }
+    } catch (error) {
+        console.error('Dialect auth verify error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Prepare Telegram channel - returns verification link
 router.post('/telegram/prepare', async (req, res) => {
     try {
