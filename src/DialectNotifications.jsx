@@ -119,17 +119,75 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
     };
 
-    const startVerification = () => {
+    // Get subscriber token by signing message with wallet
+    const getSubscriberToken = async () => {
+        try {
+            const provider = window.connectedProvider;
+            if (!provider) {
+                throw new Error('Wallet not connected');
+            }
+
+            // Create message to sign (Dialect expects this format)
+            const timestamp = Date.now();
+            const message = `Sign this message to authenticate with Dialect.\n\nTimestamp: ${timestamp}`;
+            const encodedMessage = new TextEncoder().encode(message);
+
+            // Sign with wallet
+            const { signature } = await provider.signMessage(encodedMessage, 'utf8');
+            const signatureBase64 = btoa(String.fromCharCode(...signature));
+
+            // Create a simple JWT-like token (base64 encoded payload)
+            const payload = {
+                wallet: wallet?.address,
+                timestamp,
+                signature: signatureBase64
+            };
+            return btoa(JSON.stringify(payload));
+        } catch (e) {
+            console.error('Failed to get subscriber token:', e);
+            throw e;
+        }
+    };
+
+    const startVerification = async () => {
         const username = telegramUsername.replace('@', '').trim();
         if (!username) {
             setToast({ msg: 'Enter your Telegram username first', type: 'error' });
             setTimeout(() => setToast(null), 3000);
             return;
         }
+
+        setVerifying(true);
         localStorage.setItem('telegram_username', username);
-        setShowCodeInput(true);
-        // Open Dialect bot in new tab with start parameter
-        window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+
+        try {
+            // Try to prepare via Dialect API first
+            const token = await getSubscriberToken();
+            const res = await fetch('/api/alerts/telegram/prepare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscriberToken: token })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.link) {
+                // Open the verification link from Dialect
+                window.open(data.link, '_blank');
+                setShowCodeInput(true);
+            } else {
+                // Fallback to direct bot link
+                window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+                setShowCodeInput(true);
+            }
+        } catch (e) {
+            // Fallback if signing fails
+            console.log('Falling back to direct bot link:', e.message);
+            window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+            setShowCodeInput(true);
+        } finally {
+            setVerifying(false);
+        }
     };
 
     const submitVerificationCode = async () => {
@@ -143,7 +201,31 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Call our backend to verify
+            // First try to check status via Dialect API
+            try {
+                const token = await getSubscriberToken();
+                const statusRes = await fetch('/api/alerts/telegram/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscriberToken: token })
+                });
+                const statusData = await statusRes.json();
+
+                if (statusData.verified) {
+                    // Already verified in Dialect!
+                    localStorage.setItem('telegram_verified', 'true');
+                    setTelegramVerified(true);
+                    setShowCodeInput(false);
+                    setCodeError('');
+                    setToast({ msg: 'Telegram connected!', type: 'success' });
+                    setTimeout(() => setToast(null), 3000);
+                    return;
+                }
+            } catch (e) {
+                console.log('Status check failed, using code validation:', e.message);
+            }
+
+            // Fallback: validate code format
             const res = await fetch('/api/alerts/telegram/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -157,7 +239,6 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                // Success
                 localStorage.setItem('telegram_verified', 'true');
                 setTelegramVerified(true);
                 setShowCodeInput(false);
@@ -165,8 +246,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                 setToast({ msg: 'Telegram connected!', type: 'success' });
                 setTimeout(() => setToast(null), 3000);
             } else {
-                // Failed - show error with the code they tried
-                setCodeError(`Incorrect verification code ${code}`);
+                setCodeError(data.error || `Incorrect verification code ${code}`);
             }
         } catch (e) {
             setCodeError(`Incorrect verification code ${code}`);

@@ -10,10 +10,94 @@ import { authMiddleware } from '../middleware/turnstile.js';
 
 const router = Router();
 
-// Verify Telegram code
-// Note: Dialect's Telegram verification happens via the bot itself, not via API.
-// The code the user receives proves they completed the bot flow.
-// We validate format and store the association.
+// Dialect API credentials
+const DIALECT_CLIENT_KEY = CONFIG.DIALECT_CLIENT_KEY || 'pk_rjryqg4hkgb4tbxrhau62sdq';
+const DIALECT_API_KEY = CONFIG.DIALECT_API_KEY || 'sk_uv96kdjlybayt1va0cb0cj5o';
+
+// Prepare Telegram channel - returns verification link
+router.post('/telegram/prepare', async (req, res) => {
+    try {
+        const { subscriberToken } = req.body;
+
+        if (!subscriberToken) {
+            return res.status(400).json({ error: 'subscriberToken required' });
+        }
+
+        console.log('Preparing Telegram channel...');
+
+        const response = await fetch('https://alerts-api.dial.to/v2/channel/telegram/prepare', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+                'Authorization': `Bearer ${subscriberToken}`,
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+        console.log('Dialect prepare response:', response.status, JSON.stringify(data));
+
+        if (response.ok) {
+            return res.json({
+                success: true,
+                verified: data.verified,
+                link: data.verification?.link,
+                channel: data
+            });
+        } else {
+            return res.status(response.status).json({
+                error: data.message || data.error || 'Failed to prepare Telegram',
+                details: data
+            });
+        }
+    } catch (error) {
+        console.error('Telegram prepare error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check Telegram channel status
+router.post('/telegram/status', async (req, res) => {
+    try {
+        const { subscriberToken } = req.body;
+
+        if (!subscriberToken) {
+            return res.status(400).json({ error: 'subscriberToken required' });
+        }
+
+        const response = await fetch('https://alerts-api.dial.to/v2/channels', {
+            method: 'GET',
+            headers: {
+                'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+                'Authorization': `Bearer ${subscriberToken}`,
+            }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+            const telegram = Array.isArray(data) 
+                ? data.find(c => c.type === 'TELEGRAM')
+                : data.channels?.find(c => c.type === 'TELEGRAM');
+            
+            return res.json({
+                success: true,
+                verified: telegram?.verified || false,
+                channel: telegram
+            });
+        } else {
+            return res.status(response.status).json({
+                error: data.message || 'Failed to get channels',
+                details: data
+            });
+        }
+    } catch (error) {
+        console.error('Telegram status error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Legacy verify endpoint - validate code format
 router.post('/telegram/verify', async (req, res) => {
     try {
         const { wallet, code, username } = req.body;
