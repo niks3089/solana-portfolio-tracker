@@ -193,16 +193,17 @@ router.post('/telegram/prepare-verify', async (req, res) => {
     res.json({ success: true });
 });
 
-// Subscribe user to our app's Telegram notifications
+// Subscribe user to our app's notifications
 router.post('/telegram/subscribe', async (req, res) => {
     try {
-        const { subscriberToken } = req.body;
+        const { subscriberToken, channel } = req.body;
 
         if (!subscriberToken) {
             return res.status(400).json({ error: 'subscriberToken required' });
         }
 
-        console.log('Subscribing user to Portfolio Telegram notifications...');
+        const targetChannel = channel || 'TELEGRAM';
+        console.log(`Subscribing user to Portfolio ${targetChannel} notifications...`);
 
         // Call Dialect Subscribe API
         const response = await fetch('https://alerts-api.dial.to/v2/subscribe', {
@@ -214,7 +215,7 @@ router.post('/telegram/subscribe', async (req, res) => {
             },
             body: JSON.stringify({
                 appId: DIALECT_APP_ID,
-                channel: 'TELEGRAM'
+                channel: targetChannel
             })
         });
 
@@ -222,12 +223,12 @@ router.post('/telegram/subscribe', async (req, res) => {
         console.log('Dialect subscribe response:', response.status, JSON.stringify(data).slice(0, 200));
 
         if (response.ok || response.status === 201) {
-            console.log('✓ User subscribed to Portfolio Telegram notifications');
+            console.log(`✓ User subscribed to Portfolio ${targetChannel} notifications`);
             return res.json({ success: true });
         } else {
-            return res.status(response.status).json({ 
+            return res.status(response.status).json({
                 error: data.message || 'Failed to subscribe',
-                details: data 
+                details: data
             });
         }
     } catch (error) {

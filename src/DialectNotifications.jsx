@@ -51,6 +51,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
     const [notificationTypes, setNotificationTypes] = useState({});
     const [codeError, setCodeError] = useState('');
     const [verifying, setVerifying] = useState(false);
+    const [walletEnabled, setWalletEnabled] = useState(false);
+    const [enabling, setEnabling] = useState(false);
 
     useEffect(() => {
         if (isOpen && wallet) {
@@ -58,12 +60,50 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             // Load saved telegram username and verification status
             const saved = localStorage.getItem('telegram_username');
             const verified = localStorage.getItem('telegram_verified') === 'true';
+            const enabled = localStorage.getItem('wallet_notifications_enabled') === 'true';
             if (saved) {
                 setTelegramUsername(saved);
                 setTelegramVerified(verified);
             }
+            setWalletEnabled(enabled);
         }
     }, [isOpen, wallet]);
+
+    // Enable wallet notifications - auth with Dialect and subscribe
+    const enableWallet = async () => {
+        setEnabling(true);
+        try {
+            // Get Dialect JWT token by signing
+            const token = await getDialectToken();
+
+            // Subscribe to IN_APP notifications
+            const res = await fetch('/api/alerts/telegram/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    subscriberToken: token,
+                    channel: 'IN_APP'
+                })
+            });
+
+            if (res.ok) {
+                localStorage.setItem('wallet_notifications_enabled', 'true');
+                setWalletEnabled(true);
+                setToast({ msg: 'Notifications enabled!', type: 'success' });
+                setTimeout(() => setToast(null), 3000);
+            } else {
+                const data = await res.json();
+                setToast({ msg: data.error || 'Failed to enable', type: 'error' });
+                setTimeout(() => setToast(null), 3000);
+            }
+        } catch (e) {
+            console.error('Enable wallet failed:', e);
+            setToast({ msg: 'Please sign to enable notifications', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+        } finally {
+            setEnabling(false);
+        }
+    };
 
     useEffect(() => {
         // Build notification types from labels
@@ -291,8 +331,24 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                         <div style={styles.sectionTitle}>In App</div>
                         <div style={styles.card}>
                             <span style={{ color: '#fff', fontSize: '14px' }}>{walletShort}</span>
-                            <button style={styles.enableBtn}>Enable</button>
+                            {walletEnabled ? (
+                                <span style={{ color: '#00d4aa', fontSize: '13px' }}>✓ Enabled</span>
+                            ) : (
+                                <button 
+                                    onClick={enableWallet} 
+                                    disabled={enabling}
+                                    style={{ ...styles.enableBtn, opacity: enabling ? 0.6 : 1 }}
+                                >
+                                    {enabling ? '...' : 'Enable'}
+                                </button>
+                            )}
                         </div>
+                        {walletEnabled && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#00d4aa' }}></div>
+                                <span style={{ color: '#888', fontSize: '13px' }}>Subscribed to Portfolio alerts</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Telegram Section */}
