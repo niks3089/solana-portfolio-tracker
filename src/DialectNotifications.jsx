@@ -8,68 +8,53 @@ import { PublicKey } from '@solana/web3.js';
 // Our dapp's public key (derived from DIALECT_PRIVATE_KEY)
 const DAPP_ADDRESS = '2Q6KaLBTAJD6gbwqEQh9knBx2KhHTxuH4zLWbF9BYgdo';
 
-// Custom wallet adapter that uses the connected wallet from the main page
-const useWalletAdapter = () => {
-    const [wallet, setWallet] = useState(null);
+// Wrapper component that provides the wallet context to Dialect
+const DialectNotifications = () => {
+    const [walletAddr, setWalletAddr] = useState(null);
+    const [provider, setProvider] = useState(null);
 
     useEffect(() => {
         const checkWallet = () => {
-            const walletAddr = window.connectedWallet;
-            const provider = window.connectedProvider;
+            const addr = window.connectedWallet;
+            const prov = window.connectedProvider;
 
-            if (!walletAddr || !provider) {
-                if (wallet) setWallet(null);
-                return;
-            }
-
-            // Only update if address changed
-            if (wallet?.publicKey?.toString() === walletAddr) return;
-
-            // Create wallet adapter compatible with Dialect
-            const adapter = {
-                publicKey: new PublicKey(walletAddr),
-                signMessage: async (message) => {
-                    if (provider.signMessage) {
-                        return await provider.signMessage(message);
-                    }
-                    throw new Error('Wallet does not support message signing');
-                },
-                signTransaction: async (tx) => {
-                    if (provider.signTransaction) {
-                        return await provider.signTransaction(tx);
-                    }
-                    throw new Error('Wallet does not support transaction signing');
-                },
-                signAllTransactions: async (txs) => {
-                    if (provider.signAllTransactions) {
-                        return await provider.signAllTransactions(txs);
-                    }
-                    throw new Error('Wallet does not support signing multiple transactions');
-                },
-            };
-
-            setWallet(adapter);
+            if (addr !== walletAddr) setWalletAddr(addr);
+            if (prov !== provider) setProvider(prov);
         };
 
         checkWallet();
         const interval = setInterval(checkWallet, 500);
         return () => clearInterval(interval);
-    }, [wallet]);
+    }, [walletAddr, provider]);
 
-    return wallet;
-};
+    // Create wallet adapter using useMemo as per Dialect docs
+    const walletAdapter = useMemo(() => {
+        if (!walletAddr || !provider) return null;
 
-// Wrapper component that provides the wallet context to Dialect
-const DialectNotifications = () => {
-    const wallet = useWalletAdapter();
+        return {
+            publicKey: new PublicKey(walletAddr),
+            signMessage: async (message) => {
+                if (provider.signMessage) {
+                    return await provider.signMessage(message);
+                }
+                throw new Error('Wallet does not support message signing');
+            },
+            signTransaction: async (tx) => {
+                if (provider.signTransaction) {
+                    return await provider.signTransaction(tx);
+                }
+                throw new Error('Wallet does not support transaction signing');
+            },
+        };
+    }, [walletAddr, provider]);
 
     // Don't render until wallet is connected
-    if (!wallet) return null;
+    if (!walletAdapter) return null;
 
     return (
         <DialectSolanaSdk
             dappAddress={DAPP_ADDRESS}
-            wallet={wallet}
+            customWalletAdapter={walletAdapter}
             config={{
                 environment: 'production',
             }}
