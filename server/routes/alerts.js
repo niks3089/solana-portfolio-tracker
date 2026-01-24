@@ -177,17 +177,63 @@ const pendingCodes = new Map();
 // Store wallets that initiated verification (to track who messaged the bot)
 const pendingVerifications = new Map();
 
+// Our Dialect App ID
+const DIALECT_APP_ID = CONFIG.DIALECT_APP_ID || 'ffb32fc6-5e32-47ba-acdf-3c77ce999360';
+
 // Prepare verification - mark wallet as pending
 router.post('/telegram/prepare-verify', async (req, res) => {
     const { wallet, username } = req.body;
     if (wallet) {
-        pendingVerifications.set(wallet, { 
-            username, 
+        pendingVerifications.set(wallet, {
+            username,
             startedAt: Date.now(),
-            verified: false 
+            verified: false
         });
     }
     res.json({ success: true });
+});
+
+// Subscribe user to our app's Telegram notifications
+router.post('/telegram/subscribe', async (req, res) => {
+    try {
+        const { subscriberToken } = req.body;
+
+        if (!subscriberToken) {
+            return res.status(400).json({ error: 'subscriberToken required' });
+        }
+
+        console.log('Subscribing user to Portfolio Telegram notifications...');
+
+        // Call Dialect Subscribe API
+        const response = await fetch('https://alerts-api.dial.to/v2/subscribe', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dialect-Client-Key': DIALECT_CLIENT_KEY,
+                'Authorization': `Bearer ${subscriberToken}`,
+            },
+            body: JSON.stringify({
+                appId: DIALECT_APP_ID,
+                channel: 'TELEGRAM'
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        console.log('Dialect subscribe response:', response.status, JSON.stringify(data).slice(0, 200));
+
+        if (response.ok || response.status === 201) {
+            console.log('✓ User subscribed to Portfolio Telegram notifications');
+            return res.json({ success: true });
+        } else {
+            return res.status(response.status).json({ 
+                error: data.message || 'Failed to subscribe',
+                details: data 
+            });
+        }
+    } catch (error) {
+        console.error('Subscribe error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Check if Telegram is verified

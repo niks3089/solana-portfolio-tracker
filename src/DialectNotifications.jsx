@@ -175,22 +175,43 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             return;
         }
 
+        setVerifying(true);
         localStorage.setItem('telegram_username', username);
-        
-        // Store the wallet for verification - we'll verify using Dialect bot code
+
         try {
+            // Step 1: Mark as pending verification
             await fetch('/api/alerts/telegram/prepare-verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ wallet: wallet?.address, username })
             });
-        } catch (e) { }
 
-        // Open Dialect bot to get verification code
-        window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
-        setShowCodeInput(true);
-        setToast({ msg: 'Get your code from @DialectLabsBot', type: 'success' });
-        setTimeout(() => setToast(null), 3000);
+            // Step 2: Get Dialect JWT and subscribe to Portfolio app
+            try {
+                const token = await getDialectToken();
+                await fetch('/api/alerts/telegram/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscriberToken: token })
+                });
+                console.log('Subscribed to Portfolio notifications');
+            } catch (e) {
+                console.log('Subscribe failed (will retry on verify):', e.message);
+            }
+
+            // Step 3: Open Dialect bot
+            window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+            setShowCodeInput(true);
+            setToast({ msg: 'Get your code from @DialectLabsBot', type: 'success' });
+            setTimeout(() => setToast(null), 3000);
+        } catch (e) {
+            console.error('Start verification failed:', e);
+            // Still open bot even if subscribe fails
+            window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+            setShowCodeInput(true);
+        } finally {
+            setVerifying(false);
+        }
     };
 
     const submitVerificationCode = async () => {
