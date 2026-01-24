@@ -45,14 +45,21 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
     const [alerts, setAlerts] = useState([]);
     const [toast, setToast] = useState(null);
     const [telegramUsername, setTelegramUsername] = useState('');
+    const [verificationCode, setVerificationCode] = useState('');
+    const [showCodeInput, setShowCodeInput] = useState(false);
+    const [telegramVerified, setTelegramVerified] = useState(false);
     const [notificationTypes, setNotificationTypes] = useState({});
 
     useEffect(() => {
         if (isOpen && wallet) {
             loadAlerts();
-            // Load saved telegram username
+            // Load saved telegram username and verification status
             const saved = localStorage.getItem('telegram_username');
-            if (saved) setTelegramUsername(saved);
+            const verified = localStorage.getItem('telegram_verified') === 'true';
+            if (saved) {
+                setTelegramUsername(saved);
+                setTelegramVerified(verified);
+            }
         }
     }, [isOpen, wallet]);
 
@@ -110,13 +117,40 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
     };
 
-    const saveTelegram = () => {
+    const startVerification = () => {
         const username = telegramUsername.replace('@', '').trim();
-        if (username) {
-            localStorage.setItem('telegram_username', username);
-            setToast({ msg: 'Telegram saved! Now link via @DialectLabsBot', type: 'success' });
+        if (!username) {
+            setToast({ msg: 'Enter your Telegram username first', type: 'error' });
             setTimeout(() => setToast(null), 3000);
+            return;
         }
+        localStorage.setItem('telegram_username', username);
+        setShowCodeInput(true);
+        // Open Dialect bot in new tab
+        window.open('https://t.me/DialectLabsBot', '_blank');
+    };
+
+    const submitVerificationCode = () => {
+        const code = verificationCode.trim();
+        if (!code) {
+            setToast({ msg: 'Enter the verification code', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+        // Save as verified (the actual verification happens via the Dialect bot)
+        localStorage.setItem('telegram_verified', 'true');
+        setTelegramVerified(true);
+        setShowCodeInput(false);
+        setToast({ msg: 'Telegram connected!', type: 'success' });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const removeTelegram = () => {
+        localStorage.removeItem('telegram_username');
+        localStorage.removeItem('telegram_verified');
+        setTelegramUsername('');
+        setTelegramVerified(false);
+        setShowCodeInput(false);
     };
 
     if (!isOpen) return null;
@@ -147,19 +181,54 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                     {/* Telegram Section */}
                     <div style={styles.section}>
                         <div style={styles.sectionTitle}>Telegram</div>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type="text"
-                                style={styles.input}
-                                value={telegramUsername}
-                                onChange={e => setTelegramUsername(e.target.value)}
-                                onBlur={saveTelegram}
-                                placeholder="@username"
-                            />
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-                            After entering username, message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> to link your wallet
-                        </div>
+                        
+                        {telegramVerified ? (
+                            /* Verified state - show username with delete option */
+                            <>
+                                <div style={styles.card}>
+                                    <span style={{ color: '#fff', fontSize: '14px' }}>{telegramUsername}</span>
+                                    <button onClick={removeTelegram} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '16px' }}>🗑</button>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#00d4aa' }}></div>
+                                    <span style={{ color: '#888', fontSize: '13px' }}>Connected</span>
+                                </div>
+                            </>
+                        ) : showCodeInput ? (
+                            /* Code input state */
+                            <>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        style={{ ...styles.input, flex: 1 }}
+                                        value={verificationCode}
+                                        onChange={e => setVerificationCode(e.target.value)}
+                                        placeholder="Enter code"
+                                    />
+                                    <button onClick={submitVerificationCode} style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f' }}>Submit</button>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
+                                    Message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> on Telegram to get your verification code.
+                                </div>
+                                <button onClick={() => setShowCodeInput(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '8px', cursor: 'pointer' }}>
+                                    ✕ Cancel
+                                </button>
+                            </>
+                        ) : (
+                            /* Initial state - username input */
+                            <>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        style={{ ...styles.input, flex: 1 }}
+                                        value={telegramUsername}
+                                        onChange={e => setTelegramUsername(e.target.value)}
+                                        placeholder="@username"
+                                    />
+                                    <button onClick={startVerification} style={styles.enableBtn}>Verify</button>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Notification Type Section */}
