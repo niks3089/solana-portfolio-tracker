@@ -625,26 +625,48 @@
       position: absolute;
       background: var(--bg-primary);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.5rem 0.75rem;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
       font-size: 0.85rem;
       pointer-events: none;
       opacity: 0;
-      transition: opacity 0.15s;
+      transform: translateY(5px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
       z-index: 100;
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      min-width: 140px;
     }
     .donut-tooltip.visible {
       opacity: 1;
+      transform: translateY(0);
+    }
+    .donut-tooltip-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .donut-tooltip-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
     .donut-tooltip-label {
-      color: var(--text-secondary);
-      font-size: 0.75rem;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.9rem;
     }
     .donut-tooltip-value {
-      font-weight: 600;
-      color: var(--text-primary);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+    .donut-tooltip-percent {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
     }
 
     .chart-legend {
@@ -4079,12 +4101,19 @@
 
         if (hoveredSeg) {
           tooltip.innerHTML = `
-            <div class="donut-tooltip-label">${hoveredSeg.label}</div>
-            <div class="donut-tooltip-value">${fmtUsd(hoveredSeg.value)} (${hoveredSeg.percent.toFixed(1)}%)</div>
+            <div class="donut-tooltip-header">
+              <span class="donut-tooltip-dot" style="background:${hoveredSeg.color}"></span>
+              <span class="donut-tooltip-label">${hoveredSeg.label}</span>
+            </div>
+            <div class="donut-tooltip-value">${fmtUsd(hoveredSeg.value)}</div>
+            <div class="donut-tooltip-percent">${hoveredSeg.percent.toFixed(1)}% of portfolio</div>
           `;
-          // Position relative to the chart card
-          tooltip.style.left = (e.clientX - cardRect.left + 15) + 'px';
-          tooltip.style.top = (e.clientY - cardRect.top - 10) + 'px';
+          // Position relative to the chart card, centered above cursor
+          const tooltipWidth = 160;
+          let left = e.clientX - cardRect.left - tooltipWidth / 2;
+          left = Math.max(10, Math.min(left, cardRect.width - tooltipWidth - 10));
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = (e.clientY - cardRect.top - 80) + 'px';
           tooltip.classList.add('visible');
         }
       });
