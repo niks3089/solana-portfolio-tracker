@@ -64,7 +64,7 @@ export async function initDialectSDK() {
         if (!dapp) {
             try {
                 dapp = await sdk.dapps.create({
-                    name: 'Saul.run',
+                    name: 'Portfolio',
                     description: 'Solana Portfolio Tracker',
                 });
                 console.log('✓ Dialect dapp created');
@@ -109,29 +109,39 @@ export async function sendNotification({ recipient, title, body, notificationTyp
 }
 
 // Send wallet activity notification
-export async function sendWalletActivityNotification(walletAddress, txType, txDetails, displayName, walletShort) {
+export async function sendWalletActivityNotification(walletAddress, txType, txDetails, displayName, walletShort, txSignature) {
     let title, body;
+    
+    // Build Orb transaction link
+    const txLink = txSignature ? `\n\n🔗 https://orbmarkets.io/tx/${txSignature}` : '';
+    const usdStr = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
 
     if (txType === 'incoming') {
         title = '💰 Received';
         if (txDetails.amount) {
-            body = `+${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📤 From: ${txDetails.from || 'unknown'}`;
+            body = `+${txDetails.amount}${usdStr}\n` +
+                   `📍 ${displayName} (${walletShort})\n` +
+                   `📤 From: ${txDetails.from || 'unknown'}` +
+                   txLink;
         } else {
-            body = `Funds received\n📍 ${displayName} (${walletShort})`;
+            body = `Funds received\n📍 ${displayName} (${walletShort})${txLink}`;
         }
     } else if (txType === 'outgoing') {
         title = '📤 Sent';
         if (txDetails.amount) {
-            body = `-${txDetails.amount}\n📍 ${displayName} (${walletShort})\n📥 To: ${txDetails.to || 'unknown'}`;
+            body = `-${txDetails.amount}${usdStr}\n` +
+                   `📍 ${displayName} (${walletShort})\n` +
+                   `📥 To: ${txDetails.to || 'unknown'}` +
+                   txLink;
         } else {
-            body = `Funds sent\n📍 ${displayName} (${walletShort})`;
+            body = `Funds sent\n📍 ${displayName} (${walletShort})${txLink}`;
         }
     } else {
         title = '🔔 Activity';
         if (txDetails.type && txDetails.type !== 'unknown') {
-            body = `${txDetails.type}\n📍 ${displayName} (${walletShort})`;
+            body = `${txDetails.type}\n📍 ${displayName} (${walletShort})${txLink}`;
         } else {
-            body = `Transaction detected\n📍 ${displayName} (${walletShort})`;
+            body = `Transaction detected\n📍 ${displayName} (${walletShort})${txLink}`;
         }
     }
 

@@ -415,7 +415,8 @@ class HeliusWebSocketManager {
 
         if (shouldNotify) {
             const targetWallet = owner_wallet || wallet;
-            await sendWalletActivityNotification(targetWallet, txType, txDetails, displayName, walletShort);
+            const txSignature = tx?.signature || null;
+            await sendWalletActivityNotification(targetWallet, txType, txDetails, displayName, walletShort, txSignature);
             // Update per-wallet rate limit
             const rateLimitKey = `${alert.id}:${wallet}`;
             this.walletRateLimits.set(rateLimitKey, Date.now());

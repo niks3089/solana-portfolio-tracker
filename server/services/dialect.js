@@ -29,7 +29,7 @@ export async function sendDialectNotification(telegramUsername, message, wallet)
                     },
                     channels: ['IN_APP', 'TELEGRAM', 'EMAIL'],
                     message: {
-                        title: '🔔 Saul.run Alert',
+                        title: '🔔 Portfolio Alert',
                         body: message
                     }
                 }),
