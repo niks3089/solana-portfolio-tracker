@@ -3403,13 +3403,15 @@
       const btn = document.getElementById('privacyToggle');
       const icon = document.getElementById('privacyIcon');
       if (privacyMode) {
+        // Money is HIDDEN - show crossed out eye
         btn.classList.add('active');
-        icon.textContent = '🙈';
-        btn.title = 'Show amounts';
+        icon.textContent = '🔒';
+        btn.title = 'Click to show amounts';
       } else {
+        // Money is VISIBLE - show open eye
         btn.classList.remove('active');
         icon.textContent = '👁';
-        btn.title = 'Hide amounts';
+        btn.title = 'Click to hide amounts';
       }
     }
 
