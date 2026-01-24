@@ -84,14 +84,20 @@ export async function initDialectSDK() {
 // Send notification
 export async function sendNotification({ recipient, title, body, notificationTypeId }) {
     if (!sdk || !dapp) {
-        console.warn('Dialect SDK not ready');
+        console.warn('⚠️ Dialect SDK not ready - notification skipped');
         return false;
     }
 
     const msgTitle = String(title || 'Alert');
     const msgBody = String(body || 'Notification from portfolio.niks3089.com');
 
-    console.log(`📤 Sending notification: to=${recipient.slice(0, 8)}... title="${msgTitle}" body="${msgBody}"`);
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📤 SENDING DIALECT NOTIFICATION');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`   To: ${recipient.slice(0, 8)}...${recipient.slice(-4)}`);
+    console.log(`   Title: ${msgTitle}`);
+    console.log(`   Body: ${msgBody.replace(/\n/g, '\n         ')}`);
 
     try {
         await dapp.messages.send({
@@ -100,10 +106,16 @@ export async function sendNotification({ recipient, title, body, notificationTyp
             message: msgBody,
             notificationTypeId: notificationTypeId || NOTIFICATION_TYPES.WALLET_ACTIVITY,
         });
-        console.log(`✓ Notification sent to ${recipient.slice(0, 8)}...`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('✅ NOTIFICATION SENT SUCCESSFULLY!');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('');
         return true;
     } catch (error) {
-        console.error('Dialect send error:', error);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.error('❌ NOTIFICATION FAILED:', error.message || error);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('');
         return false;
     }
 }
@@ -111,7 +123,7 @@ export async function sendNotification({ recipient, title, body, notificationTyp
 // Send wallet activity notification
 export async function sendWalletActivityNotification(walletAddress, txType, txDetails, displayName, walletShort, txSignature) {
     let title, body;
-    
+
     // Build Orb transaction link
     const txLink = txSignature ? `\n\n🔗 https://orbmarkets.io/tx/${txSignature}` : '';
     const usdStr = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
@@ -120,9 +132,9 @@ export async function sendWalletActivityNotification(walletAddress, txType, txDe
         title = '💰 Received';
         if (txDetails.amount) {
             body = `+${txDetails.amount}${usdStr}\n` +
-                   `📍 ${displayName} (${walletShort})\n` +
-                   `📤 From: ${txDetails.from || 'unknown'}` +
-                   txLink;
+                `📍 ${displayName} (${walletShort})\n` +
+                `📤 From: ${txDetails.from || 'unknown'}` +
+                txLink;
         } else {
             body = `Funds received\n📍 ${displayName} (${walletShort})${txLink}`;
         }
@@ -130,9 +142,9 @@ export async function sendWalletActivityNotification(walletAddress, txType, txDe
         title = '📤 Sent';
         if (txDetails.amount) {
             body = `-${txDetails.amount}${usdStr}\n` +
-                   `📍 ${displayName} (${walletShort})\n` +
-                   `📥 To: ${txDetails.to || 'unknown'}` +
-                   txLink;
+                `📍 ${displayName} (${walletShort})\n` +
+                `📥 To: ${txDetails.to || 'unknown'}` +
+                txLink;
         } else {
             body = `Funds sent\n📍 ${displayName} (${walletShort})${txLink}`;
         }
