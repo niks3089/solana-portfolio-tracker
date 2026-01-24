@@ -2508,7 +2508,7 @@
       </div>
       <div class="header-actions">
         <button class="privacy-toggle" id="privacyToggle" onclick="togglePrivacyMode()" title="Hide/show amounts">
-          <span class="privacy-icon" id="privacyIcon">👁</span>
+          <span class="privacy-icon" id="privacyIcon">🔓</span>
         </button>
         <div class="pro-status-display" id="proStatusDisplay" style="display:none">
           <span class="pro-pill" onclick="showProDetails()">
@@ -3403,14 +3403,14 @@
       const btn = document.getElementById('privacyToggle');
       const icon = document.getElementById('privacyIcon');
       if (privacyMode) {
-        // Money is HIDDEN - show crossed out eye
+        // Money is HIDDEN - show locked
         btn.classList.add('active');
         icon.textContent = '🔒';
         btn.title = 'Click to show amounts';
       } else {
-        // Money is VISIBLE - show open eye
+        // Money is VISIBLE - show unlocked
         btn.classList.remove('active');
-        icon.textContent = '👁';
+        icon.textContent = '🔓';
         btn.title = 'Click to hide amounts';
       }
     }
