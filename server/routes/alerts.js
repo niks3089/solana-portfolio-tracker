@@ -171,6 +171,49 @@ router.post('/telegram/status', async (req, res) => {
     }
 });
 
+// Test Telegram connection by sending a test notification
+router.post('/telegram/test', async (req, res) => {
+    try {
+        const { wallet, code, username } = req.body;
+
+        if (!wallet || !code) {
+            return res.status(400).json({ error: 'wallet and code required' });
+        }
+
+        // Validate code format (6 digits)
+        if (!/^\d{6}$/.test(code.trim())) {
+            return res.status(400).json({ error: `Incorrect verification code ${code}` });
+        }
+
+        console.log(`Testing Telegram for ${wallet.slice(0, 8)}... with code ${code}`);
+
+        // Import and use the Dialect notification service
+        const { sendNotification } = await import('../services/dialect-sdk.js');
+
+        // Send a test notification
+        const success = await sendNotification({
+            recipient: wallet,
+            title: '✅ Telegram Connected!',
+            body: `Your Telegram (@${username || 'user'}) is now connected to Portfolio notifications.\n\nVerification code: ${code}`,
+        });
+
+        if (success) {
+            // Store username in database
+            await pool.query(`
+                UPDATE users SET telegram_username = $1 WHERE wallet = $2
+            `, [username?.replace('@', '') || null, wallet]).catch(() => { });
+
+            console.log(`✓ Test notification sent to ${wallet.slice(0, 8)}...`);
+            return res.json({ success: true });
+        } else {
+            return res.status(400).json({ error: 'Failed to send test notification. Check your Telegram connection.' });
+        }
+    } catch (error) {
+        console.error('Telegram test error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Legacy verify endpoint - validate code format
 router.post('/telegram/verify', async (req, res) => {
     try {

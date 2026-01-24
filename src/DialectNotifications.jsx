@@ -134,7 +134,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                 body: JSON.stringify({ wallet: wallet?.address })
             });
             const prepareData = await prepareRes.json();
-            
+
             if (!prepareData.message) {
                 throw new Error('Failed to get auth message');
             }
@@ -181,7 +181,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         try {
             // Get Dialect JWT token
             const token = await getDialectToken();
-            
+
             // Prepare Telegram channel via Dialect API
             const res = await fetch('/api/alerts/telegram/prepare', {
                 method: 'POST',
@@ -217,33 +217,39 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             return;
         }
 
+        // Validate code format (6 digits)
+        if (!/^\d{6}$/.test(code)) {
+            setCodeError(`Incorrect verification code ${code}`);
+            return;
+        }
+
         setVerifying(true);
         setCodeError('');
 
         try {
-            // Get Dialect JWT token
-            const token = await getDialectToken();
-            
-            // Check Telegram status via Dialect API
-            const statusRes = await fetch('/api/alerts/telegram/status', {
+            // Send a test notification to verify Telegram is connected
+            const res = await fetch('/api/alerts/telegram/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subscriberToken: token })
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    code: code,
+                    username: telegramUsername
+                })
             });
-            const statusData = await statusRes.json();
+            const data = await res.json();
 
-            if (statusData.verified) {
-                // Verified in Dialect!
+            if (data.success) {
+                // Test notification sent - Telegram is connected!
                 localStorage.setItem('telegram_verified', 'true');
                 localStorage.setItem('telegram_username', telegramUsername);
                 setTelegramVerified(true);
                 setShowCodeInput(false);
                 setCodeError('');
-                setToast({ msg: 'Telegram connected!', type: 'success' });
+                setToast({ msg: 'Telegram connected! Check for test message.', type: 'success' });
                 setTimeout(() => setToast(null), 3000);
             } else {
-                // Not verified in Dialect yet
-                setCodeError(`Incorrect verification code ${code}`);
+                setCodeError(data.error || `Incorrect verification code ${code}`);
             }
         } catch (e) {
             console.error('Verification failed:', e);
