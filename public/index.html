@@ -684,12 +684,55 @@
       align-items: center;
       gap: 0.4rem;
       font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      transition: background 0.15s ease;
+      position: relative;
+    }
+
+    .legend-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .legend-item:hover .legend-tooltip {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .legend-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+    }
+
+    .legend-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(5px);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+
+    .legend-tooltip-value {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .legend-tooltip-percent {
+      color: var(--text-secondary);
+      font-size: 0.7rem;
     }
 
     .section {
@@ -4124,8 +4167,15 @@
         tooltip.classList.remove('visible');
       });
 
-      legend.innerHTML = segments.map((seg, i) =>
-        '<div class="legend-item"><span class="legend-dot" style="background:' + CHART_COLORS[i % CHART_COLORS.length] + '"></span>' + seg.label + '</div>'
+      legend.innerHTML = donutSegments.map((seg, i) =>
+        '<div class="legend-item">' +
+          '<span class="legend-dot" style="background:' + seg.color + '"></span>' +
+          seg.label +
+          '<div class="legend-tooltip">' +
+            '<div class="legend-tooltip-value">' + fmtUsd(seg.value) + '</div>' +
+            '<div class="legend-tooltip-percent">' + seg.percent.toFixed(1) + '% of portfolio</div>' +
+          '</div>' +
+        '</div>'
       ).join('');
     }
 
