@@ -3423,16 +3423,42 @@
       renderTokensPage();
       renderDefiPage();
       // Update stat values
-      const stats = document.querySelectorAll('.stat-value');
+      const stats = document.querySelectorAll('.stat-value, .growth-stat-value');
       stats.forEach(el => {
-        if (el.dataset.rawValue) {
-          el.textContent = fmtUsd(parseFloat(el.dataset.rawValue));
+        if (el.dataset.rawValue !== undefined && el.dataset.rawValue !== '') {
+          const raw = parseFloat(el.dataset.rawValue);
+          const showSign = el.dataset.showSign === 'true';
+          const percent = el.dataset.percent;
+          let text;
+          if (showSign && raw >= 0) {
+            text = '+' + fmtUsd(raw);
+          } else {
+            text = fmtUsd(raw);
+          }
+          // Append percentage if it exists
+          if (percent !== undefined) {
+            text += ' (' + percent + '%)';
+          }
+          el.textContent = text;
         }
       });
       // Re-render donut chart
       if (typeof renderDonutChart === 'function' && donutSegments.length > 0) {
         const total = donutSegments.reduce((sum, s) => sum + s.value, 0);
         renderDonutChart(donutSegments.map(s => ({ label: s.label, value: s.value })), total);
+      }
+    }
+
+    // Helper to set stat value with raw data for privacy toggle
+    function setStatValue(elementId, rawValue, options = {}) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.dataset.rawValue = rawValue;
+      if (options.showSign) el.dataset.showSign = 'true';
+      if (options.showSign && rawValue >= 0) {
+        el.textContent = '+' + fmtUsd(rawValue);
+      } else {
+        el.textContent = fmtUsd(rawValue);
       }
     }
 
@@ -4353,15 +4379,16 @@
     function renderFastData(data, wallets) {
       try {
         const a = data.aggregate || {};
-        document.getElementById('statNetWorth').textContent = fmtUsd(a.totalNetWorth);
-        document.getElementById('statDeposits').textContent = fmtUsd(a.defiDeposits || 0);
+        setStatValue('statNetWorth', a.totalNetWorth || 0);
+        setStatValue('statDeposits', a.defiDeposits || 0);
 
         // P&L shows loading state until background fetch completes
         const pnlEl = document.getElementById('statPnL');
         pnlEl.innerHTML = '<span class="loading-text" style="font-size:0.9em">Loading P&L...</span>';
         pnlEl.className = 'stat-value';
+        pnlEl.dataset.rawValue = '';
 
-        document.getElementById('statLiabilities').textContent = a.defiBorrows ? fmtUsd(a.defiBorrows) : '$0';
+        setStatValue('statLiabilities', a.defiBorrows || 0);
 
         // Blur P&L and DeFi cards for free users (unless viewing demo)
         const hasProView = shouldShowProView();
@@ -4446,7 +4473,7 @@
           // Update P&L display
           const pnlEl = document.getElementById('statPnL');
           const totalPnL = pnlData.totalPnL || 0;
-          pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + fmtUsd(totalPnL);
+          setStatValue('statPnL', totalPnL, { showSign: true });
           pnlEl.className = 'stat-value ' + (totalPnL >= 0 ? 'positive' : 'negative');
 
           // Update token P&L in the list
@@ -4701,10 +4728,17 @@
 
       // Update stats display
       const changeEl = document.getElementById('growthChange');
+      changeEl.dataset.rawValue = change;
+      changeEl.dataset.percent = changePercent.toFixed(1);
+      changeEl.dataset.showSign = 'true';
       changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
       changeEl.className = 'growth-stat-value ' + (change >= 0 ? 'positive' : 'negative');
-      document.getElementById('growthHigh').textContent = fmtUsd(high);
-      document.getElementById('growthLow').textContent = fmtUsd(low);
+      const highEl = document.getElementById('growthHigh');
+      highEl.dataset.rawValue = high;
+      highEl.textContent = fmtUsd(high);
+      const lowEl = document.getElementById('growthLow');
+      lowEl.dataset.rawValue = low;
+      lowEl.textContent = fmtUsd(low);
 
       // Draw chart
       const padding = { top: 20, right: 20, bottom: 35, left: 70 };
@@ -5043,13 +5077,13 @@
         return { text: sign + pct.toFixed(1) + '%', isPositive: isPos };
       };
 
-      // Update 1d stat
+      // Update 1d stat (percentage only, no privacy needed)
       const el1d = document.getElementById('tracking1d');
       const fmt1d = formatChange(change1dPercent);
       el1d.textContent = fmt1d.text;
       el1d.className = 'growth-stat-value ' + (fmt1d.isPositive ? 'positive' : 'negative');
 
-      // Update 7d stat
+      // Update 7d stat (percentage only, no privacy needed)
       const el7d = document.getElementById('tracking7d');
       const fmt7d = formatChange(change7dPercent);
       el7d.textContent = fmt7d.text;
@@ -5057,9 +5091,14 @@
 
       // Update since created stats
       const changeEl = document.getElementById('trackingChange');
+      changeEl.dataset.rawValue = change;
+      changeEl.dataset.percent = changePercent.toFixed(1);
+      changeEl.dataset.showSign = 'true';
       changeEl.textContent = (change >= 0 ? '+' : '') + fmtUsd(change) + ' (' + changePercent.toFixed(1) + '%)';
       changeEl.className = 'growth-stat-value ' + (isPositive ? 'positive' : 'negative');
-      document.getElementById('trackingPeak').textContent = fmtUsd(high);
+      const peakEl = document.getElementById('trackingPeak');
+      peakEl.dataset.rawValue = high;
+      peakEl.textContent = fmtUsd(high);
 
       // Draw chart
       const padding = { top: 20, right: 20, bottom: 35, left: 70 };
