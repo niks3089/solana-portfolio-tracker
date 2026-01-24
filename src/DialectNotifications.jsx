@@ -27,18 +27,18 @@ const useWallet = () => {
     return wallet;
 };
 
-// Styles matching Drift's clean UI
+// Styles matching Drift's clean UI with green accent
 const styles = {
     overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
     modal: { background: '#1a1a1c', borderRadius: '12px', width: '420px', maxWidth: '95vw', maxHeight: '85vh', overflow: 'hidden', border: '1px solid #333' },
     header: { padding: '16px 20px', borderBottom: '1px solid #2a2a2b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     section: { marginBottom: '24px' },
-    sectionTitle: { color: '#9370DB', fontSize: '12px', fontWeight: '500', marginBottom: '12px', textTransform: 'capitalize' },
+    sectionTitle: { color: '#00d4aa', fontSize: '12px', fontWeight: '500', marginBottom: '12px', textTransform: 'capitalize' },
     card: { background: '#252528', borderRadius: '8px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    input: { width: '100%', padding: '14px 16px', background: '#252528', border: 'none', borderRadius: '8px', color: '#888', fontSize: '14px', boxSizing: 'border-box' },
-    enableBtn: { background: '#3a3a3d', border: 'none', color: '#9370DB', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' },
+    input: { width: '100%', padding: '14px 16px', background: '#252528', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '14px', boxSizing: 'border-box' },
+    enableBtn: { background: '#3a3a3d', border: 'none', color: '#00d4aa', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' },
     checkItem: { background: '#252528', borderRadius: '8px', padding: '16px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' },
-    checkbox: (checked) => ({ width: '24px', height: '24px', borderRadius: '6px', background: checked ? '#9370DB' : 'transparent', border: checked ? 'none' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px' }),
+    checkbox: (checked) => ({ width: '24px', height: '24px', borderRadius: '6px', background: checked ? '#00d4aa' : 'transparent', border: checked ? 'none' : '2px solid #444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px' }),
 };
 
 const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
@@ -76,7 +76,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
 
     const toggleNotificationType = async (labelId) => {
         const existingAlert = alerts.find(a => a.label_id === labelId);
-        
+
         if (existingAlert) {
             // Toggle existing alert
             try {
@@ -154,18 +154,18 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                 value={telegramUsername}
                                 onChange={e => setTelegramUsername(e.target.value)}
                                 onBlur={saveTelegram}
-                                placeholder="Enter your Telegram @Username"
+                                placeholder="@username"
                             />
                         </div>
                         <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-                            After entering username, message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#9370DB' }}>@DialectLabsBot</a> to link your wallet
+                            After entering username, message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> to link your wallet
                         </div>
                     </div>
 
                     {/* Notification Type Section */}
                     <div style={styles.section}>
                         <div style={styles.sectionTitle}>Notification Type</div>
-                        
+
                         {labels.length === 0 ? (
                             <div style={{ color: '#666', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
                                 Create portfolios to enable notifications
@@ -174,8 +174,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                             labels.map(label => {
                                 const isEnabled = alerts.some(a => a.label_id === label.id && a.enabled);
                                 return (
-                                    <div 
-                                        key={label.id} 
+                                    <div
+                                        key={label.id}
                                         style={styles.checkItem}
                                         onClick={() => toggleNotificationType(label.id)}
                                     >
@@ -201,8 +201,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                 {toast && (
                     <div style={{
                         position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
-                        background: toast.type === 'error' ? '#ff6b6b' : '#9370DB',
-                        color: '#fff',
+                        background: toast.type === 'error' ? '#ff6b6b' : '#00d4aa',
+                        color: toast.type === 'error' ? '#fff' : '#0a0a0f',
                         padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '500'
                     }}>
                         {toast.msg}
