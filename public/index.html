@@ -4056,7 +4056,7 @@
 
       // Create donut with conic-gradient
       donutChart.innerHTML = `
-        <div class="donut-ring" style="background: conic-gradient(from -90deg, ${gradientStops.join(', ')});"></div>
+        <div class="donut-ring" style="background: conic-gradient(from 0deg, ${gradientStops.join(', ')});"></div>
         <div class="donut-hole"></div>
         <div class="donut-center">
           <span class="donut-total">${fmtUsd(total)}</span>
@@ -4086,8 +4086,8 @@
           return;
         }
 
-        // Calculate angle (0 = top, clockwise)
-        let angle = Math.atan2(dx, -dy) * (180 / Math.PI);
+        // Calculate angle (0 = right, clockwise, matching conic-gradient from -90deg)
+        let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
         if (angle < 0) angle += 360;
 
         // Find which segment
