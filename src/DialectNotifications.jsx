@@ -49,6 +49,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
     const [showCodeInput, setShowCodeInput] = useState(false);
     const [telegramVerified, setTelegramVerified] = useState(false);
     const [notificationTypes, setNotificationTypes] = useState({});
+    const [codeError, setCodeError] = useState('');
+    const [verifying, setVerifying] = useState(false);
 
     useEffect(() => {
         if (isOpen && wallet) {
@@ -130,19 +132,44 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         window.open('https://t.me/DialectLabsBot', '_blank');
     };
 
-    const submitVerificationCode = () => {
+    const submitVerificationCode = async () => {
         const code = verificationCode.trim();
         if (!code) {
-            setToast({ msg: 'Enter the verification code', type: 'error' });
-            setTimeout(() => setToast(null), 3000);
+            setCodeError('Enter the verification code');
             return;
         }
-        // Save as verified (the actual verification happens via the Dialect bot)
-        localStorage.setItem('telegram_verified', 'true');
-        setTelegramVerified(true);
-        setShowCodeInput(false);
-        setToast({ msg: 'Telegram connected!', type: 'success' });
-        setTimeout(() => setToast(null), 3000);
+        
+        setVerifying(true);
+        setCodeError('');
+        
+        try {
+            // Call Dialect API to verify the code
+            const res = await fetch('https://alerts-api.dial.to/v2/channel/telegram/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    code: code
+                })
+            });
+            
+            if (res.ok) {
+                // Success
+                localStorage.setItem('telegram_verified', 'true');
+                setTelegramVerified(true);
+                setShowCodeInput(false);
+                setCodeError('');
+                setToast({ msg: 'Telegram connected!', type: 'success' });
+                setTimeout(() => setToast(null), 3000);
+            } else {
+                // Failed - show error with the code they tried
+                setCodeError(`Incorrect verification code ${code}`);
+            }
+        } catch (e) {
+            setCodeError(`Incorrect verification code ${code}`);
+        } finally {
+            setVerifying(false);
+        }
     };
 
     const removeTelegram = () => {
@@ -214,18 +241,29 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <input
                                                 type="text"
-                                                style={{ ...styles.input, flex: 1, border: '1px solid #00d4aa' }}
+                                                style={{ ...styles.input, flex: 1, border: codeError ? '1px solid #ff6b6b' : '1px solid #00d4aa' }}
                                                 value={verificationCode}
-                                                onChange={e => setVerificationCode(e.target.value)}
+                                                onChange={e => { setVerificationCode(e.target.value); setCodeError(''); }}
                                                 placeholder="Enter verification code"
                                                 autoFocus
                                             />
-                                            <button onClick={submitVerificationCode} style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f' }}>Verify</button>
+                                            <button 
+                                                onClick={submitVerificationCode} 
+                                                disabled={verifying}
+                                                style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f', opacity: verifying ? 0.6 : 1 }}
+                                            >
+                                                {verifying ? '...' : 'Verify'}
+                                            </button>
                                         </div>
+                                        {codeError && (
+                                            <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '8px' }}>
+                                                {codeError}
+                                            </div>
+                                        )}
                                         <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
                                             Message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>this bot</a> on Telegram to get your verification code.
                                         </div>
-                                        <button onClick={() => setShowCodeInput(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
+                                        <button onClick={() => { setShowCodeInput(false); setCodeError(''); }} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
                                             ✕ Cancel
                                         </button>
                                     </>
