@@ -181,7 +181,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                     {/* Telegram Section */}
                     <div style={styles.section}>
                         <div style={styles.sectionTitle}>Telegram</div>
-                        
+
                         {telegramVerified ? (
                             /* Verified state - show username with delete option */
                             <>
@@ -194,39 +194,42 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                     <span style={{ color: '#888', fontSize: '13px' }}>Connected</span>
                                 </div>
                             </>
-                        ) : showCodeInput ? (
-                            /* Code input state */
-                            <>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input
-                                        type="text"
-                                        style={{ ...styles.input, flex: 1 }}
-                                        value={verificationCode}
-                                        onChange={e => setVerificationCode(e.target.value)}
-                                        placeholder="Enter code"
-                                    />
-                                    <button onClick={submitVerificationCode} style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f' }}>Submit</button>
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-                                    Message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> on Telegram to get your verification code.
-                                </div>
-                                <button onClick={() => setShowCodeInput(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '8px', cursor: 'pointer' }}>
-                                    ✕ Cancel
-                                </button>
-                            </>
                         ) : (
-                            /* Initial state - username input */
                             <>
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                {/* Username input with Submit button */}
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                                     <input
                                         type="text"
-                                        style={{ ...styles.input, flex: 1 }}
+                                        style={{ ...styles.input, flex: 1, marginBottom: 0 }}
                                         value={telegramUsername}
                                         onChange={e => setTelegramUsername(e.target.value)}
                                         placeholder="@username"
                                     />
-                                    <button onClick={startVerification} style={styles.enableBtn}>Verify</button>
+                                    <button onClick={startVerification} style={styles.enableBtn}>Submit</button>
                                 </div>
+
+                                {/* Code input - shows after clicking Submit */}
+                                {showCodeInput && (
+                                    <>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                style={{ ...styles.input, flex: 1, border: '1px solid #00d4aa' }}
+                                                value={verificationCode}
+                                                onChange={e => setVerificationCode(e.target.value)}
+                                                placeholder="Enter verification code"
+                                                autoFocus
+                                            />
+                                            <button onClick={submitVerificationCode} style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f' }}>Verify</button>
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
+                                            Message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>this bot</a> on Telegram to get your verification code.
+                                        </div>
+                                        <button onClick={() => setShowCodeInput(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
+                                            ✕ Cancel
+                                        </button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
