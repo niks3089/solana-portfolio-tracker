@@ -179,32 +179,30 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         localStorage.setItem('telegram_username', username);
 
         try {
-            // Get Dialect JWT token
-            const token = await getDialectToken();
-
-            // Prepare Telegram channel via Dialect API
-            const res = await fetch('/api/alerts/telegram/prepare', {
+            // Send verification code to user's Telegram
+            const res = await fetch('/api/alerts/telegram/send-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subscriberToken: token })
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    username: username
+                })
             });
 
             const data = await res.json();
 
-            if (res.ok && data.link) {
-                // Open the verification link from Dialect
-                window.open(data.link, '_blank');
+            if (data.success) {
                 setShowCodeInput(true);
+                setToast({ msg: 'Code sent to your Telegram!', type: 'success' });
+                setTimeout(() => setToast(null), 3000);
             } else {
-                // Fallback to direct bot link
-                window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
-                setShowCodeInput(true);
+                setToast({ msg: data.error || 'Failed to send code', type: 'error' });
+                setTimeout(() => setToast(null), 3000);
             }
         } catch (e) {
-            // Fallback if signing fails
-            console.log('Falling back to direct bot link:', e.message);
-            window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
-            setShowCodeInput(true);
+            console.error('Failed to send code:', e);
+            setToast({ msg: 'Failed to send code. Try again.', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
         } finally {
             setVerifying(false);
         }
@@ -227,21 +225,20 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Step 1: Get Dialect auth token
-            const token = await getDialectToken();
-
-            // Step 2: Check if Telegram is verified in Dialect
-            const statusRes = await fetch('/api/alerts/telegram/status', {
+            // Verify by sending test notification with the code
+            // Backend will check if code matches what was sent to this wallet
+            const res = await fetch('/api/alerts/telegram/verify-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subscriberToken: token })
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    code: code,
+                    username: telegramUsername
+                })
             });
-            const statusData = await statusRes.json();
+            const data = await res.json();
 
-            console.log('Telegram status:', statusData);
-
-            if (statusData.verified) {
-                // Telegram IS verified in Dialect - accept!
+            if (data.success) {
                 localStorage.setItem('telegram_verified', 'true');
                 localStorage.setItem('telegram_username', telegramUsername);
                 setTelegramVerified(true);
@@ -250,8 +247,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                 setToast({ msg: 'Telegram connected!', type: 'success' });
                 setTimeout(() => setToast(null), 3000);
             } else {
-                // NOT verified in Dialect - show error
-                setCodeError(`Incorrect verification code ${code}`);
+                setCodeError(data.error || `Incorrect verification code ${code}`);
             }
         } catch (e) {
             console.error('Verification failed:', e);
