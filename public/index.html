@@ -733,6 +733,15 @@
       font-size: 0.85rem;
     }
 
+    tr.clickable-row {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    tr.clickable-row:hover {
+      background: var(--bg-tertiary);
+    }
+
     .wallet-manager {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -4412,7 +4421,8 @@
         const pnl = t.pnl ? t.pnl.totalPnL : null;
         const pnlClass = pnl != null ? (pnl >= 0 ? 'positive' : 'negative') : 'muted';
         const pnlStr = hasProView && pnl != null ? ((pnl >= 0 ? '+' : '') + fmtUsd(pnl)) : (hasProView ? '<span title="P&L data not available for this token">N/A</span>' : '<span class="blurred-text">+$XX.XX</span>');
-        html += '<tr>';
+        const orbUrl = t.address ? 'https://orbmarkets.io/token/' + t.address : '';
+        html += '<tr class="clickable-row" onclick="' + (orbUrl ? "window.open('" + orbUrl + "', '_blank')" : '') + '">';
         if (showWalletCol) html += '<td><span class="badge badge-wallet">' + (t.walletShort || '?') + '</span></td>';
         html += '<td><div class="token-cell">';
         if (t.icon) html += '<img class="token-icon" src="' + t.icon + '" onerror="this.style.display=\'none\'">';

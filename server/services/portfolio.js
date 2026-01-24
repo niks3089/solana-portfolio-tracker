@@ -32,15 +32,19 @@ export async function getHoldings(wallet) {
     }
 
     const tokens = data.data.items
-        .map(t => ({
-            symbol: t.symbol,
-            name: t.name,
-            balance: t.uiAmount,
-            price: t.priceUsd,
-            value: t.valueUsd || 0,
-            icon: t.logoURI,
-            address: t.address === NATIVE_SOL ? WRAPPED_SOL : t.address,
-        }))
+        .map(t => {
+            // Calculate value ourselves - Birdeye's valueUsd can be incorrect
+            const calculatedValue = (t.uiAmount || 0) * (t.priceUsd || 0);
+            return {
+                symbol: t.symbol,
+                name: t.name,
+                balance: t.uiAmount,
+                price: t.priceUsd,
+                value: calculatedValue,
+                icon: t.logoURI,
+                address: t.address === NATIVE_SOL ? WRAPPED_SOL : t.address,
+            };
+        })
         .filter(t => t.value > 0.01);
 
     const result = {
