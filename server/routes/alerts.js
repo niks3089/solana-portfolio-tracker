@@ -76,10 +76,10 @@ router.post('/telegram/status', async (req, res) => {
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-            const telegram = Array.isArray(data) 
+            const telegram = Array.isArray(data)
                 ? data.find(c => c.type === 'TELEGRAM')
                 : data.channels?.find(c => c.type === 'TELEGRAM');
-            
+
             return res.json({
                 success: true,
                 verified: telegram?.verified || false,
@@ -119,7 +119,7 @@ router.post('/telegram/verify', async (req, res) => {
         if (username) {
             await pool.query(`
                 UPDATE users SET telegram_username = $1 WHERE wallet = $2
-            `, [username.replace('@', ''), wallet]).catch(() => {});
+            `, [username.replace('@', ''), wallet]).catch(() => { });
         }
 
         return res.json({ success: true });
