@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solana Portfolio Tracker</title>
   <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2300d4aa'/%3E%3Ctext x='50' y='72' font-family='Arial' font-size='65' font-weight='bold' fill='%230a0a0f' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2322c55e'/%3E%3Ctext x='50' y='72' font-family='Arial' font-size='65' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="/manifest.json">
@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portfolio">
-  <meta name="theme-color" content="#00d4aa">
+  <meta name="theme-color" content="#22c55e">
   <meta name="description" content="Track your Solana crypto wealth across multiple wallets">
   <link rel="apple-touch-icon" href="/icon-192.png?v=2">
 
@@ -159,17 +159,17 @@
   </script>
   <style>
     :root {
-      --bg-primary: #0a0a0f;
-      --bg-secondary: #12121a;
-      --bg-tertiary: #1a1a24;
-      --border: #2a2a3a;
-      --text-primary: #b8c0cc;
-      --text-secondary: #6b7280;
-      --accent: #00d4aa;
-      --accent-dim: #00d4aa33;
-      --positive: #00d4aa;
-      --negative: #ff4466;
-      --warning: #ffaa00;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-tertiary: #f1f5f9;
+      --border: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --accent: #22c55e;
+      --accent-dim: #22c55e20;
+      --positive: #22c55e;
+      --negative: #ef4444;
+      --warning: #f59e0b;
     }
 
     * {
@@ -318,7 +318,7 @@
       border-radius: 12px;
       padding: 1rem;
       min-width: 200px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
       z-index: 1000;
       animation: fadeIn 0.15s ease;
     }
@@ -473,7 +473,7 @@
       opacity: 0;
       transition: opacity 0.15s ease;
       z-index: 100;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }
 
     .chart-tooltip.visible {
@@ -633,7 +633,7 @@
       transition: opacity 0.15s;
       z-index: 100;
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }
     .donut-tooltip.visible {
       opacity: 1;
@@ -937,7 +937,7 @@
       max-height: 250px;
       overflow-y: auto;
       z-index: 100;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
 
     .wallet-dropdown.active {
@@ -1671,7 +1671,7 @@
     }
 
     .badge-borrow {
-      background: #ff446633;
+      background: #ef444433;
       color: var(--negative);
     }
 
@@ -1762,7 +1762,7 @@
     }
 
     .connected-badge:hover {
-      background: #ff446644;
+      background: #ef444444;
       color: var(--negative);
     }
 
@@ -1827,7 +1827,7 @@
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
       z-index: 150;
       overflow: hidden;
     }
@@ -2388,10 +2388,10 @@
       <div>
         <div class="logo"><svg width="24" height="24" viewBox="0 0 100 100"
             style="vertical-align:middle;margin-right:8px">
-            <circle cx="50" cy="50" r="45" fill="#0a0a0f" stroke="#00d4aa" stroke-width="5" />
-            <ellipse cx="50" cy="50" rx="45" ry="20" fill="none" stroke="#00d4aa" stroke-width="3" />
-            <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#00d4aa" stroke-width="3" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="#00d4aa" stroke-width="3" />
+            <circle cx="50" cy="50" r="45" fill="#22c55e" stroke="#22c55e" stroke-width="5" />
+            <ellipse cx="50" cy="50" rx="45" ry="20" fill="none" stroke="#ffffff" stroke-width="3" />
+            <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#ffffff" stroke-width="3" />
+            <line x1="5" y1="50" x2="95" y2="50" stroke="#ffffff" stroke-width="3" />
           </svg>Solana Portfolio</div>
         <div class="logo-subtitle"><b>Track your crypto wealth<span>•</span>Multiple wallets<span>•</span>Private</b>
         </div>
@@ -2550,8 +2550,8 @@
         <div class="label-form-group">
           <label>Color</label>
           <div class="color-picker" id="colorPicker">
-            <div class="color-option selected" data-color="#00d4aa" style="background:#00d4aa"></div>
-            <div class="color-option" data-color="#ff4466" style="background:#ff4466"></div>
+            <div class="color-option selected" data-color="#22c55e" style="background:#22c55e"></div>
+            <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
             <div class="color-option" data-color="#ffaa00" style="background:#ffaa00"></div>
             <div class="color-option" data-color="#4466ff" style="background:#4466ff"></div>
             <div class="color-option" data-color="#aa44ff" style="background:#aa44ff"></div>
@@ -2787,7 +2787,7 @@
     // Demo wallet (Toly) - free users can view this fully to see what Pro looks like
     const DEMO_WALLET = '86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY';
 
-    const CHART_COLORS = ['#00d4aa', '#ff4466', '#ffaa00', '#4466ff', '#aa44ff', '#44ffaa', '#ff6644', '#44aaff'];
+    const CHART_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
 
     let paymentConfig = { wallet: '', amount: 1, originalAmount: 3, token: 'USDC', tokenMint: '', tokenDecimals: 6, durationDays: 30 };
 
@@ -3646,7 +3646,7 @@
             const walletCount = (l.wallets || []).length;
             const isActive = activeLabelId === l.id;
             return '<div class="wallet-dropdown-item label-item' + (isActive ? ' active' : '') + '" onclick="selectLabelFromDropdown(' + l.id + ')">' +
-              '<span class="label-dot" style="background:' + (l.color || '#00d4aa') + '"></span>' +
+              '<span class="label-dot" style="background:' + (l.color || '#22c55e') + '"></span>' +
               '<span class="wallet-dropdown-label">' + escapeHtml(l.name) + '</span>' +
               '<span class="wallet-dropdown-addr">(' + walletCount + ' wallets)</span>' +
               (isActive ? '<span style="color:var(--accent);font-size:0.75rem;margin-left:auto">✓</span>' : '') +
@@ -4556,7 +4556,7 @@
       }
 
       // Draw smooth line using Catmull-Rom spline (passes through all points)
-      const lineColor = change >= 0 ? '#00d4aa' : '#ff4466';
+      const lineColor = change >= 0 ? '#22c55e' : '#ef4444';
       ctx.beginPath();
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2;
@@ -4654,7 +4654,7 @@
         // Dot
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = change >= 0 ? '#00d4aa' : '#ff4466';
+        ctx.fillStyle = change >= 0 ? '#22c55e' : '#ef4444';
         ctx.fill();
 
         // Inner white dot
@@ -4951,7 +4951,7 @@
         const p3 = points[Math.min(points.length - 1, i + 2)];
 
         // Determine segment color based on direction (going up = green, going down = red)
-        const segmentColor = p2.value >= p1.value ? '#00d4aa' : '#ff4466';
+        const segmentColor = p2.value >= p1.value ? '#22c55e' : '#ef4444';
 
         const cp1x = p1.x + (p2.x - p0.x) / 6;
         const cp1y = p1.y + (p2.y - p0.y) / 6;
@@ -5016,7 +5016,7 @@
         // Determine point color based on change from previous point
         const prevValue = i > 0 ? chartData[i - 1].value : chartData[i].value;
         const pointIsUp = chartData[i].value >= prevValue;
-        const pointColor = pointIsUp ? '#00d4aa' : '#ff4466';
+        const pointColor = pointIsUp ? '#22c55e' : '#ef4444';
         const pointGlow = pointIsUp ? 'rgba(0,212,170,0.3)' : 'rgba(255,68,102,0.3)';
 
         // Glow
@@ -5606,7 +5606,7 @@
     // ============================================================================
     let userLabels = [];
     let editingLabelId = null;
-    let selectedLabelColor = '#00d4aa';
+    let selectedLabelColor = '#22c55e';
     let activeLabelId = null; // For filtering by label
     let hiddenLabelWallets = []; // Wallets hidden from current portfolio view
 
@@ -5688,7 +5688,7 @@
         const isActive = activeLabelId === label.id;
         return `
           <div class="label-chip ${isActive ? 'active' : ''}" onclick="toggleLabelFilter(${label.id})">
-            <span class="label-dot" style="background:${label.color || '#00d4aa'}"></span>
+            <span class="label-dot" style="background:${label.color || '#22c55e'}"></span>
             <span class="label-name">${escapeHtml(label.name)}</span>
             <span class="label-count">(${walletCount})</span>
             <span class="label-edit" onclick="event.stopPropagation();editLabel(${label.id})">✎</span>
@@ -5720,13 +5720,13 @@
         if (label) {
           titleEl.textContent = 'Edit Portfolio';
           nameInput.value = label.name;
-          selectedLabelColor = label.color || '#00d4aa';
+          selectedLabelColor = label.color || '#22c55e';
           deleteBtn.style.display = 'block';
         }
       } else {
         titleEl.textContent = 'Create Portfolio';
         nameInput.value = '';
-        selectedLabelColor = '#00d4aa';
+        selectedLabelColor = '#22c55e';
         deleteBtn.style.display = 'none';
       }
 

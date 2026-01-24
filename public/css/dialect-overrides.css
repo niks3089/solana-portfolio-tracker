@@ -1,21 +1,21 @@
-/* Dialect UI Overrides */
+/* Dialect UI Overrides - Light Theme */
 
 .dialect,
 .dialect-wrapper,
 [data-dialect],
 [data-theme="dark"] {
-  --dt-bg-primary: #1b1b1c !important;
-  --dt-bg-secondary: #232324 !important;
-  --dt-bg-tertiary: #2a2a2b !important;
-  --dt-text-primary: #ffffff !important;
-  --dt-text-secondary: #c4c6c8 !important;
-  --dt-accent-brand: #00d4aa !important;
-  --dt-accent-success: #00d4aa !important;
-  --dt-input-checked: #00d4aa !important;
-  --dt-text-accent: #00d4aa !important;
-  --dt-stroke-primary: #323335 !important;
-  --dt-button-primary: #00d4aa !important;
-  --dt-button-secondary: #2a2a2b !important;
+  --dt-bg-primary: #ffffff !important;
+  --dt-bg-secondary: #f8fafc !important;
+  --dt-bg-tertiary: #f1f5f9 !important;
+  --dt-text-primary: #1e293b !important;
+  --dt-text-secondary: #64748b !important;
+  --dt-accent-brand: #22c55e !important;
+  --dt-accent-success: #22c55e !important;
+  --dt-input-checked: #22c55e !important;
+  --dt-text-accent: #22c55e !important;
+  --dt-stroke-primary: #e2e8f0 !important;
+  --dt-button-primary: #22c55e !important;
+  --dt-button-secondary: #f1f5f9 !important;
 }
 
 /* Hide tabs */
@@ -42,13 +42,13 @@
 /* Style headers green */
 .dialect .dt-text-h2,
 .dialect h2 {
-  color: #00d4aa !important;
+  color: #22c55e !important;
 }
 
 /* Green buttons */
 .dialect button {
-  background-color: #00d4aa !important;
-  color: #0a0a0f !important;
+  background-color: #22c55e !important;
+  color: #ffffff !important;
 }
 
 .dialect button:hover {
@@ -57,7 +57,7 @@
 
 /* Green links */
 .dialect a {
-  color: #00d4aa !important;
+  color: #22c55e !important;
 }
 
 /* Hide powered by */
@@ -68,5 +68,5 @@
 
 /* Green checkboxes */
 .dialect input[type="checkbox"]:checked {
-  accent-color: #00d4aa !important;
+  accent-color: #22c55e !important;
 }
