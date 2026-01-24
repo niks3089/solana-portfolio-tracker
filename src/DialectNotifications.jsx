@@ -128,8 +128,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
         localStorage.setItem('telegram_username', username);
         setShowCodeInput(true);
-        // Open Dialect bot in new tab
-        window.open('https://t.me/DialectLabsBot', '_blank');
+        // Open Dialect bot in new tab with start parameter
+        window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
     };
 
     const submitVerificationCode = async () => {
@@ -138,10 +138,10 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             setCodeError('Enter the verification code');
             return;
         }
-        
+
         setVerifying(true);
         setCodeError('');
-        
+
         try {
             // Call Dialect API to verify the code
             const res = await fetch('https://alerts-api.dial.to/v2/channel/telegram/verify', {
@@ -152,7 +152,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                     code: code
                 })
             });
-            
+
             if (res.ok) {
                 // Success
                 localStorage.setItem('telegram_verified', 'true');
@@ -247,8 +247,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                                 placeholder="Enter verification code"
                                                 autoFocus
                                             />
-                                            <button 
-                                                onClick={submitVerificationCode} 
+                                            <button
+                                                onClick={submitVerificationCode}
                                                 disabled={verifying}
                                                 style={{ ...styles.enableBtn, background: '#00d4aa', color: '#0a0a0f', opacity: verifying ? 0.6 : 1 }}
                                             >
@@ -261,7 +261,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                             </div>
                                         )}
                                         <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-                                            Message <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>this bot</a> on Telegram to get your verification code.
+                                            Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> on Telegram to get your verification code.
                                         </div>
                                         <button onClick={() => { setShowCodeInput(false); setCodeError(''); }} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
                                             ✕ Cancel
