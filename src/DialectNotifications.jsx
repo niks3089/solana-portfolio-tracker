@@ -227,33 +227,35 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Send a test notification to verify Telegram is connected
-            const res = await fetch('/api/alerts/telegram/test', {
+            // Step 1: Get Dialect auth token
+            const token = await getDialectToken();
+
+            // Step 2: Check if Telegram is verified in Dialect
+            const statusRes = await fetch('/api/alerts/telegram/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    wallet: wallet?.address,
-                    code: code,
-                    username: telegramUsername
-                })
+                body: JSON.stringify({ subscriberToken: token })
             });
-            const data = await res.json();
+            const statusData = await statusRes.json();
 
-            if (data.success) {
-                // Test notification sent - Telegram is connected!
+            console.log('Telegram status:', statusData);
+
+            if (statusData.verified) {
+                // Telegram IS verified in Dialect - accept!
                 localStorage.setItem('telegram_verified', 'true');
                 localStorage.setItem('telegram_username', telegramUsername);
                 setTelegramVerified(true);
                 setShowCodeInput(false);
                 setCodeError('');
-                setToast({ msg: 'Telegram connected! Check for test message.', type: 'success' });
+                setToast({ msg: 'Telegram connected!', type: 'success' });
                 setTimeout(() => setToast(null), 3000);
             } else {
-                setCodeError(data.error || `Incorrect verification code ${code}`);
+                // NOT verified in Dialect - show error
+                setCodeError(`Incorrect verification code ${code}`);
             }
         } catch (e) {
             console.error('Verification failed:', e);
-            setCodeError(`Verification failed. Please try again.`);
+            setCodeError(`Incorrect verification code ${code}`);
         } finally {
             setVerifying(false);
         }
