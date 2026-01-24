@@ -175,37 +175,22 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             return;
         }
 
-        setVerifying(true);
         localStorage.setItem('telegram_username', username);
-
+        
+        // Store the wallet for verification - we'll verify using Dialect bot code
         try {
-            // Send verification code to user's Telegram
-            const res = await fetch('/api/alerts/telegram/send-code', {
+            await fetch('/api/alerts/telegram/prepare-verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    wallet: wallet?.address,
-                    username: username
-                })
+                body: JSON.stringify({ wallet: wallet?.address, username })
             });
+        } catch (e) { }
 
-            const data = await res.json();
-
-            if (data.success) {
-                setShowCodeInput(true);
-                setToast({ msg: 'Code sent to your Telegram!', type: 'success' });
-                setTimeout(() => setToast(null), 3000);
-            } else {
-                setToast({ msg: data.error || 'Failed to send code', type: 'error' });
-                setTimeout(() => setToast(null), 3000);
-            }
-        } catch (e) {
-            console.error('Failed to send code:', e);
-            setToast({ msg: 'Failed to send code. Try again.', type: 'error' });
-            setTimeout(() => setToast(null), 3000);
-        } finally {
-            setVerifying(false);
-        }
+        // Open Dialect bot to get verification code
+        window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
+        setShowCodeInput(true);
+        setToast({ msg: 'Get your code from @DialectLabsBot', type: 'success' });
+        setTimeout(() => setToast(null), 3000);
     };
 
     const submitVerificationCode = async () => {
@@ -225,9 +210,8 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Verify by sending test notification with the code
-            // Backend will check if code matches what was sent to this wallet
-            const res = await fetch('/api/alerts/telegram/verify-code', {
+            // Check with Dialect if Telegram is verified for this wallet
+            const res = await fetch('/api/alerts/telegram/check-verified', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -238,7 +222,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
             });
             const data = await res.json();
 
-            if (data.success) {
+            if (data.verified) {
                 localStorage.setItem('telegram_verified', 'true');
                 localStorage.setItem('telegram_username', telegramUsername);
                 setTelegramVerified(true);

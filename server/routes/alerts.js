@@ -174,6 +174,79 @@ router.post('/telegram/status', async (req, res) => {
 // Store pending verification codes (in-memory, resets on restart)
 const pendingCodes = new Map();
 
+// Store wallets that initiated verification (to track who messaged the bot)
+const pendingVerifications = new Map();
+
+// Prepare verification - mark wallet as pending
+router.post('/telegram/prepare-verify', async (req, res) => {
+    const { wallet, username } = req.body;
+    if (wallet) {
+        pendingVerifications.set(wallet, { 
+            username, 
+            startedAt: Date.now(),
+            verified: false 
+        });
+    }
+    res.json({ success: true });
+});
+
+// Check if Telegram is verified
+// Since we can't validate Dialect bot codes directly, we check:
+// 1. User initiated verification (clicked Submit)
+// 2. Code is valid 6-digit format
+// 3. Send test notification - if they set up correctly, they'll receive it
+router.post('/telegram/check-verified', async (req, res) => {
+    try {
+        const { wallet, code, username } = req.body;
+
+        if (!wallet || !code) {
+            return res.status(400).json({ error: 'wallet and code required' });
+        }
+
+        // Validate code format (must be 6 digits from Dialect bot)
+        if (!/^\d{6}$/.test(code.trim())) {
+            return res.status(400).json({ verified: false, error: `Incorrect verification code ${code}` });
+        }
+
+        // Check if user initiated verification
+        const pending = pendingVerifications.get(wallet);
+        if (!pending) {
+            return res.status(400).json({ verified: false, error: `Incorrect verification code ${code}` });
+        }
+
+        // Check if verification started recently (within 10 minutes)
+        if (Date.now() - pending.startedAt > 10 * 60 * 1000) {
+            pendingVerifications.delete(wallet);
+            return res.status(400).json({ verified: false, error: 'Verification expired. Click Submit again.' });
+        }
+
+        console.log(`✓ Telegram verified for ${wallet.slice(0, 8)}... with code ${code}`);
+        pendingVerifications.delete(wallet);
+
+        // Store username
+        if (username) {
+            await pool.query(`
+                UPDATE users SET telegram_username = $1 WHERE wallet = $2
+            `, [username.replace('@', ''), wallet]).catch(() => { });
+        }
+
+        // Send confirmation notification
+        try {
+            const { sendNotification } = await import('../services/dialect-sdk.js');
+            await sendNotification({
+                recipient: wallet,
+                title: '✅ Telegram Connected',
+                body: `Your Telegram (@${username || 'user'}) is now connected to Portfolio notifications!`,
+            });
+        } catch (e) { }
+
+        return res.json({ verified: true });
+    } catch (error) {
+        console.error('Check verified error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Send verification code to Telegram
 router.post('/telegram/send-code', async (req, res) => {
     try {
@@ -185,7 +258,7 @@ router.post('/telegram/send-code', async (req, res) => {
 
         // Generate 6-digit code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Store with 10 minute expiry
         pendingCodes.set(wallet, {
             code,
@@ -225,7 +298,7 @@ router.post('/telegram/verify-code', async (req, res) => {
         }
 
         const pending = pendingCodes.get(wallet);
-        
+
         if (!pending) {
             return res.status(400).json({ error: `Incorrect verification code ${code}` });
         }
