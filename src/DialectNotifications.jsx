@@ -40,8 +40,11 @@ const btnPrimary = { width: '100%', padding: '12px', background: '#00d4aa', colo
 const alertCard = { background: '#2a2a2b', borderRadius: '8px', padding: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 
 // Main Modal
+const inputStyle = { width: '100%', padding: '10px 12px', background: '#2a2a2b', border: '1px solid #323335', borderRadius: '8px', color: '#fff', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' };
+
 const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
     const [target, setTarget] = useState('');
+    const [telegramUsername, setTelegramUsername] = useState('');
     const [walletTx, setWalletTx] = useState(true);
     const [portfolioChange, setPortfolioChange] = useState(false);
     const [threshold, setThreshold] = useState(5);
@@ -50,6 +53,12 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
     const [toast, setToast] = useState(null);
 
     const isPortfolio = target.startsWith('portfolio:');
+
+    // Load saved telegram username
+    useEffect(() => {
+        const saved = localStorage.getItem('telegram_username');
+        if (saved) setTelegramUsername(saved);
+    }, []);
 
     useEffect(() => {
         if (isOpen && wallet) loadAlerts();
@@ -66,7 +75,14 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
 
     const save = async () => {
         if (!target) return;
+        if (!telegramUsername.trim()) {
+            setToast({ msg: 'Please enter your Telegram username', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
         setSaving(true);
+        // Save telegram username locally
+        localStorage.setItem('telegram_username', telegramUsername.replace('@', ''));
         try {
             const res = await fetch('/api/alerts', {
                 method: 'POST',
@@ -77,6 +93,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                     target_wallet: !isPortfolio ? target : null,
                     alert_type: portfolioChange ? 'threshold' : 'any_tx',
                     threshold_percent: portfolioChange ? threshold : null,
+                    telegram_username: telegramUsername.replace('@', ''),
                     enabled: true,
                 })
             });
@@ -142,6 +159,16 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
                     <div style={{ borderTop: alerts.length > 0 ? '1px solid #2a2a2b' : 'none', paddingTop: alerts.length > 0 ? '16px' : '0' }}>
                         <div style={{ color: '#00d4aa', fontSize: '13px', marginBottom: '12px', fontWeight: '500' }}>+ New Alert</div>
 
+                        <div style={{ marginBottom: '4px', fontSize: '12px', color: '#888' }}>Telegram Username</div>
+                        <input
+                            type="text"
+                            style={inputStyle}
+                            value={telegramUsername}
+                            onChange={e => setTelegramUsername(e.target.value)}
+                            placeholder="@niks3089"
+                        />
+
+                        <div style={{ marginBottom: '4px', fontSize: '12px', color: '#888' }}>Monitor</div>
                         <select style={selectStyle} value={target} onChange={e => setTarget(e.target.value)}>
                             <option value="">Select portfolio or wallet...</option>
                             {labels.length > 0 && (
@@ -184,7 +211,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels, wallets }) => {
 
                     {/* Info */}
                     <div style={{ marginTop: '20px', padding: '12px', background: '#232324', borderRadius: '8px', fontSize: '12px', color: '#888' }}>
-                        💡 Alerts are sent via Telegram. Make sure you've connected Telegram to @DialectBots
+                        💡 Start <a href="https://t.me/DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> on Telegram first, then enter your username above.
                     </div>
                 </div>
 
