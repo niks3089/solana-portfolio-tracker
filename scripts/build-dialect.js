@@ -25,6 +25,8 @@ async function build() {
             mainFields: ['browser', 'module', 'main'],
             conditions: ['browser', 'import', 'default'],
             resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.css', '.json'],
+            // Ignore sideEffects: false for CSS files
+            ignoreAnnotations: true,
             // React 18 handles client separately
             plugins: [
                 {
