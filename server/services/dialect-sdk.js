@@ -125,35 +125,42 @@ export async function sendWalletActivityNotification(walletAddress, txType, txDe
     let title, body;
 
     // Build Orb transaction link
-    const txLink = txSignature ? `\n\n🔗 https://orbmarkets.io/tx/${txSignature}` : '';
+    const txLink = txSignature ? `\n🔗 View tx: orbmarkets.io/tx/${txSignature.slice(0, 8)}...` : '';
     const usdStr = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
+    
+    // Make portfolio name prominent - if displayName is same as walletShort, it's not a named portfolio
+    const isNamedPortfolio = displayName && displayName !== walletShort;
+    const portfolioLine = isNamedPortfolio ? `📦 Portfolio: ${displayName}\n` : '';
+    const walletLine = `👛 Wallet: ${walletShort}`;
 
     if (txType === 'incoming') {
-        title = '💰 Received';
+        title = `💰 Received${isNamedPortfolio ? ` → ${displayName}` : ''}`;
         if (txDetails.amount) {
-            body = `+${txDetails.amount}${usdStr}\n` +
-                `📍 ${displayName} (${walletShort})\n` +
+            body = `${portfolioLine}` +
+                `${walletLine}\n\n` +
+                `➕ +${txDetails.amount}${usdStr}\n` +
                 `📤 From: ${txDetails.from || 'unknown'}` +
                 txLink;
         } else {
-            body = `Funds received\n📍 ${displayName} (${walletShort})${txLink}`;
+            body = `${portfolioLine}${walletLine}\n\nFunds received${txLink}`;
         }
     } else if (txType === 'outgoing') {
-        title = '📤 Sent';
+        title = `📤 Sent${isNamedPortfolio ? ` from ${displayName}` : ''}`;
         if (txDetails.amount) {
-            body = `-${txDetails.amount}${usdStr}\n` +
-                `📍 ${displayName} (${walletShort})\n` +
+            body = `${portfolioLine}` +
+                `${walletLine}\n\n` +
+                `➖ -${txDetails.amount}${usdStr}\n` +
                 `📥 To: ${txDetails.to || 'unknown'}` +
                 txLink;
         } else {
-            body = `Funds sent\n📍 ${displayName} (${walletShort})${txLink}`;
+            body = `${portfolioLine}${walletLine}\n\nFunds sent${txLink}`;
         }
     } else {
-        title = '🔔 Activity';
+        title = `🔔 Activity${isNamedPortfolio ? ` on ${displayName}` : ''}`;
         if (txDetails.type && txDetails.type !== 'unknown') {
-            body = `${txDetails.type}\n📍 ${displayName} (${walletShort})${txLink}`;
+            body = `${portfolioLine}${walletLine}\n\n${txDetails.type}${txLink}`;
         } else {
-            body = `Transaction detected\n📍 ${displayName} (${walletShort})${txLink}`;
+            body = `${portfolioLine}${walletLine}\n\nTransaction detected${txLink}`;
         }
     }
 
