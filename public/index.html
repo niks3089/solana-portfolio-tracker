@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solana Portfolio Tracker</title>
   <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2322c55e'/%3E%3Ctext x='50' y='72' font-family='Arial' font-size='65' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2322c55e'/%3E%3Ctext x='50' y='72' font-family='Arial' font-size='65' font-weight='bold' fill='%230a0a0f' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="/manifest.json">
@@ -159,12 +159,12 @@
   </script>
   <style>
     :root {
-      --bg-primary: #ffffff;
-      --bg-secondary: #f8fafc;
-      --bg-tertiary: #f1f5f9;
-      --border: #e2e8f0;
-      --text-primary: #1e293b;
-      --text-secondary: #64748b;
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a24;
+      --border: #2a2a3a;
+      --text-primary: #ffffff;
+      --text-secondary: #94a3b8;
       --accent: #22c55e;
       --accent-dim: #22c55e20;
       --positive: #22c55e;
@@ -318,7 +318,7 @@
       border-radius: 12px;
       padding: 1rem;
       min-width: 200px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       z-index: 1000;
       animation: fadeIn 0.15s ease;
     }
@@ -473,7 +473,7 @@
       opacity: 0;
       transition: opacity 0.15s ease;
       z-index: 100;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
     .chart-tooltip.visible {
@@ -633,7 +633,7 @@
       transition: opacity 0.15s;
       z-index: 100;
       white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .donut-tooltip.visible {
       opacity: 1;
@@ -937,7 +937,7 @@
       max-height: 250px;
       overflow-y: auto;
       z-index: 100;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
 
     .wallet-dropdown.active {
@@ -1686,6 +1686,16 @@
       font-family: monospace;
     }
 
+    .clickable-badge {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .clickable-badge:hover {
+      background: var(--accent);
+      color: var(--bg-primary);
+    }
+
     .badge-pro {
       background: var(--warning);
       color: var(--bg-primary);
@@ -1827,7 +1837,7 @@
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       z-index: 150;
       overflow: hidden;
     }
@@ -2388,10 +2398,10 @@
       <div>
         <div class="logo"><svg width="24" height="24" viewBox="0 0 100 100"
             style="vertical-align:middle;margin-right:8px">
-            <circle cx="50" cy="50" r="45" fill="#22c55e" stroke="#22c55e" stroke-width="5" />
-            <ellipse cx="50" cy="50" rx="45" ry="20" fill="none" stroke="#ffffff" stroke-width="3" />
-            <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#ffffff" stroke-width="3" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="#ffffff" stroke-width="3" />
+            <circle cx="50" cy="50" r="45" fill="#0a0a0f" stroke="#22c55e" stroke-width="5" />
+            <ellipse cx="50" cy="50" rx="45" ry="20" fill="none" stroke="#22c55e" stroke-width="3" />
+            <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#22c55e" stroke-width="3" />
+            <line x1="5" y1="50" x2="95" y2="50" stroke="#22c55e" stroke-width="3" />
           </svg>Solana Portfolio</div>
         <div class="logo-subtitle"><b>Track your crypto wealth<span>•</span>Multiple wallets<span>•</span>Private</b>
         </div>
@@ -4423,7 +4433,10 @@
         const pnlStr = hasProView && pnl != null ? ((pnl >= 0 ? '+' : '') + fmtUsd(pnl)) : (hasProView ? '<span title="P&L data not available for this token">N/A</span>' : '<span class="blurred-text">+$XX.XX</span>');
         const orbUrl = t.address ? 'https://orbmarkets.io/token/' + t.address : '';
         html += '<tr class="clickable-row" onclick="' + (orbUrl ? "window.open('" + orbUrl + "', '_blank')" : '') + '">';
-        if (showWalletCol) html += '<td><span class="badge badge-wallet">' + (t.walletShort || '?') + '</span></td>';
+        if (showWalletCol) {
+          const walletOrbUrl = t.wallet ? 'https://orbmarkets.io/address/' + t.wallet + '/tokens' : '';
+          html += '<td><span class="badge badge-wallet clickable-badge" onclick="event.stopPropagation(); ' + (walletOrbUrl ? "window.open('" + walletOrbUrl + "', '_blank')" : '') + '">' + (t.walletShort || '?') + '</span></td>';
+        }
         html += '<td><div class="token-cell">';
         if (t.icon) html += '<img class="token-icon" src="' + t.icon + '" onerror="this.style.display=\'none\'">';
         html += '<span>' + (t.symbol || '?') + '</span></div></td>';
