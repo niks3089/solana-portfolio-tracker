@@ -127,7 +127,7 @@ export async function sendWalletActivityNotification(walletAddress, txType, txDe
     // Build Orb transaction link
     const txLink = txSignature ? `\n🔗 View tx: orbmarkets.io/tx/${txSignature.slice(0, 8)}...` : '';
     const usdStr = txDetails.usdValue ? ` (${txDetails.usdValue})` : '';
-    
+
     // Make portfolio name prominent - if displayName is same as walletShort, it's not a named portfolio
     const isNamedPortfolio = displayName && displayName !== walletShort;
     const portfolioLine = isNamedPortfolio ? `📦 Portfolio: ${displayName}\n` : '';

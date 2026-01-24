@@ -212,6 +212,33 @@
       align-items: center;
     }
 
+    .privacy-toggle {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .privacy-toggle:hover {
+      background: var(--bg-secondary);
+      border-color: var(--accent);
+    }
+
+    .privacy-toggle.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    .privacy-icon {
+      line-height: 1;
+    }
+
     .btn {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
@@ -2474,6 +2501,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="privacy-toggle" id="privacyToggle" onclick="togglePrivacyMode()" title="Hide/show amounts">
+          <span class="privacy-icon" id="privacyIcon">👁</span>
+        </button>
         <div class="pro-status-display" id="proStatusDisplay" style="display:none">
           <span class="pro-pill" onclick="showProDetails()">
             <span class="pro-dot"></span>
@@ -3357,8 +3387,47 @@
       }
     }
 
-    function fmtUsd(n) {
-      if (n == null || isNaN(n)) return '$0.00';
+    // Privacy mode - hide exact amounts
+    let privacyMode = localStorage.getItem('privacyMode') === 'true';
+    
+    function initPrivacyMode() {
+      const btn = document.getElementById('privacyToggle');
+      const icon = document.getElementById('privacyIcon');
+      if (privacyMode) {
+        btn.classList.add('active');
+        icon.textContent = '🙈';
+        btn.title = 'Show amounts';
+      } else {
+        btn.classList.remove('active');
+        icon.textContent = '👁';
+        btn.title = 'Hide amounts';
+      }
+    }
+    
+    function togglePrivacyMode() {
+      privacyMode = !privacyMode;
+      localStorage.setItem('privacyMode', privacyMode);
+      initPrivacyMode();
+      // Re-render everything
+      renderTokensPage();
+      renderDefiPage();
+      // Update stat values
+      const stats = document.querySelectorAll('.stat-value');
+      stats.forEach(el => {
+        if (el.dataset.rawValue) {
+          el.textContent = fmtUsd(parseFloat(el.dataset.rawValue));
+        }
+      });
+      // Re-render donut chart
+      if (typeof renderDonutChart === 'function' && donutSegments.length > 0) {
+        const total = donutSegments.reduce((sum, s) => sum + s.value, 0);
+        renderDonutChart(donutSegments.map(s => ({label: s.label, value: s.value})), total);
+      }
+    }
+
+    function fmtUsd(n, forceShow = false) {
+      if (n == null || isNaN(n)) return privacyMode && !forceShow ? '••••' : '$0.00';
+      if (privacyMode && !forceShow) return '••••';
       const abs = Math.abs(n);
       const sign = n < 0 ? '-' : '';
       if (abs >= 1000000) return sign + '$' + (abs / 1000000).toFixed(2) + 'M';
@@ -6682,6 +6751,7 @@
     // Initialize
     // ============================================================================
     async function init() {
+      initPrivacyMode(); // Initialize privacy toggle
       loadConnectedWallet();
       await loadPaymentConfig();
       await checkProStatus();
