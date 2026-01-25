@@ -421,6 +421,32 @@ router.post('/telegram/test', async (req, res) => {
     }
 });
 
+// Save telegram username for a wallet
+router.post('/telegram/save-username', async (req, res) => {
+    try {
+        const { wallet, username } = req.body;
+
+        if (!wallet || !username) {
+            return res.status(400).json({ error: 'wallet and username required' });
+        }
+
+        const cleanUsername = username.replace('@', '').trim();
+        console.log(`Saving telegram username ${cleanUsername} for ${wallet.slice(0, 8)}...`);
+
+        // Update all alerts for this wallet with the telegram username
+        await pool.query(`
+            UPDATE alert_settings
+            SET telegram_username = $1, updated_at = NOW()
+            WHERE owner_wallet = $2
+        `, [cleanUsername, wallet]);
+
+        return res.json({ success: true, username: cleanUsername });
+    } catch (error) {
+        console.error('Save telegram username error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Legacy verify endpoint - validate code format
 router.post('/telegram/verify', async (req, res) => {
     try {

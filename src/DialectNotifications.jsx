@@ -45,65 +45,19 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
     const [alerts, setAlerts] = useState([]);
     const [toast, setToast] = useState(null);
     const [telegramUsername, setTelegramUsername] = useState('');
+    const [newTelegramUsername, setNewTelegramUsername] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [showCodeInput, setShowCodeInput] = useState(false);
-    const [telegramVerified, setTelegramVerified] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const [notificationTypes, setNotificationTypes] = useState({});
     const [codeError, setCodeError] = useState('');
     const [verifying, setVerifying] = useState(false);
-    const [walletEnabled, setWalletEnabled] = useState(false);
-    const [enabling, setEnabling] = useState(false);
 
     useEffect(() => {
         if (isOpen && wallet) {
             loadAlerts();
-            // Load saved telegram username and verification status
-            const saved = localStorage.getItem('telegram_username');
-            const verified = localStorage.getItem('telegram_verified') === 'true';
-            const enabled = localStorage.getItem('wallet_notifications_enabled') === 'true';
-            if (saved) {
-                setTelegramUsername(saved);
-                setTelegramVerified(verified);
-            }
-            setWalletEnabled(enabled);
         }
     }, [isOpen, wallet]);
-
-    // Enable wallet notifications - auth with Dialect and subscribe
-    const enableWallet = async () => {
-        setEnabling(true);
-        try {
-            // Get Dialect JWT token by signing
-            const token = await getDialectToken();
-
-            // Subscribe to IN_APP notifications
-            const res = await fetch('/api/alerts/telegram/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    subscriberToken: token,
-                    channel: 'IN_APP'
-                })
-            });
-
-            if (res.ok) {
-                localStorage.setItem('wallet_notifications_enabled', 'true');
-                setWalletEnabled(true);
-                setToast({ msg: 'Notifications enabled!', type: 'success' });
-                setTimeout(() => setToast(null), 3000);
-            } else {
-                const data = await res.json();
-                setToast({ msg: data.error || 'Failed to enable', type: 'error' });
-                setTimeout(() => setToast(null), 3000);
-            }
-        } catch (e) {
-            console.error('Enable wallet failed:', e);
-            setToast({ msg: 'Please sign to enable notifications', type: 'error' });
-            setTimeout(() => setToast(null), 3000);
-        } finally {
-            setEnabling(false);
-        }
-    };
 
     useEffect(() => {
         // Build notification types from labels
@@ -119,7 +73,13 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         try {
             const res = await fetch(`/api/alerts/${wallet.address}`);
             const data = await res.json();
-            setAlerts(data.alerts || []);
+            const alertsList = data.alerts || [];
+            setAlerts(alertsList);
+            // Load telegram username from first alert that has one
+            const alertWithTelegram = alertsList.find(a => a.telegram_username);
+            if (alertWithTelegram) {
+                setTelegramUsername(alertWithTelegram.telegram_username);
+            }
         } catch (e) { setAlerts([]); }
     };
 
@@ -216,39 +176,37 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
 
         setVerifying(true);
-        localStorage.setItem('telegram_username', username);
 
         try {
-            // Step 1: Mark as pending verification
-            await fetch('/api/alerts/telegram/prepare-verify', {
+            // Get Dialect JWT by signing wallet
+            const token = await getDialectToken();
+
+            // Subscribe to Portfolio notifications
+            await fetch('/api/alerts/telegram/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet: wallet?.address, username })
+                body: JSON.stringify({ subscriberToken: token })
             });
 
-            // Step 2: Get Dialect JWT and subscribe to Portfolio app
-            try {
-                const token = await getDialectToken();
-                await fetch('/api/alerts/telegram/subscribe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subscriberToken: token })
-                });
-                console.log('Subscribed to Portfolio notifications');
-            } catch (e) {
-                console.log('Subscribe failed (will retry on verify):', e.message);
-            }
+            // Save telegram username to database
+            await fetch('/api/alerts/telegram/save-username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wallet: wallet?.address,
+                    username: username
+                })
+            });
 
-            // Step 3: Open Dialect bot
+            // Open Dialect bot for verification
             window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
             setShowCodeInput(true);
             setToast({ msg: 'Get your code from @DialectLabsBot', type: 'success' });
             setTimeout(() => setToast(null), 3000);
         } catch (e) {
             console.error('Start verification failed:', e);
-            // Still open bot even if subscribe fails
-            window.open('https://t.me/DialectLabsBot?start=DialectLabsBot', '_blank');
-            setShowCodeInput(true);
+            setToast({ msg: 'Please sign with your wallet', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
         } finally {
             setVerifying(false);
         }
@@ -271,26 +229,26 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         setCodeError('');
 
         try {
-            // Check with Dialect if Telegram is verified for this wallet
             const res = await fetch('/api/alerts/telegram/check-verified', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     wallet: wallet?.address,
                     code: code,
-                    username: telegramUsername
+                    username: newTelegramUsername || telegramUsername
                 })
             });
             const data = await res.json();
 
             if (data.verified) {
-                localStorage.setItem('telegram_verified', 'true');
-                localStorage.setItem('telegram_username', telegramUsername);
-                setTelegramVerified(true);
+                setTelegramUsername(newTelegramUsername || telegramUsername);
+                setNewTelegramUsername('');
                 setShowCodeInput(false);
+                setIsEditing(false);
                 setCodeError('');
                 setToast({ msg: 'Telegram connected!', type: 'success' });
                 setTimeout(() => setToast(null), 3000);
+                loadAlerts(); // Reload to get updated username
             } else {
                 setCodeError(data.error || `Incorrect verification code ${code}`);
             }
@@ -302,12 +260,16 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
         }
     };
 
-    const removeTelegram = () => {
-        localStorage.removeItem('telegram_username');
-        localStorage.removeItem('telegram_verified');
-        setTelegramUsername('');
-        setTelegramVerified(false);
+    const startEditing = () => {
+        setIsEditing(true);
+        setNewTelegramUsername(telegramUsername);
+    };
+
+    const cancelEditing = () => {
+        setIsEditing(false);
+        setNewTelegramUsername('');
         setShowCodeInput(false);
+        setCodeError('');
     };
 
     if (!isOpen) return null;
@@ -326,41 +288,16 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                 </div>
 
                 <div style={{ padding: '20px', maxHeight: '70vh', overflowY: 'auto' }}>
-                    {/* In App Section */}
-                    <div style={styles.section}>
-                        <div style={styles.sectionTitle}>In App</div>
-                        <div style={styles.card}>
-                            <span style={{ color: '#fff', fontSize: '14px' }}>{walletShort}</span>
-                            {walletEnabled ? (
-                                <span style={{ color: '#00d4aa', fontSize: '13px' }}>✓ Enabled</span>
-                            ) : (
-                                <button 
-                                    onClick={enableWallet} 
-                                    disabled={enabling}
-                                    style={{ ...styles.enableBtn, opacity: enabling ? 0.6 : 1 }}
-                                >
-                                    {enabling ? '...' : 'Enable'}
-                                </button>
-                            )}
-                        </div>
-                        {walletEnabled && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#00d4aa' }}></div>
-                                <span style={{ color: '#888', fontSize: '13px' }}>Subscribed to Portfolio alerts</span>
-                            </div>
-                        )}
-                    </div>
-
                     {/* Telegram Section */}
                     <div style={styles.section}>
                         <div style={styles.sectionTitle}>Telegram</div>
 
-                        {telegramVerified ? (
-                            /* Verified state - show username with delete option */
+                        {telegramUsername && !isEditing ? (
+                            /* Has username - show with Edit button */
                             <>
                                 <div style={styles.card}>
-                                    <span style={{ color: '#fff', fontSize: '14px' }}>{telegramUsername}</span>
-                                    <button onClick={removeTelegram} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '16px' }}>🗑</button>
+                                    <span style={{ color: '#fff', fontSize: '14px' }}>@{telegramUsername.replace('@', '')}</span>
+                                    <button onClick={startEditing} style={styles.enableBtn}>Edit</button>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
                                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#00d4aa' }}></div>
@@ -374,12 +311,24 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                     <input
                                         type="text"
                                         style={{ ...styles.input, flex: 1, marginBottom: 0 }}
-                                        value={telegramUsername}
-                                        onChange={e => setTelegramUsername(e.target.value)}
+                                        value={isEditing ? newTelegramUsername : telegramUsername}
+                                        onChange={e => isEditing ? setNewTelegramUsername(e.target.value) : setTelegramUsername(e.target.value)}
                                         placeholder="@username"
                                     />
-                                    <button onClick={startVerification} style={styles.enableBtn}>Submit</button>
+                                    <button
+                                        onClick={startVerification}
+                                        disabled={verifying}
+                                        style={{ ...styles.enableBtn, opacity: verifying ? 0.6 : 1 }}
+                                    >
+                                        {verifying ? '...' : 'Submit'}
+                                    </button>
                                 </div>
+
+                                {isEditing && !showCodeInput && (
+                                    <button onClick={cancelEditing} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', cursor: 'pointer' }}>
+                                        ✕ Cancel
+                                    </button>
+                                )}
 
                                 {/* Code input - shows after clicking Submit */}
                                 {showCodeInput && (
@@ -409,7 +358,7 @@ const NotificationModal = ({ isOpen, onClose, wallet, labels }) => {
                                         <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
                                             Message <a href="https://t.me/DialectLabsBot?start=DialectLabsBot" target="_blank" rel="noopener" style={{ color: '#00d4aa' }}>@DialectLabsBot</a> on Telegram to get your verification code.
                                         </div>
-                                        <button onClick={() => { setShowCodeInput(false); setCodeError(''); }} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
+                                        <button onClick={cancelEditing} style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', marginTop: '4px', cursor: 'pointer' }}>
                                             ✕ Cancel
                                         </button>
                                     </>

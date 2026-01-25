@@ -1329,6 +1329,12 @@
       display: flex;
     }
 
+    /* Delete confirmation modal - higher z-index to appear on top */
+    #deleteLabelModal,
+    #deleteAlertModal {
+      z-index: 250;
+    }
+
     .label-modal-content {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -3948,12 +3954,12 @@
         if (data.error) throw new Error(data.error);
         if (data.success === false) throw new Error(data.message || 'Request failed');
 
-        // Update stats
+        // Update stats using setStatValue for proper privacy toggle
         const p = data.portfolio;
-        document.getElementById('statNetWorth').textContent = fmtUsd(p.totalNetWorth);
-        document.getElementById('statDeposits').textContent = fmtUsd(p.defiDeposits || 0);
+        setStatValue('statNetWorth', p.totalNetWorth);
+        setStatValue('statDeposits', p.defiDeposits || 0);
         document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
-        document.getElementById('statLiabilities').textContent = p.defiBorrows ? fmtUsd(p.defiBorrows) : '$0';
+        setStatValue('statLiabilities', p.defiBorrows || 0);
 
         // Load P&L in background for label wallets
         const labelWallets = (label.wallets || []).map(w => w.address);
@@ -6174,7 +6180,7 @@
       try {
         const res = await fetch('/api/labels/' + editingLabelId, {
           method: 'DELETE',
-          headers: getAuthHeaders(),
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ owner_wallet: connectedWallet })
         });
 
@@ -6837,7 +6843,7 @@
   </script>
 
   <!-- Dialect Notifications React Component -->
-  <script src="/js/dialect-notifications.js?v=23"></script>
+  <script src="/js/dialect-notifications.js?v=25"></script>
 
   <!-- Turnstile invisible widget container -->
   <div id="turnstile-container"></div>
