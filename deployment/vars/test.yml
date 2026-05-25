@@ -14,3 +14,6 @@ metrics_secret: "test_m3tr1cs_s3cr3t"
 
 # Environment identifier
 deploy_environment: test
+
+# Helius API key (Enhanced Transactions API + RPC + websocket)
+helius_api_key: "ac6750b1-daa3-45b6-b6f5-931bfb7b8999"
