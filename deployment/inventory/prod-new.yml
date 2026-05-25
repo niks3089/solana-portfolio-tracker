@@ -3,8 +3,8 @@ all:
   children:
     portfolio_servers:
       hosts:
-        portfolio_test:
+        portfolio_prod_new:
           ansible_host: 213.239.141.25
           ansible_user: ubuntu
-          server_name: portfolio-test
+          server_name: portfolio-prod-new
           server_location: HETZNER

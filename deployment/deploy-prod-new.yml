@@ -1,14 +1,15 @@
 ---
 # ============================================================================
-# Test-environment deploy playbook (no encrypted vault required).
-# Mirrors deploy.yml but loads vars/vault-test.yml instead of vars/vault.yml.
+# prod-new deploy playbook (no encrypted vault required).
+# Mirrors deploy.yml but loads vars/vault-prod-new.yml instead of vars/vault.yml.
+# 213.239.141.25 currently serves portfolio.niks3089.com — single-user prod.
 # ============================================================================
-- name: Deploy Portfolio Dashboard (TEST env)
+- name: Deploy Portfolio Dashboard (prod-new env)
   hosts: portfolio_servers
   become: yes
   vars_files:
     - vars/base.yml
-    - vars/vault-test.yml
+    - vars/vault-prod-new.yml
 
   tasks:
     - name: Display deployment target

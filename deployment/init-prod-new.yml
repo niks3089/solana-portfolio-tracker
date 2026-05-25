@@ -1,16 +1,17 @@
 ---
 # ============================================================================
-# Test-environment init playbook (no encrypted vault required).
-# Mirrors init.yml but loads vars/vault-test.yml instead of vars/vault.yml.
+# prod-new init playbook (no encrypted vault required).
+# Mirrors init.yml but loads vars/vault-prod-new.yml instead of vars/vault.yml.
+# 213.239.141.25 currently serves portfolio.niks3089.com — single-user prod.
 # ============================================================================
-- name: Initialize Portfolio Dashboard (TEST env)
+- name: Initialize Portfolio Dashboard (prod-new env)
   hosts: portfolio_servers
   become: yes
   become_method: sudo
   become_user: root
   vars_files:
     - "{{ playbook_dir }}/vars/base.yml"
-    - "{{ playbook_dir }}/vars/vault-test.yml"
+    - "{{ playbook_dir }}/vars/vault-prod-new.yml"
 
   pre_tasks:
     - name: Display initialization target

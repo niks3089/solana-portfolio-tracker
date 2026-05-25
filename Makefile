@@ -49,18 +49,17 @@ status-staging:
 # PRODUCTION - Only after staging passes!
 # ============================================================================
 deploy:
-	@echo "⚠️  Deploying to PRODUCTION (portfolio.niks3089.com)..."
-	@echo "    Make sure staging tests passed first!"
+	@echo "⚠️  Deploying to PRODUCTION (portfolio.niks3089.com → 213.239.141.25)..."
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	cd deployment && ansible-playbook -i inventory/prod.yml deploy.yml -e @vars/prod.yml
+	cd deployment && ansible-playbook -i inventory/prod-new.yml deploy-prod-new.yml -e @vars/prod-new.yml
 
 deploy-force:
 	@echo "🚨 FORCE deploying to PRODUCTION (skipping confirmation)..."
-	cd deployment && ansible-playbook -i inventory/prod.yml deploy.yml -e @vars/prod.yml
+	cd deployment && ansible-playbook -i inventory/prod-new.yml deploy-prod-new.yml -e @vars/prod-new.yml
 
 init:
 	@echo "🔧 Full initialization on PRODUCTION..."
-	cd deployment && ansible-playbook -i inventory/prod.yml init.yml -e @vars/prod.yml
+	cd deployment && ansible-playbook -i inventory/prod-new.yml init-prod-new.yml -e @vars/prod-new.yml
 
 test-prod:
 	@echo "🧪 Running sanity tests on PRODUCTION..."
@@ -90,22 +89,22 @@ deploy-all:
 # Production server management
 # ============================================================================
 ssh:
-	ssh ubuntu@207.148.27.173
+	ssh ubuntu@213.239.141.25
 
 logs:
-	ssh ubuntu@207.148.27.173 "sudo journalctl -u portfolio -f"
+	ssh ubuntu@213.239.141.25 "sudo journalctl -u portfolio -f"
 
 status:
-	ssh ubuntu@207.148.27.173 "sudo systemctl status portfolio"
+	ssh ubuntu@213.239.141.25 "sudo systemctl status portfolio"
 
 restart:
-	ssh ubuntu@207.148.27.173 "sudo systemctl restart portfolio"
+	ssh ubuntu@213.239.141.25 "sudo systemctl restart portfolio"
 
 nginx-logs:
-	ssh ubuntu@207.148.27.173 "sudo tail -f /var/log/nginx/access.log"
+	ssh ubuntu@213.239.141.25 "sudo tail -f /var/log/nginx/access.log"
 
 nginx-errors:
-	ssh ubuntu@207.148.27.173 "sudo tail -f /var/log/nginx/error.log"
+	ssh ubuntu@213.239.141.25 "sudo tail -f /var/log/nginx/error.log"
 
 # ============================================================================
 # Metrics
@@ -114,7 +113,7 @@ metrics-staging:
 	@curl -s "http://45.76.155.10:3000/api/metrics?secret=staging_m3tr1cs_s3cr3t" | jq .
 
 metrics-prod:
-	@curl -s "https://portfolio.niks3089.com/api/metrics?secret=saul_m3tr1cs_s3cr3t_2024" | jq .
+	@curl -s "https://portfolio.niks3089.com/api/metrics?secret=prod_new_m3tr1cs_s3cr3t" | jq .
 
 # ============================================================================
 # Vault management
