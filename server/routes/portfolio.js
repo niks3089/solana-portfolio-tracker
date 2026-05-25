@@ -14,6 +14,7 @@ import {
     getDialectPositions,
     getPortfolioHistory,
 } from '../services/portfolio.js';
+import { getAggregateTradePnL, HeliusAuthError } from '../services/trade-pnl.js';
 
 const router = Router();
 
@@ -263,6 +264,35 @@ router.post('/aggregate/fast', async (req, res) => {
     } catch (error) {
         console.error('Fast aggregate error:', error);
         res.status(500).json({ error: 'Failed to fetch portfolio' });
+    }
+});
+
+// Trade-based P&L: scan Helius tx history for buy swaps, compare with today's price.
+router.post('/trade-pnl', async (req, res) => {
+    try {
+        const { wallets: inputWallets } = req.body;
+        if (!inputWallets?.length) {
+            return res.status(400).json({ error: 'wallets array required' });
+        }
+        metrics.requests.total++;
+        metrics.requests.byEndpoint['/api/portfolio/trade-pnl'] = (metrics.requests.byEndpoint['/api/portfolio/trade-pnl'] || 0) + 1;
+
+        const wallets = await Promise.all(inputWallets.map(w => resolveSNS(w)));
+        const holdings = await Promise.all(wallets.map(w => getHoldings(w)));
+        const result = await getAggregateTradePnL(wallets, holdings);
+
+        console.log(`📈 [TRADE-PNL] ${wallets.length} wallets → ${result.trades.length} priced tokens`);
+        res.json(result);
+    } catch (error) {
+        if (error instanceof HeliusAuthError) {
+            console.error('Trade P&L: Helius auth failed:', error.message);
+            return res.status(503).json({
+                error: 'Helius API key invalid',
+                detail: 'Set HELIUS_API_KEY in the server environment to a valid key.',
+            });
+        }
+        console.error('Trade P&L error:', error);
+        res.status(500).json({ error: 'Failed to compute trade P&L' });
     }
 });
 

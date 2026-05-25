@@ -2815,6 +2815,18 @@
       </div>
     </div>
 
+    <div class="section">
+      <div class="section-header">
+        Trade P&amp;L (cost basis)
+        <span style="font-size:0.7rem;color:var(--text-secondary);font-weight:normal;margin-left:0.5rem">
+          Buys via SOL or stablecoin · today's price · last ~500 txs
+        </span>
+      </div>
+      <div id="tradePnLContent">
+        <div class="loading">Add a wallet to compute trade-based P&amp;L</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Wallet Connect Modal -->
@@ -2947,14 +2959,18 @@
     const ITEMS_PER_PAGE = 10;
     let tokenPage = 0;
     let defiPage = 0;
+    let tradePnLPage = 0;
     let allTokens = [];
     let allDefiPositions = [];
+    let allTradePnL = [];
 
     // Sorting state
     let tokenSortColumn = 'value';
     let tokenSortDirection = 'desc';
     let defiSortColumn = 'value';
     let defiSortDirection = 'desc';
+    let tradePnLSortColumn = 'pnl';
+    let tradePnLSortDirection = 'desc';
 
     function sortTokens(column) {
       if (tokenSortColumn === column) {
@@ -2976,6 +2992,63 @@
       }
       defiPage = 0;
       renderDefiPage();
+    }
+
+    function sortTradePnL(column) {
+      if (tradePnLSortColumn === column) {
+        tradePnLSortDirection = tradePnLSortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        tradePnLSortColumn = column;
+        tradePnLSortDirection = 'desc';
+      }
+      tradePnLPage = 0;
+      renderTradePnLPage();
+    }
+
+    function getSortedTradePnL(trades) {
+      const sorted = [...trades];
+      const dir = tradePnLSortDirection === 'asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        let aVal, bVal;
+        switch (tradePnLSortColumn) {
+          case 'asset':
+            aVal = (a.symbol || a.mint || '').toLowerCase();
+            bVal = (b.symbol || b.mint || '').toLowerCase();
+            return dir * aVal.localeCompare(bVal);
+          case 'bought':
+            aVal = a.amountBought || 0;
+            bVal = b.amountBought || 0;
+            break;
+          case 'avgCost':
+            aVal = a.avgCostPerToken || 0;
+            bVal = b.avgCostPerToken || 0;
+            break;
+          case 'price':
+            aVal = a.currentPrice || 0;
+            bVal = b.currentPrice || 0;
+            break;
+          case 'value':
+            aVal = a.currentValue || 0;
+            bVal = b.currentValue || 0;
+            break;
+          case 'costBasis':
+            aVal = a.costBasis || 0;
+            bVal = b.costBasis || 0;
+            break;
+          case 'pnl':
+            aVal = a.pnl || 0;
+            bVal = b.pnl || 0;
+            break;
+          case 'pnlPercent':
+            aVal = a.pnlPercent || 0;
+            bVal = b.pnlPercent || 0;
+            break;
+          default:
+            return 0;
+        }
+        return dir * (aVal - bVal);
+      });
+      return sorted;
     }
 
     function getSortedTokens(tokens) {
@@ -3697,9 +3770,11 @@
         document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '<div class="loading">Add a wallet to start</div>';
         document.getElementById('defiContent').innerHTML = '';
+        document.getElementById('tradePnLContent').innerHTML = '<div class="loading">Add a wallet to compute trade-based P&L</div>';
         renderDonutChart([], 0);
         allTokens = [];
         allDefiPositions = [];
+        allTradePnL = [];
       }
     }
 
@@ -4001,6 +4076,7 @@
         const labelWalletAddrs = (label.wallets || []).map(w => w.address);
         if (labelWalletAddrs.length > 0) {
           loadGrowthChart(labelWalletAddrs);
+          loadTradePnLInBackground(labelWalletAddrs);
         }
 
       } catch (e) {
@@ -4319,9 +4395,11 @@
         document.getElementById('statLiabilities').textContent = '$0';
         document.getElementById('tokensContent').innerHTML = '';
         document.getElementById('defiContent').innerHTML = '';
+        document.getElementById('tradePnLContent').innerHTML = '<div class="loading">Add a wallet to compute trade-based P&L</div>';
         renderDonutChart([], 0);
         allTokens = [];
         allDefiPositions = [];
+        allTradePnL = [];
         return;
       }
 
@@ -4366,6 +4444,7 @@
         // STEP 2: Load P&L and Dialect in background (parallel)
         loadPnLInBackground(wallets, data);
         loadDialectInBackground(wallets);
+        loadTradePnLInBackground(wallets);
 
       } catch (error) {
         console.error('Refresh error:', error);
@@ -5118,7 +5197,10 @@
       const yMin = Math.max(0, low - yPadding);
       const yMax = high + yPadding;
 
-      const xScale = (i) => padding.left + (i / Math.max(1, chartData.length - 1)) * chartWidth;
+      const firstTime = chartData[0].date.getTime();
+      const lastTime = chartData[chartData.length - 1].date.getTime();
+      const timeRange = (lastTime - firstTime) || 1;
+      const xScale = (i) => padding.left + ((chartData[i].date.getTime() - firstTime) / timeRange) * chartWidth;
       const yScale = (v) => {
         // If values are essentially flat, draw in the middle
         if (isFlat) return padding.top + chartHeight / 2;
@@ -5408,6 +5490,125 @@
       renderDefiPage();
     }
 
+    function setTradePnLPage(page) {
+      tradePnLPage = page;
+      renderTradePnLPage();
+    }
+
+    function renderTradePnLPage() {
+      const container = document.getElementById('tradePnLContent');
+      if (!container) return;
+
+      const trades = getSortedTradePnL(allTradePnL);
+      const hasProView = shouldShowProView();
+
+      if (trades.length === 0) {
+        container.innerHTML = '<div class="loading">No buy swaps with USD-priced inputs found in recent history</div>';
+        return;
+      }
+
+      const totalPages = Math.ceil(trades.length / ITEMS_PER_PAGE);
+      const start = tradePnLPage * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const pageTrades = trades.slice(start, end);
+
+      const visibleLimit = hasProView ? pageTrades.length : Math.min(1, pageTrades.length);
+      const visibleTrades = pageTrades.slice(0, visibleLimit);
+      const blurredTrades = hasProView ? [] : pageTrades.slice(visibleLimit);
+
+      const sortableHeader = (col, label, align) => {
+        const isActive = tradePnLSortColumn === col;
+        const icon = getSortIcon(col, tradePnLSortColumn, tradePnLSortDirection);
+        const alignAttr = align ? ' style="text-align:' + align + '"' : '';
+        return '<th class="sortable' + (isActive ? ' active' : '') + '"' + alignAttr +
+               ' onclick="sortTradePnL(\'' + col + '\')">' + label +
+               '<span class="sort-icon">' + icon + '</span></th>';
+      };
+
+      let html = '<table><thead><tr>';
+      html += sortableHeader('asset', 'Asset');
+      html += sortableHeader('bought', 'Bought', 'right');
+      html += sortableHeader('avgCost', 'Avg Cost', 'right');
+      html += sortableHeader('price', 'Today', 'right');
+      html += sortableHeader('value', 'Value', 'right');
+      html += sortableHeader('costBasis', 'Cost Basis', 'right');
+      html += sortableHeader('pnl', 'P&L', 'right');
+      html += sortableHeader('pnlPercent', 'P&L %', 'right');
+      html += '</tr></thead><tbody>';
+
+      for (const t of visibleTrades) {
+        const pnlClass = t.pnl >= 0 ? 'positive' : 'negative';
+        const sign = t.pnl >= 0 ? '+' : '';
+        const pctSign = t.pnlPercent >= 0 ? '+' : '';
+        const symbol = escapeHtml(t.symbol || (t.mint ? t.mint.slice(0,4) + '...' + t.mint.slice(-4) : '?'));
+        html += '<tr>';
+        html += '<td><strong>' + symbol + '</strong>' +
+                (t.txCount > 1 ? ' <span style="color:var(--text-secondary);font-size:0.75rem">×' + t.txCount + '</span>' : '') +
+                '</td>';
+        html += '<td style="text-align:right">' + fmtNum(t.amountBought, 4) + '</td>';
+        html += '<td style="text-align:right">' + fmtUsd(t.avgCostPerToken) + '</td>';
+        html += '<td style="text-align:right">' + fmtUsd(t.currentPrice) + '</td>';
+        html += '<td style="text-align:right">' + fmtUsd(t.currentValue) + '</td>';
+        html += '<td style="text-align:right">' + fmtUsd(t.costBasis) + '</td>';
+        html += '<td style="text-align:right" class="' + pnlClass + '">' + sign + fmtUsd(t.pnl) + '</td>';
+        html += '<td style="text-align:right" class="' + pnlClass + '">' + pctSign + t.pnlPercent.toFixed(1) + '%</td>';
+        html += '</tr>';
+      }
+
+      for (const _ of blurredTrades) {
+        html += '<tr class="blurred-row"><td>****</td><td>****</td><td>****</td><td>****</td><td>****</td><td>****</td><td>****</td><td>****</td></tr>';
+      }
+
+      html += '</tbody></table>';
+
+      if (hasProView && totalPages > 1) {
+        html += '<div class="pagination">';
+        html += '<button class="pagination-btn" onclick="setTradePnLPage(' + (tradePnLPage - 1) + ')"' + (tradePnLPage === 0 ? ' disabled' : '') + '>‹</button>';
+        html += '<span class="pagination-info">Page ' + (tradePnLPage + 1) + ' of ' + totalPages + '</span>';
+        html += '<button class="pagination-btn" onclick="setTradePnLPage(' + (tradePnLPage + 1) + ')"' + (tradePnLPage >= totalPages - 1 ? ' disabled' : '') + '>›</button>';
+        html += '</div>';
+      }
+
+      if (!hasProView && (blurredTrades.length > 0 || trades.length > ITEMS_PER_PAGE)) {
+        html += '<div class="upgrade-prompt" onclick="showPaymentModal()">⚡ Upgrade to see all ' + trades.length + ' trades</div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    async function loadTradePnLInBackground(wallets) {
+      const container = document.getElementById('tradePnLContent');
+      if (!container) return;
+      if (!wallets || !wallets.length) {
+        allTradePnL = [];
+        container.innerHTML = '<div class="loading">Add a wallet to compute trade-based P&L</div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="loading">Scanning recent transactions for buys…</div>';
+      try {
+        const res = await fetch('/api/portfolio/trade-pnl', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ wallets })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 503 && data.error) {
+          container.innerHTML = '<div class="loading" style="color:var(--negative)">' +
+            escapeHtml(data.error) + (data.detail ? ' — ' + escapeHtml(data.detail) : '') +
+            '</div>';
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || 'Server error (' + res.status + ')');
+        allTradePnL = data.trades || [];
+        tradePnLPage = 0;
+        renderTradePnLPage();
+      } catch (e) {
+        console.error('Trade P&L load error:', e);
+        container.innerHTML = '<div class="loading" style="color:var(--negative)">Failed to load trade P&L: ' + escapeHtml(e.message) + '</div>';
+      }
+    }
+
     // Wallet status UI
     function updateWalletStatusUI() {
       if (connectedWallet) {
@@ -5468,6 +5669,7 @@
       searchHistory = [];
       allTokens = [];
       allDefiPositions = [];
+      allTradePnL = [];
 
       // Clear ALL localStorage keys related to wallets
       localStorage.removeItem('portfolioWallets');
