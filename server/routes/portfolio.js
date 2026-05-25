@@ -281,7 +281,8 @@ router.post('/trade-pnl', async (req, res) => {
         const holdings = await Promise.all(wallets.map(w => getHoldings(w)));
         const result = await getAggregateTradePnL(wallets, holdings);
 
-        console.log(`📈 [TRADE-PNL] ${wallets.length} wallets → ${result.trades.length} priced tokens`);
+        const tradeCount = Object.values(result.perWallet || {}).reduce((s, rows) => s + rows.length, 0);
+        console.log(`📈 [TRADE-PNL] ${wallets.length} wallets → ${tradeCount} priced (wallet,token) pairs, totalPnL=$${(result.totals?.totalPnL || 0).toFixed(2)}`);
         res.json(result);
     } catch (error) {
         if (error instanceof HeliusAuthError) {
