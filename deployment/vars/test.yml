@@ -1,0 +1,16 @@
+---
+# ============================================================================
+# TEST ENVIRONMENT - Overrides for ad-hoc deploy on 213.239.141.25
+# (currently serving portfolio.niks3089.com via Cloudflare DNS-only)
+# ============================================================================
+
+# Domain (Cloudflare DNS-only — traffic hits this box directly)
+domain_name: portfolio.niks3089.com
+enable_ssl: true
+cloudflare_proxied: false
+
+# Metrics secret (different per environment)
+metrics_secret: "test_m3tr1cs_s3cr3t"
+
+# Environment identifier
+deploy_environment: test

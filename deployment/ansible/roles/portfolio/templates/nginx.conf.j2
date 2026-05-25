@@ -69,9 +69,17 @@ server {
 
     add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # Only allow Cloudflare IPs
+{% if cloudflare_proxied | default(true) %}
+    # Only allow Cloudflare IPs (cloudflare_proxied=true)
     if ($cloudflare_ip = 0) {
         return 403;
+    }
+{% endif %}
+
+    # Resolve client IP: prefer CF header if present, else fall back to direct remote_addr
+    set $client_ip $remote_addr;
+    if ($http_cf_connecting_ip) {
+        set $client_ip $http_cf_connecting_ip;
     }
 
     location / {
@@ -80,8 +88,8 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $http_cf_connecting_ip;
-        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Real-IP $client_ip;
+        proxy_set_header X-Forwarded-For $client_ip;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }

@@ -1,0 +1,10 @@
+---
+all:
+  children:
+    portfolio_servers:
+      hosts:
+        portfolio_test:
+          ansible_host: 213.239.141.25
+          ansible_user: ubuntu
+          server_name: portfolio-test
+          server_location: HETZNER

@@ -87,20 +87,42 @@
 # ============================================================================
 # Node.js Installation
 # ============================================================================
+- name: Check if Node.js is already installed
+  command: node --version
+  register: node_check
+  failed_when: false
+  changed_when: false
+
 - name: Install Node.js prerequisites
   apt:
     name:
       - nodejs
       - npm
     state: present
+  when: node_check.rc != 0
 
 - name: Install n (Node.js version manager)
   npm:
     name: n
     global: yes
+  when: node_check.rc != 0
 
 - name: Install Node.js 20 LTS
   command: n 20
+  when: node_check.rc != 0
+
+- name: Locate node binary
+  command: which node
+  register: node_path
+  changed_when: false
+
+- name: Ensure /usr/local/bin/node symlink (systemd service expects this path)
+  file:
+    src: "{{ node_path.stdout }}"
+    dest: /usr/local/bin/node
+    state: link
+    force: yes
+  when: node_path.stdout != "/usr/local/bin/node"
 
 # ============================================================================
 # Application setup

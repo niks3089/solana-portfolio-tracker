@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
-deployment/.vault_pass 
+deployment/.vault_pass
+# Plaintext vault stub used only by the ad-hoc test env (vars/test.yml).
+# Encrypted prod/staging vault lives at deployment/vars/vault.yml.
+deployment/vars/vault-test.yml
 
 # Environment
 .env
