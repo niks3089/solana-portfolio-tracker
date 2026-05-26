@@ -120,64 +120,163 @@ function valueOfInputUsd(mint, amount, solPriceUsd) {
 }
 
 /**
- * Parse swaps for a single wallet and aggregate cost basis per output mint.
- * Returns Map<mint, { amountBought, totalCostUsd, txCount, firstTs, lastTs }>.
+ * Parse swap events for one wallet. Emits, in a single pass:
+ *   - `buys`:  Map<mint, {amountBought, totalCostUsd, txCount, firstTs, lastTs}>
+ *              (output tokens acquired with SOL/stablecoin input)
+ *   - `sells`: Map<mint, {amountSold, totalProceedsUsd, txCount, firstTs, lastTs}>
+ *              (input tokens given up for SOL/stablecoin output)
+ *   - `events`: chronological [{kind: 'buy_swap'|'sell_swap', mint, amount, usd, ts}]
+ *              used for the XIRR cashflow timeline.
+ *
+ * Token-for-token swaps (no SOL/stablecoin leg) are skipped — we have no USD
+ * anchor to price them.
  */
-export function aggregateSwaps(wallet, txs, solPriceUsd) {
-    const acc = new Map();
+export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
+    const buys = new Map();
+    const sells = new Map();
+    const events = [];
+
+    const cashMintUsd = (mint, amt) => {
+        if (STABLECOIN_MINTS.has(mint)) return amt;
+        if (mint === SOL_MINT_WRAPPED || mint === SOL_MINT_NATIVE) return amt * (solPriceUsd || 0);
+        return 0;
+    };
 
     for (const tx of txs) {
         const swap = tx?.events?.swap;
         if (!swap) continue;
+        const ts = tx.timestamp || 0;
 
-        // What did THIS wallet receive in this swap?
-        const outputs = (swap.tokenOutputs || []).filter(o => o.userAccount === wallet);
-        if (outputs.length === 0) continue;
-
-        // What did this wallet spend? Compute total USD cost from priced inputs.
-        let costUsd = 0;
+        // Split wallet's inputs/outputs into "cash" (SOL/stablecoin) and "tokens" buckets.
+        let cashInUsd = 0;          // USD value of cash the wallet GAVE UP
+        const tokensOut = [];        // non-cash tokens the wallet GAVE UP   (potential sells)
+        let cashOutUsd = 0;          // USD value of cash the wallet RECEIVED
+        const tokensIn = [];         // non-cash tokens the wallet RECEIVED  (potential buys)
 
         if (swap.nativeInput?.account === wallet) {
-            const lamports = parseFloat(swap.nativeInput.amount) || 0;
-            costUsd += (lamports / 1e9) * (solPriceUsd || 0);
+            const lam = parseFloat(swap.nativeInput.amount) || 0;
+            cashInUsd += (lam / 1e9) * (solPriceUsd || 0);
         }
-        for (const input of swap.tokenInputs || []) {
-            if (input.userAccount !== wallet) continue;
-            const amt = rawToFloat(input.rawTokenAmount);
-            costUsd += valueOfInputUsd(input.mint, amt, solPriceUsd);
-        }
-
-        if (costUsd <= 0) continue; // token-for-token w/ no known USD anchor
-
-        // Distribute cost across outputs proportionally by raw amount.
-        const outputAmounts = outputs.map(o => rawToFloat(o.rawTokenAmount));
-        const totalOut = outputAmounts.reduce((s, x) => s + x, 0);
-        if (totalOut <= 0) continue;
-
-        for (let i = 0; i < outputs.length; i++) {
-            const out = outputs[i];
-            const amt = outputAmounts[i];
+        for (const i of swap.tokenInputs || []) {
+            if (i.userAccount !== wallet) continue;
+            const amt = rawToFloat(i.rawTokenAmount);
             if (amt <= 0) continue;
-            const share = amt / totalOut;
-            const entry = acc.get(out.mint) || {
-                amountBought: 0,
-                totalCostUsd: 0,
-                txCount: 0,
-                firstTs: tx.timestamp || 0,
-                lastTs: tx.timestamp || 0,
-            };
-            entry.amountBought += amt;
-            entry.totalCostUsd += costUsd * share;
-            entry.txCount += 1;
-            if (tx.timestamp) {
-                if (!entry.firstTs || tx.timestamp < entry.firstTs) entry.firstTs = tx.timestamp;
-                if (tx.timestamp > entry.lastTs) entry.lastTs = tx.timestamp;
+            const usd = cashMintUsd(i.mint, amt);
+            if (usd > 0) cashInUsd += usd;
+            else tokensOut.push({ mint: i.mint, amount: amt });
+        }
+        if (swap.nativeOutput?.account === wallet) {
+            const lam = parseFloat(swap.nativeOutput.amount) || 0;
+            cashOutUsd += (lam / 1e9) * (solPriceUsd || 0);
+        }
+        for (const o of swap.tokenOutputs || []) {
+            if (o.userAccount !== wallet) continue;
+            const amt = rawToFloat(o.rawTokenAmount);
+            if (amt <= 0) continue;
+            const usd = cashMintUsd(o.mint, amt);
+            if (usd > 0) cashOutUsd += usd;
+            else tokensIn.push({ mint: o.mint, amount: amt });
+        }
+
+        // Buy leg: non-cash tokens received, priced by cash given up.
+        if (tokensIn.length > 0 && cashInUsd > 0) {
+            const total = tokensIn.reduce((s, x) => s + x.amount, 0) || 1;
+            for (const t of tokensIn) {
+                const cost = cashInUsd * (t.amount / total);
+                let acc = buys.get(t.mint);
+                if (!acc) { acc = { amountBought: 0, totalCostUsd: 0, txCount: 0, firstTs: ts, lastTs: ts }; buys.set(t.mint, acc); }
+                acc.amountBought += t.amount;
+                acc.totalCostUsd += cost;
+                acc.txCount += 1;
+                if (ts && (!acc.firstTs || ts < acc.firstTs)) acc.firstTs = ts;
+                if (ts > acc.lastTs) acc.lastTs = ts;
+                events.push({ kind: 'buy_swap', mint: t.mint, amount: t.amount, usd: cost, ts });
             }
-            acc.set(out.mint, entry);
+        }
+        // Sell leg: non-cash tokens given up, priced by cash received.
+        if (tokensOut.length > 0 && cashOutUsd > 0) {
+            const total = tokensOut.reduce((s, x) => s + x.amount, 0) || 1;
+            for (const t of tokensOut) {
+                const proceeds = cashOutUsd * (t.amount / total);
+                let acc = sells.get(t.mint);
+                if (!acc) { acc = { amountSold: 0, totalProceedsUsd: 0, txCount: 0, firstTs: ts, lastTs: ts }; sells.set(t.mint, acc); }
+                acc.amountSold += t.amount;
+                acc.totalProceedsUsd += proceeds;
+                acc.txCount += 1;
+                if (ts && (!acc.firstTs || ts < acc.firstTs)) acc.firstTs = ts;
+                if (ts > acc.lastTs) acc.lastTs = ts;
+                events.push({ kind: 'sell_swap', mint: t.mint, amount: t.amount, usd: proceeds, ts });
+            }
         }
     }
 
-    return acc;
+    return { buys, sells, events };
+}
+
+// Back-compat: callers that only need the buys map can use this thin wrapper.
+export function aggregateSwaps(wallet, txs, solPriceUsd) {
+    return aggregateSwapEvents(wallet, txs, solPriceUsd).buys;
+}
+
+// ============================================================================
+// XIRR (annualized rate of return for irregular cashflows)
+// ============================================================================
+
+/**
+ * Compute XIRR from a list of {ts, amount} cashflows. Negative amounts are
+ * outflows (money invested), positive are inflows (money returned). Returns
+ * the annualized rate as a decimal (e.g. 0.45 = 45%), or null if undefined.
+ *
+ * Newton-Raphson with bisection fallback. ~200 iter cap.
+ */
+export function computeXIRR(cashflows) {
+    if (!cashflows || cashflows.length < 2) return null;
+    const cf = [...cashflows].filter(c => Number.isFinite(c.amount) && Number.isFinite(c.ts));
+    cf.sort((a, b) => a.ts - b.ts);
+    if (cf.length < 2) return null;
+
+    let hasPos = false, hasNeg = false;
+    for (const c of cf) {
+        if (c.amount > 0) hasPos = true;
+        else if (c.amount < 0) hasNeg = true;
+    }
+    if (!hasPos || !hasNeg) return null;
+
+    const t0 = cf[0].ts;
+    const years = c => (c.ts - t0) / (365.25 * 86400);
+    const npv = r => cf.reduce((s, c) => s + c.amount / Math.pow(1 + r, years(c)), 0);
+    const dnpv = r => cf.reduce((s, c) => {
+        const y = years(c);
+        return s + c.amount * (-y) / Math.pow(1 + r, y + 1);
+    }, 0);
+
+    // Newton-Raphson
+    let r = 0.1;
+    for (let i = 0; i < 200; i++) {
+        const f = npv(r);
+        if (Math.abs(f) < 1e-6) return r;
+        const df = dnpv(r);
+        if (!Number.isFinite(df) || Math.abs(df) < 1e-12) break;
+        let next = r - f / df;
+        if (!Number.isFinite(next)) break;
+        if (next <= -0.999) next = -0.99;
+        if (Math.abs(next - r) < 1e-9) return next;
+        r = next;
+    }
+    // Bisection fallback over a wide range
+    let lo = -0.99, hi = 100;
+    let fLo = npv(lo);
+    let fHi = npv(hi);
+    if (!Number.isFinite(fLo) || !Number.isFinite(fHi) || fLo * fHi > 0) return null;
+    for (let i = 0; i < 400; i++) {
+        const mid = (lo + hi) / 2;
+        const f = npv(mid);
+        if (!Number.isFinite(f)) return null;
+        if (Math.abs(f) < 1e-6) return mid;
+        if (f * fLo < 0) { hi = mid; fHi = f; }
+        else { lo = mid; fLo = f; }
+    }
+    return (lo + hi) / 2;
 }
 
 function deriveSolPriceFromHoldings(holdingsList) {
@@ -234,8 +333,9 @@ export async function getAggregateTradePnL(wallets, holdings) {
     // wallet-to-wallet transfers (those don't add new cost basis).
     const householdSet = new Set(wallets);
 
-    // Pass 1: parse swaps per wallet.
-    const accsPerWallet = txsPerWallet.map((txs, i) => aggregateSwaps(wallets[i], txs, solPriceUsd));
+    // Pass 1: parse swaps per wallet (extracting buys, sells, and event timeline).
+    const swapEventsPerWallet = txsPerWallet.map((txs, i) => aggregateSwapEvents(wallets[i], txs, solPriceUsd));
+    const accsPerWallet = swapEventsPerWallet.map(x => x.buys); // back-compat with existing byMint logic
 
     // Pass 2: per-mint household aggregate.
     //   mint -> { totalSpent, totalBought, totalHeld, txCount, sources: Set }
@@ -393,9 +493,128 @@ export async function getAggregateTradePnL(wallets, holdings) {
         perWallet[w] = rows;
     }
 
+    // ----- Summary: invested total, absolute return, XIRR, SOL benchmark XIRR -----
+    // For XIRR to be meaningful, cashflows must be "external only" — money
+    // crossing the boundary of the tracked-wallet set. Swap legs that recycle
+    // SOL/stablecoin through the household are NOT cashflows (the cash stays
+    // in the portfolio). Real cashflows are transfers in/out from non-household
+    // wallets, valued at the historical token price on the transfer day.
+    const externalEvents = []; // {mint, amount, ts, dir: 'in'|'out'}
+    for (let i = 0; i < wallets.length; i++) {
+        const w = wallets[i];
+        for (const tx of txsPerWallet[i]) {
+            const ts = tx.timestamp || 0;
+            for (const tt of (tx.tokenTransfers || [])) {
+                const amt = parseFloat(tt.tokenAmount) || 0;
+                if (amt <= 0 || !tt.mint) continue;
+                if (tt.toUserAccount === w && tt.fromUserAccount && !householdSet.has(tt.fromUserAccount)) {
+                    externalEvents.push({ mint: tt.mint, amount: amt, ts, dir: 'in' });
+                } else if (tt.fromUserAccount === w && tt.toUserAccount && !householdSet.has(tt.toUserAccount)) {
+                    externalEvents.push({ mint: tt.mint, amount: amt, ts, dir: 'out' });
+                }
+            }
+            for (const nt of (tx.nativeTransfers || [])) {
+                const lam = parseFloat(nt.amount) || 0;
+                const sol = lam / 1e9;
+                if (sol <= 0) continue;
+                if (nt.toUserAccount === w && nt.fromUserAccount && !householdSet.has(nt.fromUserAccount)) {
+                    externalEvents.push({ mint: SOL_MINT_WRAPPED, amount: sol, ts, dir: 'in' });
+                } else if (nt.fromUserAccount === w && nt.toUserAccount && !householdSet.has(nt.toUserAccount)) {
+                    externalEvents.push({ mint: SOL_MINT_WRAPPED, amount: sol, ts, dir: 'out' });
+                }
+            }
+        }
+    }
+
+    // Price each external event in USD. Stablecoins at face value; SOL and other
+    // tokens via Birdeye historical-price-by-day.
+    const extPriceQueries = new Map();
+    for (const ev of externalEvents) {
+        if (STABLECOIN_MINTS.has(ev.mint) || !ev.ts) continue;
+        const day = Math.floor(ev.ts / 86400) * 86400;
+        const key = `${ev.mint}:${day}`;
+        if (!extPriceQueries.has(key)) extPriceQueries.set(key, { mint: ev.mint, ts: day });
+    }
+    const extPriceLookups = await Promise.all(
+        Array.from(extPriceQueries.entries()).map(async ([key, q]) => [key, await getHistoricalPrice(q.mint, q.ts)])
+    );
+    const extPriceMap = new Map(extPriceLookups);
+
+    const cashflowEvents = [];
+    for (const ev of externalEvents) {
+        let usd = 0;
+        if (STABLECOIN_MINTS.has(ev.mint)) {
+            usd = ev.amount;
+        } else {
+            const day = Math.floor(ev.ts / 86400) * 86400;
+            const p = extPriceMap.get(`${ev.mint}:${day}`);
+            if (!p || p <= 0) continue;
+            usd = ev.amount * p;
+        }
+        if (usd <= 0) continue;
+        cashflowEvents.push({ ts: ev.ts, amount: ev.dir === 'in' ? -usd : usd });
+    }
+
+    // Displayed "Invested" matches the per-token Amount Spent column (household-
+    // capped current cost basis), so the summary and the table reconcile. Gross
+    // cashflow sums are kept around for XIRR + diagnostics, not for the headline
+    // Invested number — those would double-count SOL recycled through swaps.
+    const investedDisplay = totalCostBasis;
+    const investedGross = cashflowEvents.reduce((s, c) => s + (c.amount < 0 ? -c.amount : 0), 0);
+    const realizedReceipts = cashflowEvents.reduce((s, c) => s + (c.amount > 0 ? c.amount : 0), 0);
+    const absoluteReturnUsd = totalValue - investedDisplay;       // matches sum of per-token P&L
+    const absoluteReturnPct = investedDisplay > 0 ? (absoluteReturnUsd / investedDisplay) * 100 : null;
+
+    // XIRR: append a final "today" cashflow equal to current portfolio value.
+    const nowTs = Math.floor(Date.now() / 1000);
+    const xirrCashflows = [...cashflowEvents, { ts: nowTs, amount: totalValue }];
+    const xirrRate = computeXIRR(xirrCashflows);
+    const xirrPct = xirrRate != null ? xirrRate * 100 : null;
+
+    // SOL benchmark: replay the same dollar cashflows against SOL at the historical
+    // SOL price on each cashflow date; today's value = net SOL accumulated × current SOL price.
+    // If a single day's SOL price can't be fetched, fall back to today's SOL price for
+    // that cashflow (better than dropping the entire benchmark).
+    let benchmarkSolXirrPct = null;
+    if (cashflowEvents.length > 0 && solPriceUsd > 0) {
+        const solQueries = new Set(cashflowEvents.map(c => Math.floor(c.ts / 86400) * 86400));
+        const solPriceByDay = new Map();
+        await Promise.all(Array.from(solQueries).map(async day => {
+            const p = await getHistoricalPrice(SOL_MINT_WRAPPED, day);
+            if (p && p > 0) solPriceByDay.set(day, p);
+        }));
+        let netSol = 0;
+        const bcfs = [];
+        for (const c of cashflowEvents) {
+            const day = Math.floor(c.ts / 86400) * 86400;
+            const sp = solPriceByDay.get(day) || solPriceUsd; // fallback: today's SOL price
+            if (sp <= 0) continue;
+            netSol += -c.amount / sp;
+            bcfs.push(c);
+        }
+        if (bcfs.length > 0) {
+            const benchValueToday = netSol * solPriceUsd;
+            const benchXirr = computeXIRR([...bcfs, { ts: nowTs, amount: benchValueToday }]);
+            if (benchXirr != null) benchmarkSolXirrPct = benchXirr * 100;
+        }
+    }
+
+    const summary = {
+        currentValue: totalValue,
+        investedTotal: investedDisplay,         // headline number, matches table totals
+        investedGross,                           // sum of all buy cashflows (incl. recycled SOL)
+        realizedReceipts,                        // sum of all sell cashflows
+        absoluteReturnUsd,
+        absoluteReturnPct,
+        xirrPct,
+        benchmarkSolXirrPct,
+        cashflowCount: cashflowEvents.length,
+    };
+
     const result = {
         perWallet,
         totals: { totalPnL, totalCostBasis, totalValue },
+        summary,
         solPriceUsd,
         walletsScanned: wallets.length,
         hasUnpriced,

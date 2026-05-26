@@ -434,6 +434,27 @@
       opacity: 0.7;
     }
 
+    /* Returns summary row above Token Holdings */
+    .returns-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .returns-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .returns-card .stat-label { margin-bottom: 0.25rem; }
+    .returns-card .stat-value { font-size: 1.4rem; }
+    .returns-card .stat-sub {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 0.2rem;
+    }
+
     /* Growth Chart Styles */
     .growth-section .section-header {
       display: flex;
@@ -2801,6 +2822,36 @@
       </div>
     </div>
 
+    <div class="section" id="returnsSection" style="display:none">
+      <div class="section-header">
+        Returns
+        <span style="font-size:0.7rem;color:var(--text-secondary);font-weight:normal;margin-left:0.5rem">
+          across all tracked wallets · transfer-ins valued at historical price
+        </span>
+      </div>
+      <div class="returns-grid">
+        <div class="returns-card">
+          <div class="stat-label">Current Value</div>
+          <div class="stat-value" id="returnsCurrentValue">—</div>
+        </div>
+        <div class="returns-card">
+          <div class="stat-label">Invested</div>
+          <div class="stat-value" id="returnsInvested">—</div>
+          <div class="stat-sub" id="returnsInvestedSub"></div>
+        </div>
+        <div class="returns-card">
+          <div class="stat-label">Absolute Return</div>
+          <div class="stat-value" id="returnsAbsolute">—</div>
+          <div class="stat-sub" id="returnsAbsoluteSub"></div>
+        </div>
+        <div class="returns-card" title="Annualized rate of return derived from real external deposits/withdrawals (transfers in/out of your tracked wallets) plus today's net worth. High values reflect a short tracked period or recent deposits.">
+          <div class="stat-label">XIRR</div>
+          <div class="stat-value" id="returnsXirr">—</div>
+          <div class="stat-sub">annualized return</div>
+        </div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="section-header">Token Holdings</div>
       <div id="tokensContent">
@@ -2950,9 +3001,15 @@
     let allTokens = [];
     let allDefiPositions = [];
     // Trade-pnl state: perWallet[wallet] = [{mint, costBasis, pnl, ...}, ...]
-    // and tradePnLTotals = { totalPnL, totalCostBasis, totalValue } for the stat card.
+    // tradePnLTotals = { totalPnL, totalCostBasis, totalValue } (current-holdings only)
+    // tradePnLSummary = { currentValue, investedTotal, realizedReceipts,
+    //                     absoluteReturnUsd, absoluteReturnPct, xirrPct, benchmarkSolXirrPct }
     let allTradePnLPerWallet = {};
     let tradePnLTotals = null;
+    let tradePnLSummary = null;
+    // Most recent Net Worth (tokens + stablecoins + DeFi − liabilities), used so
+    // the Returns "Current Value" card matches the top Net Worth stat card.
+    let lastNetWorth = null;
 
     // Sorting state
     let tokenSortColumn = 'value';
@@ -3965,6 +4022,7 @@
 
         // Update stats using setStatValue for proper privacy toggle
         const p = data.portfolio;
+        lastNetWorth = p.totalNetWorth;
         setStatValue('statNetWorth', p.totalNetWorth);
         setStatValue('statDeposits', p.defiDeposits || 0);
         document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
@@ -4394,6 +4452,7 @@
     function renderFastData(data, wallets) {
       try {
         const a = data.aggregate || {};
+        lastNetWorth = a.totalNetWorth || 0;
         setStatValue('statNetWorth', a.totalNetWorth || 0);
         setStatValue('statDeposits', a.defiDeposits || 0);
 
@@ -5508,13 +5567,14 @@
     // Token Holdings table + All-Time P&L stat card once it lands. Silent on
     // failure — the table just keeps showing "—" in the cost/P&L columns.
     async function loadTradePnLInBackground(wallets) {
-      // Clear stale data from a previous portfolio so the table doesn't show
-      // wrong cost/P&L numbers while the new fetch is in flight.
+      // Clear stale data from a previous portfolio.
       allTradePnLPerWallet = {};
       tradePnLTotals = null;
+      tradePnLSummary = null;
       if (!wallets || !wallets.length) {
         renderTokensPage();
         updateAllTimePnLCard();
+        updateReturnsSection();
         return;
       }
       try {
@@ -5528,32 +5588,86 @@
           console.warn('Trade P&L unavailable:', res.status, data.error);
           renderTokensPage();
           updateAllTimePnLCard();
+          updateReturnsSection();
           return;
         }
         allTradePnLPerWallet = data.perWallet || {};
         tradePnLTotals = data.totals || null;
+        tradePnLSummary = data.summary || null;
         renderTokensPage();
         updateAllTimePnLCard();
+        updateReturnsSection();
       } catch (e) {
         console.error('Trade P&L load error:', e);
         renderTokensPage();
         updateAllTimePnLCard();
+        updateReturnsSection();
       }
     }
 
     function updateAllTimePnLCard() {
       const el = document.getElementById('statPnL');
       if (!el) return;
-      if (!tradePnLTotals) {
-        // Fetch failed or didn't return totals — show a dash rather than $0.
+      // Prefer absolute return (realized + unrealized) — matches "All-Time P&L" semantics.
+      const total = tradePnLSummary && tradePnLSummary.absoluteReturnUsd != null
+        ? tradePnLSummary.absoluteReturnUsd
+        : (tradePnLTotals ? tradePnLTotals.totalPnL : null);
+      if (total == null) {
         el.textContent = '—';
         el.className = 'stat-value';
         delete el.dataset.rawValue;
         return;
       }
-      const total = tradePnLTotals.totalPnL || 0;
       setStatValue('statPnL', total, { showSign: true });
       el.className = 'stat-value ' + (total >= 0 ? 'positive' : 'negative');
+    }
+
+    function updateReturnsSection() {
+      const section = document.getElementById('returnsSection');
+      if (!section) return;
+      const s = tradePnLSummary;
+      if (!s) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = '';
+
+      const fmtPct = (v) => v == null ? '—'
+        : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+      const colorFor = (v) => v == null ? '' : (v >= 0 ? 'positive' : 'negative');
+
+      const setText = (id, text, cls) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'stat-value' + (cls ? ' ' + cls : '');
+      };
+      const setSub = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text || '';
+      };
+
+      // Display Current Value = top-level Net Worth (tokens + stablecoins + DeFi − liabilities).
+      // P&L gains come only from priced tokens we track, so the implied "Invested" is
+      //   Net Worth − tracked P&L
+      // and Absolute Return stays equal to tracked P&L. This way the math reconciles:
+      //   Invested + Absolute Return = Current Value (= Net Worth).
+      const netWorth = (lastNetWorth != null && Number.isFinite(lastNetWorth))
+        ? lastNetWorth
+        : (s.currentValue || 0);
+      const trackedPnL = s.absoluteReturnUsd || 0;
+      const displayInvested = Math.max(0, netWorth - trackedPnL);
+      const displayAbsPct = displayInvested > 0 ? (trackedPnL / displayInvested) * 100 : null;
+
+      setText('returnsCurrentValue', fmtUsd(netWorth));
+      setText('returnsInvested', fmtUsd(displayInvested));
+      setSub('returnsInvestedSub', 'incl. stablecoins + DeFi at face value');
+
+      const absSign = trackedPnL >= 0 ? '+' : '';
+      setText('returnsAbsolute', absSign + fmtUsd(trackedPnL), colorFor(trackedPnL));
+      setSub('returnsAbsoluteSub', displayAbsPct != null ? fmtPct(displayAbsPct) : '');
+
+      setText('returnsXirr', fmtPct(s.xirrPct), colorFor(s.xirrPct));
     }
 
     // Wallet status UI
