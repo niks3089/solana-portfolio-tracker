@@ -2866,6 +2866,18 @@
       </div>
     </div>
 
+    <div class="section" id="tradeHistorySection" style="display:none">
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap">
+        <span>Trade History</span>
+        <input type="text" id="tradeHistoryFilter" placeholder="Filter by token (e.g. QQQx, NVDAx)"
+          style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:0.4rem 0.6rem;font-size:0.8rem;min-width:200px"
+          oninput="onTradeHistoryFilterChange()">
+      </div>
+      <div id="tradeHistoryContent">
+        <div class="loading">Loading trade history…</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Wallet Connect Modal -->
@@ -3010,6 +3022,12 @@
     // Most recent Net Worth (tokens + stablecoins + DeFi − liabilities), used so
     // the Returns "Current Value" card matches the top Net Worth stat card.
     let lastNetWorth = null;
+
+    // Trade history: flat list of priced buy/sell events from /api/portfolio/trade-pnl
+    let tradeHistory = [];
+    let tradeHistoryPage = 0;
+    let tradeHistorySort = 'date_desc';     // also: date_asc, usd_desc, usd_asc, token_asc, side
+    let tradeHistoryFilter = '';
 
     // Sorting state
     let tokenSortColumn = 'value';
@@ -5571,10 +5589,13 @@
       allTradePnLPerWallet = {};
       tradePnLTotals = null;
       tradePnLSummary = null;
+      tradeHistory = [];
+      tradeHistoryPage = 0;
       if (!wallets || !wallets.length) {
         renderTokensPage();
         updateAllTimePnLCard();
         updateReturnsSection();
+        renderTradeHistory();
         return;
       }
       try {
@@ -5594,14 +5615,18 @@
         allTradePnLPerWallet = data.perWallet || {};
         tradePnLTotals = data.totals || null;
         tradePnLSummary = data.summary || null;
+        tradeHistory = data.tradeHistory || [];
+        tradeHistoryPage = 0;
         renderTokensPage();
         updateAllTimePnLCard();
         updateReturnsSection();
+        renderTradeHistory();
       } catch (e) {
         console.error('Trade P&L load error:', e);
         renderTokensPage();
         updateAllTimePnLCard();
         updateReturnsSection();
+        renderTradeHistory();
       }
     }
 
@@ -5668,6 +5693,140 @@
       setSub('returnsAbsoluteSub', displayAbsPct != null ? fmtPct(displayAbsPct) : '');
 
       setText('returnsXirr', fmtPct(s.xirrPct), colorFor(s.xirrPct));
+    }
+
+    // ============================================================================
+    // Trade History panel: priced buy/sell events with links to orbmarkets
+    // ============================================================================
+    function onTradeHistoryFilterChange() {
+      const el = document.getElementById('tradeHistoryFilter');
+      tradeHistoryFilter = (el && el.value || '').trim().toLowerCase();
+      tradeHistoryPage = 0;
+      renderTradeHistory();
+    }
+
+    function setTradeHistorySort(col) {
+      // Toggle direction if same column, else default to descending for numeric.
+      if (col === 'date') {
+        tradeHistorySort = tradeHistorySort === 'date_desc' ? 'date_asc' : 'date_desc';
+      } else if (col === 'usd') {
+        tradeHistorySort = tradeHistorySort === 'usd_desc' ? 'usd_asc' : 'usd_desc';
+      } else if (col === 'token') {
+        tradeHistorySort = tradeHistorySort === 'token_asc' ? 'token_desc' : 'token_asc';
+      } else if (col === 'side') {
+        tradeHistorySort = tradeHistorySort === 'side_buy' ? 'side_sell' : 'side_buy';
+      }
+      tradeHistoryPage = 0;
+      renderTradeHistory();
+    }
+
+    function setTradeHistoryPage(p) {
+      tradeHistoryPage = p;
+      renderTradeHistory();
+    }
+
+    function getSortedTradeHistory() {
+      const rows = (tradeHistory || []).filter(r => {
+        if (!tradeHistoryFilter) return true;
+        const sym = (r.symbol || '').toLowerCase();
+        const wal = (r.walletShort || '').toLowerCase();
+        return sym.includes(tradeHistoryFilter) || wal.includes(tradeHistoryFilter);
+      });
+      const cmp = (a, b) => {
+        switch (tradeHistorySort) {
+          case 'date_asc':   return (a.ts || 0) - (b.ts || 0);
+          case 'usd_desc':   return (b.usd || 0) - (a.usd || 0);
+          case 'usd_asc':    return (a.usd || 0) - (b.usd || 0);
+          case 'token_asc':  return (a.symbol || '').localeCompare(b.symbol || '');
+          case 'token_desc': return (b.symbol || '').localeCompare(a.symbol || '');
+          case 'side_buy':   return (a.side === 'buy' ? 0 : 1) - (b.side === 'buy' ? 0 : 1);
+          case 'side_sell':  return (a.side === 'sell' ? 0 : 1) - (b.side === 'sell' ? 0 : 1);
+          case 'date_desc':
+          default:           return (b.ts || 0) - (a.ts || 0);
+        }
+      };
+      return rows.sort(cmp);
+    }
+
+    function renderTradeHistory() {
+      const section = document.getElementById('tradeHistorySection');
+      const container = document.getElementById('tradeHistoryContent');
+      if (!section || !container) return;
+      if (!tradeHistory || tradeHistory.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = '';
+
+      const rows = getSortedTradeHistory();
+      if (rows.length === 0) {
+        container.innerHTML = '<div class="loading">No trades match this filter.</div>';
+        return;
+      }
+
+      const PAGE = 25;
+      const totalPages = Math.ceil(rows.length / PAGE);
+      tradeHistoryPage = Math.min(tradeHistoryPage, Math.max(0, totalPages - 1));
+      const start = tradeHistoryPage * PAGE;
+      const slice = rows.slice(start, start + PAGE);
+
+      const sortIcon = (mode) => tradeHistorySort.startsWith(mode) ? (tradeHistorySort.endsWith('asc') ? ' ↑' : ' ↓') : ' ↕';
+      const fmtDate = (ts) => {
+        if (!ts) return '—';
+        const d = new Date(ts * 1000);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      };
+
+      let html = '<table><thead><tr>';
+      html += '<th class="sortable" onclick="setTradeHistorySort(\'date\')">Date<span class="sort-icon">' + sortIcon('date') + '</span></th>';
+      html += '<th>Wallet</th>';
+      html += '<th class="sortable" onclick="setTradeHistorySort(\'side\')">Side<span class="sort-icon">' + sortIcon('side') + '</span></th>';
+      html += '<th class="sortable" onclick="setTradeHistorySort(\'token\')">Token<span class="sort-icon">' + sortIcon('token') + '</span></th>';
+      html += '<th style="text-align:right">Amount</th>';
+      html += '<th class="sortable" style="text-align:right" onclick="setTradeHistorySort(\'usd\')">USD<span class="sort-icon">' + sortIcon('usd') + '</span></th>';
+      html += '<th style="text-align:right">Purchase Price</th>';
+      html += '<th>Tx</th>';
+      html += '</tr></thead><tbody>';
+
+      for (const r of slice) {
+        const sym = escapeHtml(r.symbol || (r.mint ? r.mint.slice(0,4) + '…' + r.mint.slice(-4) : '?'));
+        const sideClass = r.side === 'buy' ? 'positive' : 'negative';
+        // Show 'buy' (or 'sell') uniformly — don't expose whether it was a swap or transfer-in.
+        const sideLabel = r.side;
+        const isEstimated = r.kind === 'buy_transfer';
+        const usdStr = (isEstimated ? '~' : '') + fmtUsd(r.usd);
+        // Purchase price per token = total USD / amount. For estimated rows
+        // (transfer-in priced from historical lookup), mark with '~'.
+        const pricePerToken = (r.amount > 0 && r.usd > 0) ? (r.usd / r.amount) : null;
+        const priceStr = pricePerToken != null ? ((isEstimated ? '~' : '') + fmtUsd(pricePerToken)) : '—';
+        const txHref = r.signature ? 'https://www.orbmarkets.io/tx/' + encodeURIComponent(r.signature) : '';
+        const txCell = r.signature
+          ? '<a href="' + txHref + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">' + r.signature.slice(0, 6) + '…' + r.signature.slice(-4) + ' ↗</a>'
+          : '—';
+        html += '<tr>';
+        html += '<td>' + fmtDate(r.ts) + '</td>';
+        html += '<td><span class="badge badge-wallet">' + escapeHtml(r.walletShort || '?') + '</span></td>';
+        html += '<td class="' + sideClass + '">' + sideLabel + '</td>';
+        html += '<td><strong>' + sym + '</strong></td>';
+        html += '<td style="text-align:right">' + fmtNum(r.amount, 4) + '</td>';
+        html += '<td style="text-align:right">' + usdStr + '</td>';
+        html += '<td style="text-align:right">' + priceStr + '</td>';
+        html += '<td>' + txCell + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+
+      if (totalPages > 1) {
+        html += '<div class="pagination">';
+        html += '<button class="pagination-btn" onclick="setTradeHistoryPage(' + (tradeHistoryPage - 1) + ')"' + (tradeHistoryPage === 0 ? ' disabled' : '') + '>‹</button>';
+        html += '<span class="pagination-info">Page ' + (tradeHistoryPage + 1) + ' of ' + totalPages + ' · ' + rows.length + ' trades</span>';
+        html += '<button class="pagination-btn" onclick="setTradeHistoryPage(' + (tradeHistoryPage + 1) + ')"' + (tradeHistoryPage >= totalPages - 1 ? ' disabled' : '') + '>›</button>';
+        html += '</div>';
+      } else {
+        html += '<div style="text-align:right;color:var(--text-secondary);font-size:0.75rem;margin-top:0.4rem">' + rows.length + ' trades</div>';
+      }
+
+      container.innerHTML = html;
     }
 
     // Wallet status UI

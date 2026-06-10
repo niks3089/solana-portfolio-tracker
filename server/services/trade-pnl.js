@@ -146,6 +146,8 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
         const swap = tx?.events?.swap;
         if (!swap) continue;
         const ts = tx.timestamp || 0;
+        const signature = tx.signature || null;
+        const source = tx.source || null;
 
         // Split wallet's inputs/outputs into "cash" (SOL/stablecoin) and "tokens" buckets.
         let cashInUsd = 0;          // USD value of cash the wallet GAVE UP
@@ -190,7 +192,7 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
                 acc.txCount += 1;
                 if (ts && (!acc.firstTs || ts < acc.firstTs)) acc.firstTs = ts;
                 if (ts > acc.lastTs) acc.lastTs = ts;
-                events.push({ kind: 'buy_swap', mint: t.mint, amount: t.amount, usd: cost, ts });
+                events.push({ kind: 'buy_swap', mint: t.mint, amount: t.amount, usd: cost, ts, signature, source });
             }
         }
         // Sell leg: non-cash tokens given up, priced by cash received.
@@ -205,7 +207,7 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
                 acc.txCount += 1;
                 if (ts && (!acc.firstTs || ts < acc.firstTs)) acc.firstTs = ts;
                 if (ts > acc.lastTs) acc.lastTs = ts;
-                events.push({ kind: 'sell_swap', mint: t.mint, amount: t.amount, usd: proceeds, ts });
+                events.push({ kind: 'sell_swap', mint: t.mint, amount: t.amount, usd: proceeds, ts, signature, source });
             }
         }
     }
@@ -337,9 +339,12 @@ export async function getAggregateTradePnL(wallets, holdings) {
     const swapEventsPerWallet = txsPerWallet.map((txs, i) => aggregateSwapEvents(wallets[i], txs, solPriceUsd));
     const accsPerWallet = swapEventsPerWallet.map(x => x.buys); // back-compat with existing byMint logic
 
-    // Pass 2: per-mint household aggregate.
-    //   mint -> { totalSpent, totalBought, totalHeld, txCount, sources: Set }
+    // Pass 2: build BOTH per-wallet aggregates (preferred) and a household-wide
+    // aggregate (fallback for tokens received via intra-household transfer).
+    //   byMint:           mint -> { totalSpent, totalBought, totalHeld, txCount, sources: Set }
+    //   perWalletByMint:  walletIndex -> Map<mint, {same shape}>  (no totalHeld here)
     const byMint = new Map();
+    const perWalletByMint = wallets.map(() => new Map());
     let hasUnpriced = false;
 
     function bumpMint(mint, deltaSpent, deltaBought, deltaTxs, source) {
@@ -354,12 +359,25 @@ export async function getAggregateTradePnL(wallets, holdings) {
         if (source) m.sources.add(source);
         return m;
     }
+    function bumpWalletMint(i, mint, deltaSpent, deltaBought, deltaTxs, source) {
+        let m = perWalletByMint[i].get(mint);
+        if (!m) {
+            m = { totalSpent: 0, totalBought: 0, txCount: 0, sources: new Set() };
+            perWalletByMint[i].set(mint, m);
+        }
+        m.totalSpent += deltaSpent;
+        m.totalBought += deltaBought;
+        m.txCount += deltaTxs;
+        if (source) m.sources.add(source);
+        return m;
+    }
 
     for (let i = 0; i < wallets.length; i++) {
         for (const [mint, entry] of accsPerWallet[i].entries()) {
             if (isExcludedMint(mint)) continue;
             if (entry.totalCostUsd <= 0) { hasUnpriced = true; continue; }
             bumpMint(mint, entry.totalCostUsd, entry.amountBought, entry.txCount, 'swap');
+            bumpWalletMint(i, mint, entry.totalCostUsd, entry.amountBought, entry.txCount, 'swap');
         }
     }
 
@@ -395,6 +413,11 @@ export async function getAggregateTradePnL(wallets, holdings) {
         const w = wallets[i];
         const heldMints = heldMintsPerWallet[i];
         for (const tx of txsPerWallet[i]) {
+            // Only treat plain TRANSFER txs as deposits. Helius types like WITHDRAW,
+            // DEPOSIT, BORROW, REPAY etc. are DeFi protocol interactions — the
+            // tokens crossing the wallet boundary there are the user's own funds
+            // moving in/out of a protocol, NOT real external buys.
+            if (tx.type && tx.type !== 'TRANSFER') continue;
             const swap = tx?.events?.swap;
             const userIsSwapInput = swap && (
                 swap.nativeInput?.account === w ||
@@ -409,7 +432,7 @@ export async function getAggregateTradePnL(wallets, holdings) {
                 if (tt.fromUserAccount && householdSet.has(tt.fromUserAccount)) continue; // intra-household
                 const amount = parseFloat(tt.tokenAmount) || 0;
                 if (amount <= 0) continue;
-                transferEvents.push({ mint, amount, ts: tx.timestamp || 0, wallet: w });
+                transferEvents.push({ mint, amount, ts: tx.timestamp || 0, wallet: w, signature: tx.signature || null, fromAccount: tt.fromUserAccount || null });
             }
         }
     }
@@ -436,6 +459,8 @@ export async function getAggregateTradePnL(wallets, holdings) {
         if (!price || price <= 0) continue;
         const cost = ev.amount * price;
         bumpMint(ev.mint, cost, ev.amount, 1, 'transfer');
+        const wIdx = wallets.indexOf(ev.wallet);
+        if (wIdx !== -1) bumpWalletMint(wIdx, ev.mint, cost, ev.amount, 1, 'transfer');
     }
 
     // Pass 3: emit per-(wallet, mint) rows for tokens currently held.
@@ -449,14 +474,35 @@ export async function getAggregateTradePnL(wallets, holdings) {
         const rows = [];
         for (const t of (holdings[i]?.tokens || [])) {
             if (isExcludedMint(t.address)) continue;
-            const m = byMint.get(t.address);
-            if (!m || m.totalSpent <= 0) continue;
             const bal = t.balance || 0;
             if (bal <= 0) continue;
 
-            const denom = Math.max(m.totalBought, m.totalHeld);
-            const perTokenCost = denom > 0 ? m.totalSpent / denom : 0;
-            const currentPrice = t.price || m.price || 0;
+            // Prefer THIS wallet's own buy history; fall back to household only
+            // when the wallet has no on-chain buys or priced transfer-ins of its own
+            // (the "I received this token via intra-household transfer" case).
+            const own = perWalletByMint[i].get(t.address);
+            const hh = byMint.get(t.address);
+
+            let totalSpent, totalBought, denom, sourcesSet, attribution;
+            if (own && own.totalSpent > 0) {
+                totalSpent = own.totalSpent;
+                totalBought = own.totalBought;
+                // Wallet-level denom uses this wallet's own balance (caps cost at money actually spent).
+                denom = Math.max(own.totalBought, bal);
+                sourcesSet = own.sources;
+                attribution = 'wallet';
+            } else if (hh && hh.totalSpent > 0) {
+                totalSpent = hh.totalSpent;
+                totalBought = hh.totalBought;
+                denom = Math.max(hh.totalBought, hh.totalHeld);
+                sourcesSet = hh.sources;
+                attribution = 'household';
+            } else {
+                continue;
+            }
+
+            const perTokenCost = denom > 0 ? totalSpent / denom : 0;
+            const currentPrice = t.price || (hh && hh.price) || 0;
             const currentValue = bal * currentPrice;
             const amountSpent = bal * perTokenCost;
             const pnl = currentValue - amountSpent;
@@ -464,26 +510,27 @@ export async function getAggregateTradePnL(wallets, holdings) {
 
             rows.push({
                 mint: t.address,
-                symbol: t.symbol || m.symbol,
-                name: t.name || m.name,
-                icon: t.icon || m.icon,
+                symbol: t.symbol || (hh && hh.symbol),
+                name: t.name || (hh && hh.name),
+                icon: t.icon || (hh && hh.icon),
                 currentAmount: bal,
                 currentPrice,
                 currentValue,
                 // Field names: keep `costBasis` so the frontend stays compatible;
-                // the column header now reads "Amount Spent".
+                // the column header reads "Amount Spent".
                 costBasis: amountSpent,
                 avgCostPerToken: perTokenCost,
                 pnl,
                 pnlPercent,
-                // Household-level context (for tooltips):
-                householdSpent: m.totalSpent,
-                householdBought: m.totalBought,
-                householdHeld: m.totalHeld,
-                txCount: m.txCount,
+                // Household-level context (still surfaced so tooltips can hint at it).
+                householdSpent: hh ? hh.totalSpent : null,
+                householdBought: hh ? hh.totalBought : null,
+                householdHeld: hh ? hh.totalHeld : null,
+                txCount: own ? own.txCount : (hh ? hh.txCount : 0),
                 // 'swap' = on-chain priced buys; 'transfer' = estimated from
-                // historical price at transfer-in; can be both ('mixed').
-                costSource: Array.from(m.sources).sort().join('+') || 'unknown',
+                // historical price at transfer-in; can be both ('swap+transfer').
+                costSource: Array.from(sourcesSet).sort().join('+') || 'unknown',
+                attribution,  // 'wallet' (own buys) or 'household' (inherited from siblings)
             });
 
             totalPnL += pnl;
@@ -503,6 +550,10 @@ export async function getAggregateTradePnL(wallets, holdings) {
     for (let i = 0; i < wallets.length; i++) {
         const w = wallets[i];
         for (const tx of txsPerWallet[i]) {
+            // Same filter as transfer-in cost basis: only plain TRANSFER txs count
+            // as external cashflows. DeFi WITHDRAW/DEPOSIT/BORROW/REPAY are
+            // intra-portfolio moves, not money entering or leaving the household.
+            if (tx.type && tx.type !== 'TRANSFER') continue;
             const ts = tx.timestamp || 0;
             for (const tt of (tx.tokenTransfers || [])) {
                 const amt = parseFloat(tt.tokenAmount) || 0;
@@ -611,10 +662,78 @@ export async function getAggregateTradePnL(wallets, holdings) {
         cashflowCount: cashflowEvents.length,
     };
 
+    // ----- Trade History: flat chronological list of priced events for the UI -----
+    // Includes: swap buys/sells (per wallet's own input/output side), and
+    // transfer-ins from outside the household (priced at historical day price).
+    // Excludes stablecoin/SOL mints since cost-basis P&L doesn't apply to them.
+    const symbolFor = (mint) => {
+        const m = byMint.get(mint);
+        if (m && m.symbol) return m.symbol;
+        // Fallback: look across holdings (in case the token isn't in byMint, e.g., a sold-out position).
+        for (const h of holdings) {
+            for (const t of (h?.tokens || [])) {
+                if (t.address === mint && t.symbol) return t.symbol;
+            }
+        }
+        return null;
+    };
+
+    const tradeHistory = [];
+    for (let i = 0; i < wallets.length; i++) {
+        const w = wallets[i];
+        const walletShort = `${w.slice(0,4)}...${w.slice(-4)}`;
+        for (const ev of swapEventsPerWallet[i].events) {
+            if (isExcludedMint(ev.mint)) continue;
+            if (!ev.usd || ev.usd <= 0) continue;
+            tradeHistory.push({
+                kind: ev.kind,                                      // 'buy_swap' | 'sell_swap'
+                side: ev.kind === 'buy_swap' ? 'buy' : 'sell',
+                wallet: w,
+                walletShort,
+                mint: ev.mint,
+                symbol: symbolFor(ev.mint),
+                amount: ev.amount,
+                usd: ev.usd,
+                ts: ev.ts,
+                signature: ev.signature,
+                source: ev.source,                                  // e.g., 'JUPITER'
+                fromExternal: false,
+            });
+        }
+    }
+    // Transfer-in events with successful price lookups.
+    for (const ev of transferEvents) {
+        if (isExcludedMint(ev.mint)) continue;
+        const day = Math.floor((ev.ts || 0) / 86400) * 86400;
+        const price = priceMap.get(`${ev.mint}:${day}`);
+        if (!price || price <= 0) continue;
+        const usd = ev.amount * price;
+        const w = ev.wallet;
+        const walletShort = `${w.slice(0,4)}...${w.slice(-4)}`;
+        tradeHistory.push({
+            kind: 'buy_transfer',
+            side: 'buy',
+            wallet: w,
+            walletShort,
+            mint: ev.mint,
+            symbol: symbolFor(ev.mint),
+            amount: ev.amount,
+            usd,
+            ts: ev.ts,
+            signature: ev.signature,
+            source: 'TRANSFER',
+            fromExternal: true,
+            fromAccount: ev.fromAccount,
+        });
+    }
+    // Most recent first.
+    tradeHistory.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
     const result = {
         perWallet,
         totals: { totalPnL, totalCostBasis, totalValue },
         summary,
+        tradeHistory,
         solPriceUsd,
         walletsScanned: wallets.length,
         hasUnpriced,
