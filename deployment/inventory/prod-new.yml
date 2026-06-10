@@ -4,7 +4,9 @@ all:
     portfolio_servers:
       hosts:
         portfolio_prod_new:
-          ansible_host: 213.239.141.25
-          ansible_user: ubuntu
+          ansible_host: 34.38.146.8
+          ansible_user: nikhil
+          ansible_ssh_private_key_file: ~/.ssh/google_compute_engine
+          ansible_ssh_common_args: '-o StrictHostKeyChecking=accept-new'
           server_name: portfolio-prod-new
-          server_location: HETZNER
+          server_location: GCP

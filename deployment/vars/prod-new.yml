@@ -1,14 +1,21 @@
 ---
 # ============================================================================
-# prod-new ENVIRONMENT - Overrides for 213.239.141.25
-# (Hetzner box serving portfolio.niks3089.com via Cloudflare DNS-only).
-# Single-user prod; replaces the retired prod-old env at 207.148.27.173.
+# prod-new ENVIRONMENT - Overrides for 34.38.146.8
+# (GCP VM `tokens-ci-runner` in europe-west1-b, project tokens-498908).
+# Shared host: also runs a GHA self-hosted runner + tokens-* systemd timers,
+# so we deliberately skip full apt upgrade and the host-level UFW firewall
+# (GCP's VPC firewall is authoritative on this box).
+# Replaces the retired Hetzner box at 213.239.141.25.
 # ============================================================================
 
 # Domain (Cloudflare DNS-only — traffic hits this box directly)
 domain_name: portfolio.niks3089.com
 enable_ssl: true
 cloudflare_proxied: false
+
+# Don't full-upgrade apt on a shared host; don't run host-level UFW (GCP firewall is auth.)
+do_full_upgrade: false
+enable_ufw: false
 
 # Metrics secret (different per environment)
 metrics_secret: "prod_new_m3tr1cs_s3cr3t"

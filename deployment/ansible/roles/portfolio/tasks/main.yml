@@ -4,10 +4,16 @@
 # Works for both staging (no SSL) and production (with SSL)
 # ============================================================================
 
-- name: Update and upgrade apt packages
+- name: Update apt cache
+  apt:
+    update_cache: true
+
+# Full upgrade is risky on shared boxes (e.g. a GHA runner host). Skipped unless
+# `do_full_upgrade` is explicitly true.
+- name: Upgrade apt packages
   apt:
     upgrade: true
-    update_cache: true
+  when: do_full_upgrade | default(false)
 
 # ============================================================================
 # PostgreSQL 17 Installation
@@ -209,37 +215,43 @@
     enabled: yes
 
 # ============================================================================
-# UFW Firewall
+# UFW Firewall (skipped when cloud-provider firewall is authoritative, e.g. GCP)
 # ============================================================================
 - name: Install UFW
   apt:
     name: ufw
     state: present
+  when: enable_ufw | default(true)
 
 - name: Allow SSH
   ufw:
     rule: allow
     port: '22'
+  when: enable_ufw | default(true)
 
 - name: Allow HTTP
   ufw:
     rule: allow
     port: '80'
+  when: enable_ufw | default(true)
 
 - name: Allow HTTPS
   ufw:
     rule: allow
     port: '443'
+  when: enable_ufw | default(true)
 
 - name: Allow application port
   ufw:
     rule: allow
     port: "{{ app_port }}"
+  when: enable_ufw | default(true)
 
 - name: Enable UFW
   ufw:
     state: enabled
     policy: deny
+  when: enable_ufw | default(true)
 
 # ============================================================================
 # Nginx (always installed, SSL conditional)
