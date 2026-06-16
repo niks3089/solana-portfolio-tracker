@@ -143,7 +143,10 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
     };
 
     for (const tx of txs) {
-        const swap = tx?.events?.swap;
+        // Prefer Helius's parsed swap event; if absent on a SWAP-type tx, synth
+        // one from the raw transfer arrays so the wallet's actual cash leg is
+        // captured as cost instead of being estimated from a historical lookup.
+        const swap = tx?.events?.swap || synthesizeSwapFromTransfers(tx, wallet);
         if (!swap) continue;
         const ts = tx.timestamp || 0;
         const signature = tx.signature || null;
@@ -301,6 +304,54 @@ function isExcludedMint(mint) {
     return STABLECOIN_MINTS.has(mint);
 }
 
+// Helius tx types that can legitimately represent tokens crossing the wallet
+// boundary as a real buy/sell or external deposit/withdrawal. DeFi-internal
+// types (WITHDRAW, DEPOSIT, BORROW, REPAY, HARVEST_REWARD, REFRESH_OBLIGATION,
+// STAKE_SOL, UNSTAKE_SOL, …) are deliberately excluded — those token movements
+// are the user's own funds rotating in/out of a protocol, not real trades.
+const TRANSFER_ALLOWED_TX_TYPES = new Set(['TRANSFER', 'SWAP', 'UNKNOWN']);
+
+// When Helius types a tx as SWAP but doesn't populate events.swap (happens with
+// some routers like Titan), synthesize a minimal swap structure from the raw
+// tokenTransfers/nativeTransfers so the existing parser can extract the
+// wallet's actual cash leg as cost. Filters to transfers where the wallet is
+// directly the from/to account — ignores intermediate router hops.
+function synthesizeSwapFromTransfers(tx, wallet) {
+    if (!tx || tx.type !== 'SWAP') return null;
+    if (tx.events?.swap) return null;
+    const synth = { tokenInputs: [], tokenOutputs: [], nativeInput: null, nativeOutput: null };
+
+    for (const tt of (tx.tokenTransfers || [])) {
+        const amt = parseFloat(tt.tokenAmount) || 0;
+        if (amt <= 0 || !tt.mint) continue;
+        // tokenTransfers expose decimal-adjusted tokenAmount; rawTokenAmount in
+        // events.swap is raw lots. Fake decimals=0 so rawToFloat returns amt unchanged.
+        const fakeRaw = { tokenAmount: String(amt), decimals: 0 };
+        if (tt.fromUserAccount === wallet) {
+            synth.tokenInputs.push({ userAccount: wallet, mint: tt.mint, rawTokenAmount: fakeRaw });
+        } else if (tt.toUserAccount === wallet) {
+            synth.tokenOutputs.push({ userAccount: wallet, mint: tt.mint, rawTokenAmount: fakeRaw });
+        }
+    }
+
+    let solOut = 0;
+    let solIn = 0;
+    for (const nt of (tx.nativeTransfers || [])) {
+        const lam = parseFloat(nt.amount) || 0;
+        if (lam <= 0) continue;
+        if (nt.fromUserAccount === wallet) solOut += lam;
+        else if (nt.toUserAccount === wallet) solIn += lam;
+    }
+    // Skip tiny SOL legs (< 0.001 SOL); they're almost always tx fees / rent, not the actual swap leg.
+    const FEE_THRESHOLD_LAMPORTS = 1_000_000;
+    if (solOut >= FEE_THRESHOLD_LAMPORTS) synth.nativeInput = { account: wallet, amount: String(solOut) };
+    if (solIn >= FEE_THRESHOLD_LAMPORTS) synth.nativeOutput = { account: wallet, amount: String(solIn) };
+
+    const empty = synth.tokenInputs.length === 0 && synth.tokenOutputs.length === 0
+        && !synth.nativeInput && !synth.nativeOutput;
+    return empty ? null : synth;
+}
+
 /**
  * Public: compute trade-based P&L across one or more wallets, treating the
  * wallet set as one "household" for cost attribution.
@@ -413,12 +464,24 @@ export async function getAggregateTradePnL(wallets, holdings) {
         const w = wallets[i];
         const heldMints = heldMintsPerWallet[i];
         for (const tx of txsPerWallet[i]) {
-            // Only treat plain TRANSFER txs as deposits. Helius types like WITHDRAW,
-            // DEPOSIT, BORROW, REPAY etc. are DeFi protocol interactions — the
-            // tokens crossing the wallet boundary there are the user's own funds
-            // moving in/out of a protocol, NOT real external buys.
-            if (tx.type && tx.type !== 'TRANSFER') continue;
-            const swap = tx?.events?.swap;
+            // Allowlist of Helius tx types that can legitimately represent a
+            // wallet receiving tokens from outside the household:
+            //   TRANSFER  — direct wallet-to-wallet move (CEX withdrawal, send)
+            //   SWAP      — a DEX swap; some routers (Titan, etc.) get classified
+            //               here but Helius doesn't always populate events.swap,
+            //               so the inflow leg shows only as a tokenTransfer.
+            //   UNKNOWN   — Helius couldn't classify; still represents a real
+            //               token movement worth counting.
+            // Everything else (WITHDRAW, DEPOSIT, BORROW, REPAY, STAKE_SOL,
+            // HARVEST_REWARD, REFRESH_OBLIGATION, …) is a DeFi protocol
+            // interaction where tokens crossing the wallet boundary are the
+            // user's own funds rotating in/out of a protocol — not a buy.
+            if (tx.type && !TRANSFER_ALLOWED_TX_TYPES.has(tx.type)) continue;
+            // If aggregateSwapEvents would already book this as a buy_swap
+            // (either via Helius's events.swap or via the synth fallback for
+            // SWAP-type txs that Helius didn't parse), skip it here to avoid
+            // double-counting the same buy as buy_swap + buy_transfer.
+            const swap = tx?.events?.swap || synthesizeSwapFromTransfers(tx, w);
             const userIsSwapInput = swap && (
                 swap.nativeInput?.account === w ||
                 (swap.tokenInputs || []).some(x => x.userAccount === w)
