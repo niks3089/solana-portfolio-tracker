@@ -7,58 +7,45 @@ export type Portfolio = {
     created_at: string;
 };
 
-function key(connectedWallet: string): string {
-    return `labels:${connectedWallet}`;
-}
+// Vault payload shape — single encrypted JSON object on the server.
+// Snapshots live here too so they sync across devices, not just per browser.
+export type VaultPayload = {
+    portfolios: Portfolio[];
+    // snapshots: portfolioId → { "YYYY-MM-DD": netWorth }
+    snapshots: Record<string, Record<string, number>>;
+    // ephemeral tracked wallets (separate from portfolios)
+    trackedWallets: string[];
+};
 
-export function readPortfolios(connectedWallet: string | null): Portfolio[] {
-    if (!connectedWallet) return [];
-    try {
-        const raw = localStorage.getItem(key(connectedWallet));
-        return raw ? (JSON.parse(raw) as Portfolio[]) : [];
-    } catch {
-        return [];
-    }
-}
-
-export function writePortfolios(connectedWallet: string, portfolios: Portfolio[]): void {
-    try {
-        localStorage.setItem(key(connectedWallet), JSON.stringify(portfolios));
-    } catch (e) {
-        console.error('Failed to persist portfolios:', e);
-    }
-}
+export const EMPTY_VAULT: VaultPayload = {
+    portfolios: [],
+    snapshots: {},
+    trackedWallets: [],
+};
 
 export function nextPortfolioId(portfolios: Portfolio[]): number {
     return portfolios.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
 }
 
-// Tracker snapshots: one net-worth point per (portfolio, day).
-export function snapshotsKey(connectedWallet: string, labelId: number): string {
-    return `snapshots:${connectedWallet}:${labelId}`;
-}
-
-export function readSnapshots(connectedWallet: string | null, labelId: number): Record<string, number> {
-    if (!connectedWallet) return {};
-    try {
-        const raw = localStorage.getItem(snapshotsKey(connectedWallet, labelId));
-        return raw ? (JSON.parse(raw) as Record<string, number>) : {};
-    } catch {
-        return {};
-    }
-}
-
-export function recordSnapshot(connectedWallet: string | null, labelId: number, netWorth: number): void {
-    if (!connectedWallet || !Number.isFinite(netWorth) || netWorth <= 0) return;
-    const snaps = readSnapshots(connectedWallet, labelId);
+export function recordSnapshotInPayload(
+    payload: VaultPayload,
+    labelId: number,
+    netWorth: number,
+): VaultPayload {
+    if (!Number.isFinite(netWorth) || netWorth <= 0) return payload;
     const today = new Date().toISOString().slice(0, 10);
-    snaps[today] = netWorth;
-    const keep = Object.keys(snaps).sort().slice(-180);
-    const trimmed: Record<string, number> = {};
-    for (const k of keep) trimmed[k] = snaps[k]!;
-    try {
-        localStorage.setItem(snapshotsKey(connectedWallet, labelId), JSON.stringify(trimmed));
-    } catch {
-        // out of space, ignore
+    const prev = payload.snapshots[String(labelId)] || {};
+    // No change → skip rewrite (avoids vault churn on every render).
+    if (prev[today] != null && Math.abs(prev[today] - netWorth) / Math.max(1, netWorth) < 0.0001) {
+        return payload;
     }
+    const next = { ...prev, [today]: netWorth };
+    // Keep last 180 days max.
+    const keys = Object.keys(next).sort();
+    const trimmed: Record<string, number> = {};
+    for (const k of keys.slice(-180)) trimmed[k] = next[k]!;
+    return {
+        ...payload,
+        snapshots: { ...payload.snapshots, [String(labelId)]: trimmed },
+    };
 }

@@ -1,0 +1,34 @@
+[Unit]
+Description=Solana portfolio tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=portfolio
+Group=portfolio
+WorkingDirectory=/opt/portfolio
+EnvironmentFile=/etc/portfolio/portfolio.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=3
+
+# Hardening — the SQLite vault lives under /var/lib/portfolio. Everything
+# else is read-only or denied. This minimises blast radius if the node
+# process is ever compromised.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/portfolio
+
+[Install]
+WantedBy=multi-user.target

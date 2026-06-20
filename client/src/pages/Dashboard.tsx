@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 
 import { StatsRow } from '../components/StatsRow.tsx';
@@ -15,20 +15,7 @@ import { WalletInput } from '../components/WalletInput.tsx';
 import { useAggregateFast, useDialectPositions, useTradePnL } from '../hooks/usePortfolioData.ts';
 import { usePortfolios } from '../hooks/usePortfolios.ts';
 import { useTelegramPings } from '../hooks/useTelegramPings.ts';
-import { readSnapshots, recordSnapshot, type PortfolioWallet } from '../lib/portfolios.ts';
-
-// Ephemeral "tracked wallets" — wallets the user pasted at the top, kept in
-// localStorage but separate from named portfolios. When no portfolio is active,
-// these drive the dashboard data.
-function loadTracked(connected: string | null): string[] {
-    if (!connected) return [];
-    try {
-        return JSON.parse(localStorage.getItem(`trackedWallets:${connected}`) || '[]') as string[];
-    } catch { return []; }
-}
-function saveTracked(connected: string, list: string[]): void {
-    try { localStorage.setItem(`trackedWallets:${connected}`, JSON.stringify(list)); } catch { /* ignore */ }
-}
+import type { PortfolioWallet } from '../lib/portfolios.ts';
 
 export function Dashboard() {
     const { publicKey } = useWallet();
@@ -36,51 +23,30 @@ export function Dashboard() {
 
     useTelegramPings(connectedWallet);
 
-    const { portfolios, active, activeId, setActiveId, create, update, remove } = usePortfolios(connectedWallet);
+    const {
+        portfolios, active, activeId, setActiveId,
+        create, update, remove,
+        trackedWallets, addTracked, removeTracked,
+        recordSnapshot, snapshotsFor,
+        status,
+    } = usePortfolios();
+
     const [modalMode, setModalMode] = useState<{ kind: 'create' } | { kind: 'edit'; id: number } | null>(null);
 
-    const [tracked, setTracked] = useState<string[]>(() => loadTracked(connectedWallet));
-    useEffect(() => { setTracked(loadTracked(connectedWallet)); }, [connectedWallet]);
-
-    const addTracked = useCallback((addr: string) => {
-        if (!connectedWallet) return;
-        setTracked((prev) => {
-            if (prev.includes(addr)) return prev;
-            const next = [...prev, addr];
-            saveTracked(connectedWallet, next);
-            return next;
-        });
-        // Adding via the input box deactivates portfolio selection so the
-        // dashboard immediately reflects the new wallet set.
-        setActiveId(null);
-    }, [connectedWallet, setActiveId]);
-
-    const removeTracked = useCallback((addr: string) => {
-        if (!connectedWallet) return;
-        setTracked((prev) => {
-            const next = prev.filter((a) => a !== addr);
-            saveTracked(connectedWallet, next);
-            return next;
-        });
-    }, [connectedWallet]);
-
-    // Active wallet set: portfolio's wallets (if a portfolio is selected) else
-    // the user's pasted-tracked list. Always includes the connected wallet so
-    // an unconfigured user still sees their own holdings.
+    // Wallet set: portfolio (if selected) else tracked + connected.
     const wallets = useMemo(() => {
         if (active) return (active.wallets || []).map((w) => w.address);
         const base = new Set<string>();
         if (connectedWallet) base.add(connectedWallet);
-        for (const a of tracked) base.add(a);
+        for (const a of trackedWallets) base.add(a);
         return Array.from(base);
-    }, [active, tracked, connectedWallet]);
+    }, [active, trackedWallets, connectedWallet]);
     const showWalletCol = wallets.length > 1;
 
     const agg = useAggregateFast(wallets);
     const trade = useTradePnL(wallets);
     const dialect = useDialectPositions(wallets);
 
-    // Merge DeFi from aggregate-fast (Lambda) + Dialect, dedup by (protocol,token,type).
     const defiPositions = useMemo(() => {
         const lambda = agg.data?.defiPositions || [];
         const dialectRows = dialect.data?.positions || [];
@@ -97,7 +63,6 @@ export function Dashboard() {
     const allTimePnL = summary?.absoluteReturnUsd ?? null;
     const allTimePnLPct = summary?.absoluteReturnPct ?? null;
 
-    // Build chart segments + record daily snapshot when net worth lands.
     const segments = useMemo(() => {
         const protocolTotals: Record<string, number> = {};
         let tokenTotal = 0;
@@ -113,29 +78,61 @@ export function Dashboard() {
             .slice(0, 6);
     }, [agg.data, defiPositions]);
 
+    // Record one daily snapshot per active portfolio when net worth lands.
     useEffect(() => {
-        if (connectedWallet && activeId != null && aggregate?.totalNetWorth) {
-            recordSnapshot(connectedWallet, activeId, aggregate.totalNetWorth);
+        if (activeId != null && aggregate?.totalNetWorth) {
+            void recordSnapshot(activeId, aggregate.totalNetWorth);
         }
-    }, [connectedWallet, activeId, aggregate?.totalNetWorth]);
-
-    const snapshots = useMemo(
-        () => (connectedWallet && activeId != null ? readSnapshots(connectedWallet, activeId) : {}),
-        // re-read after each refetch lands
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [connectedWallet, activeId, aggregate?.totalNetWorth],
-    );
+    }, [activeId, aggregate?.totalNetWorth, recordSnapshot]);
 
     if (!connectedWallet) {
         return (
             <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
                 <h2 className="text-2xl font-semibold">Connect a wallet</h2>
                 <p className="mt-2 text-text-secondary">
-                    Group multiple wallets into portfolios and track P&L across them. Nothing is stored server-side.
+                    Your portfolio data is encrypted in your browser before it touches the server.
+                    Even the operator can't read your wallet groupings.
                 </p>
                 <div className="mt-6 inline-block">
                     <UnifiedWalletButton />
                 </div>
+            </section>
+        );
+    }
+
+    if (status.kind === 'awaiting-signature') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <h2 className="text-2xl font-semibold">Sign to unlock your vault</h2>
+                <p className="mt-2 text-text-secondary">
+                    Your wallet will pop up asking to sign a deterministic message. The signature is
+                    hashed into an AES-256 key that lives only in this browser tab. The server never
+                    sees it.
+                </p>
+                <p className="mt-3 text-xs text-text-secondary">
+                    One signature per browser session.
+                </p>
+            </section>
+        );
+    }
+
+    if (status.kind === 'error') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <h2 className="text-2xl font-semibold text-negative">Vault error</h2>
+                <p className="mt-2 text-text-secondary">{status.message}</p>
+                <p className="mt-2 text-xs text-text-secondary">
+                    Try reloading the page. If the issue persists, the encrypted blob may be from a
+                    different key version.
+                </p>
+            </section>
+        );
+    }
+
+    if (status.kind === 'loading' || status.kind === 'idle') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <p className="text-text-secondary">Loading vault…</p>
             </section>
         );
     }
@@ -145,9 +142,9 @@ export function Dashboard() {
     return (
         <div className="flex flex-col gap-4">
             <WalletInput
-                trackedWallets={active ? [] : tracked.filter((a) => a !== connectedWallet)}
-                onAdd={addTracked}
-                onRemove={removeTracked}
+                trackedWallets={active ? [] : trackedWallets.filter((a) => a !== connectedWallet)}
+                onAdd={(addr) => { void addTracked(addr); }}
+                onRemove={(addr) => { void removeTracked(addr); }}
             />
 
             <PortfolioChips
@@ -181,7 +178,7 @@ export function Dashboard() {
 
                     {active && aggregate?.totalNetWorth ? (
                         <TrackerChart
-                            snapshots={snapshots}
+                            snapshots={snapshotsFor(active.id)}
                             currentNetWorth={aggregate.totalNetWorth}
                             label={active.name}
                         />
@@ -222,19 +219,19 @@ export function Dashboard() {
                             : { kind: 'edit', portfolio: portfolios.find((p) => p.id === modalMode.id)! }
                     }
                     onClose={() => setModalMode(null)}
-                    onSave={(name, color, ws: PortfolioWallet[]) => {
+                    onSave={async (name, color, ws: PortfolioWallet[]) => {
                         if (modalMode.kind === 'edit') {
-                            update(modalMode.id, { name, color, wallets: ws });
+                            await update(modalMode.id, { name, color, wallets: ws });
                         } else {
-                            const created = create(name, color, ws);
+                            const created = await create(name, color, ws);
                             setActiveId(created.id);
                         }
                         setModalMode(null);
                     }}
                     onDelete={
                         modalMode.kind === 'edit'
-                            ? () => {
-                                remove(modalMode.id);
+                            ? async () => {
+                                await remove(modalMode.id);
                                 setModalMode(null);
                             }
                             : undefined
