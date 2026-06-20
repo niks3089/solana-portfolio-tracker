@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dark theme palette pulled from the current public/index.html. */
+  --color-bg-primary: #0a0a0b;
+  --color-bg-secondary: #131316;
+  --color-bg-tertiary: #1a1a1f;
+  --color-border: #26262d;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #9ca3af;
+  --color-accent: #22c55e;
+  --color-positive: #22c55e;
+  --color-negative: #ef4444;
+  --color-warning: #f59e0b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}

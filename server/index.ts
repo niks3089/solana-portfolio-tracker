@@ -26,15 +26,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', true);
 
-app.use(express.static(join(__dirname, '../public')));
+const publicDir = join(__dirname, '../public');
+const spaDir = join(publicDir, 'dist');
+
+app.use(express.static(publicDir));
 app.use('/api/', rateLimitMiddleware);
 
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api', internalRoutes);
 
+// SPA (Vite-built) under /app — falls through to its own index.html for client-side routing.
+app.use('/app', express.static(spaDir));
+app.get('/app/*', (_req, res) => {
+    res.sendFile(join(spaDir, 'index.html'));
+});
+
+// Legacy single-page UI keeps serving everything else.
 app.get('*', (_req, res) => {
-    res.sendFile(join(__dirname, '../public/index.html'));
+    res.sendFile(join(publicDir, 'index.html'));
 });
 
 app.listen(CONFIG.PORT, () => {

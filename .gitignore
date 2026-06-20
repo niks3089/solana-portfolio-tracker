@@ -16,5 +16,6 @@ Thumbs.db
 
 dist/
 build/
+public/dist/
 
 deployment/.vault_pass
