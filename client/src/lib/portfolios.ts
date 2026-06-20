@@ -27,6 +27,25 @@ export function nextPortfolioId(portfolios: Portfolio[]): number {
     return portfolios.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
 }
 
+// Legacy localStorage readers — kept so the first vault load for a given
+// wallet can migrate pre-vault data (the original keys used by the
+// localStorage-only build, before any server-side encrypted vault existed).
+// The legacy entries are NOT deleted after migration; they stay as a local
+// backup until the user clears browser data.
+export function readLegacyPortfolios(wallet: string): Portfolio[] {
+    try {
+        const raw = localStorage.getItem(`labels:${wallet}`);
+        return raw ? (JSON.parse(raw) as Portfolio[]) : [];
+    } catch { return []; }
+}
+
+export function readLegacySnapshots(wallet: string, labelId: number): Record<string, number> {
+    try {
+        const raw = localStorage.getItem(`snapshots:${wallet}:${labelId}`);
+        return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    } catch { return {}; }
+}
+
 export function recordSnapshotInPayload(
     payload: VaultPayload,
     labelId: number,

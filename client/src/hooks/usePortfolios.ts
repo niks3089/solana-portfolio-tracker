@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     EMPTY_VAULT,
     nextPortfolioId,
+    readLegacyPortfolios,
+    readLegacySnapshots,
     type Portfolio,
     type PortfolioWallet,
     type VaultPayload,
@@ -45,6 +47,29 @@ export function usePortfolios() {
         },
         [save],
     );
+
+    // One-shot legacy migration: when a wallet's vault is brand new
+    // (server returned 404 → version 0, empty payload) AND the browser still
+    // has portfolios under the old `labels:<wallet>` / `snapshots:<wallet>:<id>`
+    // localStorage keys from the pre-vault era, encrypt them and seed the
+    // vault. Legacy localStorage entries are left intact as a backup.
+    const migrationAttempted = useRef<string | null>(null);
+    useEffect(() => {
+        if (status.kind !== 'ready' || !wallet) return;
+        if (status.version !== 0) return;
+        if (data.portfolios.length > 0) return;
+        if (migrationAttempted.current === wallet) return;
+        migrationAttempted.current = wallet;
+
+        const legacy = readLegacyPortfolios(wallet);
+        if (legacy.length === 0) return;
+        const snapshots: Record<string, Record<string, number>> = {};
+        for (const p of legacy) {
+            const snaps = readLegacySnapshots(wallet, p.id);
+            if (Object.keys(snaps).length > 0) snapshots[String(p.id)] = snaps;
+        }
+        void persist({ portfolios: legacy, snapshots, trackedWallets: [] });
+    }, [status, wallet, data.portfolios.length, persist]);
 
     const create = useCallback(
         async (name: string, color: string, wallets: PortfolioWallet[]) => {
