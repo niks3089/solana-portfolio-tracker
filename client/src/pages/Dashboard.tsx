@@ -14,6 +14,7 @@ import { WalletInput } from '../components/WalletInput.tsx';
 
 import { useAggregateFast, useDialectPositions, useTradePnL } from '../hooks/usePortfolioData.ts';
 import { usePortfolios } from '../hooks/usePortfolios.ts';
+import { useTrackedWallets } from '../hooks/useTrackedWallets.ts';
 import { useTelegramPings } from '../hooks/useTelegramPings.ts';
 import type { PortfolioWallet } from '../lib/portfolios.ts';
 
@@ -23,24 +24,23 @@ export function Dashboard() {
 
     useTelegramPings(connectedWallet);
 
-    const {
-        portfolios, active, activeId, setActiveId,
-        create, update, remove,
-        trackedWallets, addTracked, removeTracked,
-        recordSnapshot, snapshotsFor,
-        status,
-    } = usePortfolios();
+    // Tracked wallets are localStorage-only — anyone can paste a wallet and
+    // browse its portfolio without any signature.
+    const tracked = useTrackedWallets();
+
+    // Portfolios are vault-backed and require wallet + signature, but only
+    // when the user actually opens the portfolios section.
+    const portfolios = usePortfolios();
 
     const [modalMode, setModalMode] = useState<{ kind: 'create' } | { kind: 'edit'; id: number } | null>(null);
 
-    // Wallet set: portfolio (if selected) else tracked + connected.
     const wallets = useMemo(() => {
-        if (active) return (active.wallets || []).map((w) => w.address);
+        if (portfolios.active) return (portfolios.active.wallets || []).map((w) => w.address);
         const base = new Set<string>();
         if (connectedWallet) base.add(connectedWallet);
-        for (const a of trackedWallets) base.add(a);
+        for (const a of tracked.wallets) base.add(a);
         return Array.from(base);
-    }, [active, trackedWallets, connectedWallet]);
+    }, [portfolios.active, tracked.wallets, connectedWallet]);
     const showWalletCol = wallets.length > 1;
 
     const agg = useAggregateFast(wallets);
@@ -78,87 +78,43 @@ export function Dashboard() {
             .slice(0, 6);
     }, [agg.data, defiPositions]);
 
-    // Record one daily snapshot per active portfolio when net worth lands.
     useEffect(() => {
-        if (activeId != null && aggregate?.totalNetWorth) {
-            void recordSnapshot(activeId, aggregate.totalNetWorth);
+        if (portfolios.activeId != null && aggregate?.totalNetWorth) {
+            void portfolios.recordSnapshot(portfolios.activeId, aggregate.totalNetWorth);
         }
-    }, [activeId, aggregate?.totalNetWorth, recordSnapshot]);
+    }, [portfolios.activeId, aggregate?.totalNetWorth, portfolios.recordSnapshot]);
 
-    if (!connectedWallet) {
-        return (
-            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
-                <h2 className="text-2xl font-semibold">Connect a wallet</h2>
-                <p className="mt-2 text-text-secondary">
-                    Your portfolio data is encrypted in your browser before it touches the server.
-                    Even the operator can't read your wallet groupings.
-                </p>
-                <div className="mt-6 inline-block">
-                    <UnifiedWalletButton />
-                </div>
-            </section>
-        );
-    }
-
-    if (status.kind === 'awaiting-signature') {
-        return (
-            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
-                <h2 className="text-2xl font-semibold">Sign to unlock your vault</h2>
-                <p className="mt-2 text-text-secondary">
-                    Your wallet will pop up asking to sign a deterministic message. The signature is
-                    hashed into an AES-256 key that lives only in this browser tab. The server never
-                    sees it.
-                </p>
-                <p className="mt-3 text-xs text-text-secondary">
-                    One signature per browser session.
-                </p>
-            </section>
-        );
-    }
-
-    if (status.kind === 'error') {
-        return (
-            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
-                <h2 className="text-2xl font-semibold text-negative">Vault error</h2>
-                <p className="mt-2 text-text-secondary">{status.message}</p>
-                <p className="mt-2 text-xs text-text-secondary">
-                    Try reloading the page. If the issue persists, the encrypted blob may be from a
-                    different key version.
-                </p>
-            </section>
-        );
-    }
-
-    if (status.kind === 'loading' || status.kind === 'idle') {
-        return (
-            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
-                <p className="text-text-secondary">Loading vault…</p>
-            </section>
-        );
-    }
-
-    const isLoading = agg.isPending || (wallets.length === 0 && portfolios.length === 0);
+    const trackedForInput = portfolios.active
+        ? []
+        : tracked.wallets.filter((a) => a !== connectedWallet);
 
     return (
         <div className="flex flex-col gap-4">
             <WalletInput
-                trackedWallets={active ? [] : trackedWallets.filter((a) => a !== connectedWallet)}
-                onAdd={(addr) => { void addTracked(addr); }}
-                onRemove={(addr) => { void removeTracked(addr); }}
+                trackedWallets={trackedForInput}
+                onAdd={tracked.add}
+                onRemove={tracked.remove}
             />
 
-            <PortfolioChips
-                portfolios={portfolios}
-                activeId={activeId}
-                onSelect={(id) => setActiveId(id)}
-                onEdit={(id) => setModalMode({ kind: 'edit', id })}
-                onCreate={() => setModalMode({ kind: 'create' })}
-            />
+            {connectedWallet ? (
+                <PortfoliosSection
+                    portfolios={portfolios}
+                    onCreate={() => setModalMode({ kind: 'create' })}
+                    onEdit={(id) => setModalMode({ kind: 'edit', id })}
+                />
+            ) : (
+                <p className="text-sm text-text-secondary">
+                    Connect a wallet to save portfolios across devices. Your data is
+                    encrypted in your browser before it touches the server — even the
+                    operator can't read it.
+                </p>
+            )}
 
             {wallets.length === 0 ? (
                 <section className="rounded-xl border border-border bg-bg-secondary p-8 text-center">
                     <p className="text-text-secondary">
-                        Paste a wallet address above, or create a portfolio.
+                        Paste a wallet address above to start tracking it,
+                        or <ConnectInline /> to load saved portfolios.
                     </p>
                 </section>
             ) : (
@@ -176,11 +132,11 @@ export function Dashboard() {
                         )}
                     </div>
 
-                    {active && aggregate?.totalNetWorth ? (
+                    {portfolios.active && aggregate?.totalNetWorth ? (
                         <TrackerChart
-                            snapshots={snapshotsFor(active.id)}
+                            snapshots={portfolios.snapshotsFor(portfolios.active.id)}
                             currentNetWorth={aggregate.totalNetWorth}
-                            label={active.name}
+                            label={portfolios.active.name}
                         />
                     ) : null}
 
@@ -202,7 +158,7 @@ export function Dashboard() {
                         <TradeHistory rows={trade.data.tradeHistory} />
                     )}
 
-                    {isLoading && (
+                    {agg.isPending && (
                         <p className="text-center text-sm text-text-secondary">Loading portfolio…</p>
                     )}
                     {agg.isError && (
@@ -216,22 +172,22 @@ export function Dashboard() {
                     mode={
                         modalMode.kind === 'create'
                             ? { kind: 'create' }
-                            : { kind: 'edit', portfolio: portfolios.find((p) => p.id === modalMode.id)! }
+                            : { kind: 'edit', portfolio: portfolios.portfolios.find((p) => p.id === modalMode.id)! }
                     }
                     onClose={() => setModalMode(null)}
                     onSave={async (name, color, ws: PortfolioWallet[]) => {
                         if (modalMode.kind === 'edit') {
-                            await update(modalMode.id, { name, color, wallets: ws });
+                            await portfolios.update(modalMode.id, { name, color, wallets: ws });
                         } else {
-                            const created = await create(name, color, ws);
-                            setActiveId(created.id);
+                            const created = await portfolios.create(name, color, ws);
+                            portfolios.setActiveId(created.id);
                         }
                         setModalMode(null);
                     }}
                     onDelete={
                         modalMode.kind === 'edit'
                             ? async () => {
-                                await remove(modalMode.id);
+                                await portfolios.remove(modalMode.id);
                                 setModalMode(null);
                             }
                             : undefined
@@ -239,5 +195,67 @@ export function Dashboard() {
                 />
             )}
         </div>
+    );
+}
+
+function PortfoliosSection({
+    portfolios,
+    onCreate,
+    onEdit,
+}: {
+    portfolios: ReturnType<typeof usePortfolios>;
+    onCreate: () => void;
+    onEdit: (id: number) => void;
+}) {
+    const { status, unlock } = portfolios;
+
+    if (status.kind === 'locked') {
+        return (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-text-secondary">Portfolios are encrypted.</span>
+                <button
+                    type="button"
+                    onClick={() => { void unlock(); }}
+                    className="rounded-md border border-border bg-bg-tertiary px-3 py-1.5 hover:border-accent/60"
+                >
+                    Sign to unlock
+                </button>
+            </div>
+        );
+    }
+    if (status.kind === 'awaiting-signature' || status.kind === 'loading') {
+        return <p className="text-sm text-text-secondary">Unlocking portfolios…</p>;
+    }
+    if (status.kind === 'error') {
+        return (
+            <p className="text-sm text-negative">
+                Vault error: {status.message}.{' '}
+                <button
+                    type="button"
+                    onClick={() => { void unlock(); }}
+                    className="underline hover:text-text-primary"
+                >
+                    Retry
+                </button>
+            </p>
+        );
+    }
+
+    return (
+        <PortfolioChips
+            portfolios={portfolios.portfolios}
+            activeId={portfolios.activeId}
+            onSelect={(id) => portfolios.setActiveId(id)}
+            onEdit={onEdit}
+            onCreate={onCreate}
+        />
+    );
+}
+
+function ConnectInline() {
+    return (
+        <span className="inline-flex">
+            <UnifiedWalletButton />
+        </span>
     );
 }

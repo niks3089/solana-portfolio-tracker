@@ -10,15 +10,16 @@ import {
 } from '../lib/portfolios.ts';
 import { useVault, type VaultStatus } from './useVault.ts';
 
-// Portfolio CRUD + active selection, backed by the encrypted server vault.
-// `activeId` lives in localStorage (it's just UI state, not user data —
-// "which portfolio am I looking at right now").
+// Portfolios + snapshots, backed by the encrypted server vault.
+// The vault is LAZY — no signature prompt happens until the caller invokes
+// unlock() or a save mutation runs (which auto-unlocks on first call).
+// `activeId` lives in localStorage; it's just UI state (which portfolio
+// am I looking at right now).
 export function usePortfolios() {
-    const { data, save, status, wallet } = useVault<VaultPayload>(EMPTY_VAULT);
+    const { data, save, status, wallet, unlock } = useVault<VaultPayload>(EMPTY_VAULT);
 
     const [activeId, setActiveIdState] = useState<number | null>(null);
 
-    // Restore activeId after the vault loads.
     useEffect(() => {
         if (status.kind !== 'ready' || !wallet) {
             setActiveIdState(null);
@@ -42,34 +43,9 @@ export function usePortfolios() {
     }, [wallet]);
 
     const persist = useCallback(
-        async (next: VaultPayload) => {
-            await save(next);
-        },
+        async (next: VaultPayload) => { await save(next); },
         [save],
     );
-
-    // One-shot legacy migration: when a wallet's vault is brand new
-    // (server returned 404 → version 0, empty payload) AND the browser still
-    // has portfolios under the old `labels:<wallet>` / `snapshots:<wallet>:<id>`
-    // localStorage keys from the pre-vault era, encrypt them and seed the
-    // vault. Legacy localStorage entries are left intact as a backup.
-    const migrationAttempted = useRef<string | null>(null);
-    useEffect(() => {
-        if (status.kind !== 'ready' || !wallet) return;
-        if (status.version !== 0) return;
-        if (data.portfolios.length > 0) return;
-        if (migrationAttempted.current === wallet) return;
-        migrationAttempted.current = wallet;
-
-        const legacy = readLegacyPortfolios(wallet);
-        if (legacy.length === 0) return;
-        const snapshots: Record<string, Record<string, number>> = {};
-        for (const p of legacy) {
-            const snaps = readLegacySnapshots(wallet, p.id);
-            if (Object.keys(snaps).length > 0) snapshots[String(p.id)] = snaps;
-        }
-        void persist({ portfolios: legacy, snapshots, trackedWallets: [] });
-    }, [status, wallet, data.portfolios.length, persist]);
 
     const create = useCallback(
         async (name: string, color: string, wallets: PortfolioWallet[]) => {
@@ -104,27 +80,12 @@ export function usePortfolios() {
         [data, persist, activeId, setActiveId],
     );
 
-    const addTracked = useCallback(
-        async (addr: string) => {
-            if (data.trackedWallets.includes(addr)) return;
-            await persist({ ...data, trackedWallets: [...data.trackedWallets, addr] });
-        },
-        [data, persist],
-    );
-
-    const removeTracked = useCallback(
-        async (addr: string) => {
-            await persist({ ...data, trackedWallets: data.trackedWallets.filter((a) => a !== addr) });
-        },
-        [data, persist],
-    );
-
     const recordSnapshot = useCallback(
         async (labelId: number, netWorth: number) => {
+            if (status.kind !== 'ready') return;
             if (!Number.isFinite(netWorth) || netWorth <= 0) return;
             const today = new Date().toISOString().slice(0, 10);
             const prev = data.snapshots[String(labelId)] || {};
-            // Skip if today's value already matches within 0.01% — avoids vault churn on every render.
             if (prev[today] != null && Math.abs(prev[today] - netWorth) / Math.max(1, netWorth) < 0.0001) return;
             const next = { ...prev, [today]: netWorth };
             const keys = Object.keys(next).sort();
@@ -135,26 +96,45 @@ export function usePortfolios() {
                 snapshots: { ...data.snapshots, [String(labelId)]: trimmed },
             });
         },
-        [data, persist],
+        [data, persist, status.kind],
     );
+
+    // One-shot legacy migration: runs after unlock when the vault is
+    // brand-new (version 0, empty) AND legacy localStorage portfolios exist.
+    const migrationAttempted = useRef<string | null>(null);
+    useEffect(() => {
+        if (status.kind !== 'ready' || !wallet) return;
+        if (status.version !== 0) return;
+        if (data.portfolios.length > 0) return;
+        if (migrationAttempted.current === wallet) return;
+        migrationAttempted.current = wallet;
+
+        const legacy = readLegacyPortfolios(wallet);
+        if (legacy.length === 0) return;
+        const snapshots: Record<string, Record<string, number>> = {};
+        for (const p of legacy) {
+            const snaps = readLegacySnapshots(wallet, p.id);
+            if (Object.keys(snaps).length > 0) snapshots[String(p.id)] = snaps;
+        }
+        void persist({ portfolios: legacy, snapshots });
+    }, [status, wallet, data.portfolios.length, persist]);
 
     const active = activeId != null ? data.portfolios.find((p) => p.id === activeId) || null : null;
     const snapshotsFor = (labelId: number): Record<string, number> => data.snapshots[String(labelId)] || {};
 
     return {
         portfolios: data.portfolios,
-        trackedWallets: data.trackedWallets,
         active,
         activeId,
         setActiveId,
         create,
         update,
         remove,
-        addTracked,
-        removeTracked,
         recordSnapshot,
         snapshotsFor,
         status,
+        wallet,
+        unlock,
     };
 }
 
