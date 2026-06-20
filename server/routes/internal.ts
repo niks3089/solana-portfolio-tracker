@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { CONFIG } from '../config.js';
 import { metrics, updateCacheSizes, getPercentile } from '../metrics.js';
 import { validateTurnstileToken } from '../middleware/turnstile.js';
@@ -8,12 +8,12 @@ import { fetchJSON } from '../utils/fetch.js';
 
 const router = Router();
 
-router.get('/resolve/:domain', async (req, res) => {
+router.get('/resolve/:domain', async (req: Request<{ domain: string }>, res: Response): Promise<void> => {
     try {
-        const { domain } = req.params;
-        if (!domain.endsWith('.sol')) return res.json({ address: domain });
+        const domain = req.params.domain;
+        if (!domain.endsWith('.sol')) { res.json({ address: domain }); return; }
         const address = await resolveSNS(domain);
-        if (address === domain) return res.status(404).json({ error: 'Domain not found', domain });
+        if (address === domain) { res.status(404).json({ error: 'Domain not found', domain }); return; }
         res.json({ address, domain });
     } catch (error) {
         console.error('Resolve domain error:', error);
@@ -21,21 +21,19 @@ router.get('/resolve/:domain', async (req, res) => {
     }
 });
 
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-router.get('/metrics', (req, res) => {
-    const providedSecret = req.query.secret || req.headers['x-metrics-secret'];
-    if (providedSecret !== CONFIG.METRICS_SECRET) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+router.get('/metrics', (req: Request, res: Response): void => {
+    const providedSecret = (req.query.secret as string | undefined) || (req.headers['x-metrics-secret'] as string | undefined);
+    if (providedSecret !== CONFIG.METRICS_SECRET) { res.status(401).json({ error: 'Unauthorized' }); return; }
     updateCacheSizes();
     const uptimeMs = Date.now() - metrics.startTime;
     const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));
     const uptimeMins = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    const apiStats = {};
+    const apiStats: Record<string, unknown> = {};
     for (const [provider, stats] of Object.entries(metrics.api)) {
         apiStats[provider] = {
             calls: stats.calls,
@@ -70,28 +68,29 @@ router.get('/metrics', (req, res) => {
     });
 });
 
-router.get('/turnstile-config', (req, res) => {
+router.get('/turnstile-config', (_req, res) => {
     res.json({
         siteKey: CONFIG.TURNSTILE_SITE_KEY || null,
         enabled: !!CONFIG.TURNSTILE_SECRET_KEY,
     });
 });
 
-router.post('/turnstile/verify', async (req, res) => {
-    const token = req.body?.token || req.body?.['cf-turnstile-response'];
-    if (!token) return res.status(400).json({ success: false, error: 'Missing Turnstile token' });
+router.post('/turnstile/verify', async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as { token?: string; 'cf-turnstile-response'?: string } | undefined;
+    const token = body?.token || body?.['cf-turnstile-response'];
+    if (!token) { res.status(400).json({ success: false, error: 'Missing Turnstile token' }); return; }
 
-    const remoteip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip;
+    const remoteip = (req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip) as string | undefined;
     const result = await validateTurnstileToken(token, remoteip);
-    if (!result.success) return res.status(403).json({ success: false, error: 'Verification failed', details: result.error });
+    if (!result.success) { res.status(403).json({ success: false, error: 'Verification failed', details: result.error }); return; }
 
     res.json({ success: true, token: generateJwtToken(), expiresIn: 3600 });
 });
 
-const recentPings = new Map();
+const recentPings = new Map<string, number>();
 const PING_DEDUP_MS = 60 * 60 * 1000;
 
-function shouldSend(key) {
+function shouldSend(key: string): boolean {
     const now = Date.now();
     const last = recentPings.get(key);
     if (last && now - last < PING_DEDUP_MS) return false;
@@ -104,7 +103,9 @@ function shouldSend(key) {
     return true;
 }
 
-async function sendTelegram(text) {
+type TelegramResult = { sent?: boolean; skipped?: boolean; error?: string };
+
+async function sendTelegram(text: string): Promise<TelegramResult> {
     const token = CONFIG.TELEGRAM_BOT_TOKEN;
     const chatId = CONFIG.TELEGRAM_CHAT_ID;
     if (!token || !chatId) return { skipped: true };
@@ -116,34 +117,39 @@ async function sendTelegram(text) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown', disable_web_page_preview: true }),
             },
-            10000,
+            10_000,
         );
         return { sent: true };
     } catch (e) {
-        console.error('Telegram ping failed:', e.message);
-        return { error: e.message };
+        console.error('Telegram ping failed:', (e as Error).message);
+        return { error: (e as Error).message };
     }
 }
 
-router.post('/ping', async (req, res) => {
-    const { event, wallet, payload } = req.body || {};
+type PingBody = { event?: 'signup' | 'usage'; wallet?: string; payload?: Record<string, unknown> | null };
+
+router.post('/ping', async (req: Request, res: Response): Promise<void> => {
+    const { event, wallet, payload } = (req.body as PingBody | undefined) || {};
     if (!event || !['signup', 'usage'].includes(event)) {
-        return res.status(400).json({ error: 'event must be signup or usage' });
+        res.status(400).json({ error: 'event must be signup or usage' });
+        return;
     }
     if (!wallet || typeof wallet !== 'string') {
-        return res.status(400).json({ error: 'wallet required' });
+        res.status(400).json({ error: 'wallet required' });
+        return;
     }
 
     const dedupKey = `${event}:${wallet}`;
     if (event === 'usage' && !shouldSend(dedupKey)) {
-        return res.json({ skipped: 'deduped' });
+        res.json({ skipped: 'deduped' });
+        return;
     }
     if (event === 'signup') recentPings.set(dedupKey, Date.now());
 
     const walletShort = `\`${wallet.slice(0, 6)}…${wallet.slice(-4)}\``;
     const tag = event === 'signup' ? '🎉 *Signup*' : '👋 *Active*';
     const extra = payload && typeof payload === 'object'
-        ? Object.entries(payload).slice(0, 5).map(([k, v]) => `\n  ${k}: ${v}`).join('')
+        ? Object.entries(payload).slice(0, 5).map(([k, v]) => `\n  ${k}: ${String(v)}`).join('')
         : '';
     const text = `${tag}\nwallet: ${walletShort}${extra}`;
 

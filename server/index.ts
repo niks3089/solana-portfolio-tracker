@@ -5,7 +5,6 @@ import helmet from 'helmet';
 
 import { CONFIG } from './config.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
-
 import portfolioRoutes from './routes/portfolio.js';
 import internalRoutes from './routes/internal.js';
 
@@ -34,7 +33,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api', internalRoutes);
 
-app.get('*', (req, res) => {
+app.get('*', (_req, res) => {
     res.sendFile(join(__dirname, '../public/index.html'));
 });
 
