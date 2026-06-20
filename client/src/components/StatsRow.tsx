@@ -1,4 +1,5 @@
 import { fmtUsd, fmtPct } from '../lib/format.ts';
+import { Priv } from './PrivateContext.tsx';
 
 type Props = {
     netWorth: number | null;
@@ -40,7 +41,7 @@ function Card({
     return (
         <div className="rounded-xl border border-border bg-bg-secondary p-4">
             <div className="text-xs uppercase tracking-wide text-text-secondary">{label}</div>
-            <div className={`mt-1 text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
+            <div className={`mt-1 text-2xl font-semibold tabular-nums ${valueClass}`}><Priv>{value}</Priv></div>
             {sub && <div className="mt-0.5 text-xs text-text-secondary">{sub}</div>}
         </div>
     );
