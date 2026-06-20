@@ -29,6 +29,7 @@ app.set('trust proxy', true);
 const publicDir = join(__dirname, '../public');
 const spaDir = join(publicDir, 'dist');
 
+// Static assets (icons, manifest, sw.js, etc.) served from /public.
 app.use(express.static(publicDir));
 app.use('/api/', rateLimitMiddleware);
 
@@ -36,15 +37,16 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api', internalRoutes);
 
-// SPA (Vite-built) under /app — falls through to its own index.html for client-side routing.
+// SPA: Vite build output at /app/*, falls back to the SPA's own index.html
+// for any client-side route so React Router can handle it.
 app.use('/app', express.static(spaDir));
 app.get('/app/*', (_req, res) => {
     res.sendFile(join(spaDir, 'index.html'));
 });
 
-// Legacy single-page UI keeps serving everything else.
+// Root + any other path → redirect into the SPA.
 app.get('*', (_req, res) => {
-    res.sendFile(join(publicDir, 'index.html'));
+    res.redirect('/app/');
 });
 
 app.listen(CONFIG.PORT, () => {
