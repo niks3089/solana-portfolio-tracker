@@ -1,49 +1,33 @@
-import { NavLink, Route, Routes, Navigate } from 'react-router-dom';
-import { Portfolio } from './pages/Portfolio.tsx';
-import { Holdings } from './pages/Holdings.tsx';
-import { History } from './pages/History.tsx';
-import { Returns } from './pages/Returns.tsx';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
-const tabs = [
-    { to: '/portfolio', label: 'Portfolio' },
-    { to: '/holdings', label: 'Holdings' },
-    { to: '/history', label: 'Trade History' },
-    { to: '/returns', label: 'Returns' },
-];
+import { Dashboard } from './pages/Dashboard.tsx';
 
 export function App() {
+    const { publicKey, connected } = useWallet();
+    const short = publicKey?.toBase58().slice(0, 4) + '…' + publicKey?.toBase58().slice(-4);
+
     return (
         <div className="min-h-full">
             <header className="border-b border-border bg-bg-secondary">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-                    <h1 className="text-lg font-semibold text-accent">Portfolio</h1>
-                    <nav className="flex gap-1">
-                        {tabs.map((t) => (
-                            <NavLink
-                                key={t.to}
-                                to={t.to}
-                                className={({ isActive }) =>
-                                    [
-                                        'rounded-md px-3 py-1.5 text-sm transition-colors',
-                                        isActive
-                                            ? 'bg-bg-tertiary text-text-primary'
-                                            : 'text-text-secondary hover:text-text-primary',
-                                    ].join(' ')
-                                }
-                            >
-                                {t.label}
-                            </NavLink>
-                        ))}
-                    </nav>
+                <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6 lg:py-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg">📊</span>
+                        <h1 className="text-base font-semibold text-accent">Portfolio</h1>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {connected && publicKey && (
+                            <span className="hidden text-xs text-text-secondary md:inline">{short}</span>
+                        )}
+                        <WalletMultiButton />
+                    </div>
                 </div>
             </header>
-            <main className="mx-auto max-w-6xl px-6 py-8">
+            <main className="mx-auto max-w-6xl px-4 py-6 lg:px-6 lg:py-8">
                 <Routes>
-                    <Route path="/" element={<Navigate to="/portfolio" replace />} />
-                    <Route path="/portfolio" element={<Portfolio />} />
-                    <Route path="/holdings" element={<Holdings />} />
-                    <Route path="/history" element={<History />} />
-                    <Route path="/returns" element={<Returns />} />
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </main>
         </div>
