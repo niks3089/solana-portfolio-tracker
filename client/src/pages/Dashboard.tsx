@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 
 import { StatsRow } from '../components/StatsRow.tsx';
 import { ReturnsRow } from '../components/ReturnsRow.tsx';
@@ -87,7 +86,7 @@ export function Dashboard() {
                     Group multiple wallets into portfolios and track P&L across them. Nothing is stored server-side.
                 </p>
                 <div className="mt-6 inline-block">
-                    <WalletMultiButton />
+                    <UnifiedWalletButton />
                 </div>
             </section>
         );
