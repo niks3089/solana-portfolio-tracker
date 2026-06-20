@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
+import { UnifiedWalletButton } from '@jup-ag/wallet-adapter';
 
 import { Dashboard } from './pages/Dashboard.tsx';
 import { Logo } from './components/Logo.tsx';
@@ -7,8 +7,6 @@ import { PrivacyProvider } from './components/PrivateContext.tsx';
 import { usePrivacyMode } from './hooks/usePrivacyMode.ts';
 
 export function App() {
-    const { publicKey, connected } = useWallet();
-    const short = publicKey?.toBase58().slice(0, 4) + '…' + publicKey?.toBase58().slice(-4);
     const { hidden, toggle } = usePrivacyMode();
 
     return (
@@ -37,9 +35,6 @@ export function App() {
                         >
                             {hidden ? '🔒' : '🔓'}
                         </button>
-                        {connected && publicKey && (
-                            <span className="hidden text-xs text-text-secondary md:inline">{short}</span>
-                        )}
                         <UnifiedWalletButton />
                     </div>
                 </div>
