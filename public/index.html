@@ -18,13 +18,6 @@
   <meta name="description" content="Track your Solana crypto wealth across multiple wallets">
   <link rel="apple-touch-icon" href="/icon-192.png?v=2">
 
-  <!-- Dialect UI Styles -->
-  <link rel="stylesheet" href="/css/dialect.css">
-  <link rel="stylesheet" href="/css/dialect-overrides.css">
-
-  <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
-  <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
-
   <!-- Cloudflare Turnstile + JWT Bot Protection -->
   <link rel="preconnect" href="https://challenges.cloudflare.com">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
@@ -2537,21 +2530,10 @@
         <button class="privacy-toggle" id="privacyToggle" onclick="togglePrivacyMode()" title="Hide/show amounts">
           <span class="privacy-icon" id="privacyIcon">🔓</span>
         </button>
-        <div class="pro-status-display" id="proStatusDisplay" style="display:none">
-          <span class="pro-pill" onclick="showProDetails()">
-            <span class="pro-dot"></span>
-            <span class="pro-text">Pro</span>
-            <span class="pro-days" id="proDaysLeft"></span>
-          </span>
-        </div>
-        <button class="btn btn-warning-subtle" onclick="showPaymentModal()" id="upgradeBtn" style="display:none">⚡
-          Upgrade</button>
         <div class="wallet-status-container">
           <div id="walletStatus">
             <button class="btn btn-accent" onclick="showWalletModal()">Connect Wallet</button>
           </div>
-          <!-- Dialect Notifications Component (React) -->
-          <div id="dialect-notifications-root"></div>
         </div>
       </div>
     </header>
@@ -2577,87 +2559,6 @@
       </div>
       <div class="labels-list" id="labelsList">
         <div class="labels-empty">Create portfolios to organize and track multiple wallets</div>
-      </div>
-    </div>
-
-    <!-- Alert Modal -->
-    <div class="alert-modal" id="alertModal">
-      <div class="alert-modal-content">
-        <div class="label-modal-header">
-          <h3 id="alertModalTitle">Create Alert</h3>
-          <span class="label-modal-close" onclick="closeAlertModal()">&times;</span>
-        </div>
-
-        <div class="label-form-group">
-          <label>What to Monitor</label>
-          <select class="label-form-input" id="alertTargetSelect" onchange="updateAlertTargetOptions()">
-            <option value="">Select wallet or portfolio...</option>
-          </select>
-        </div>
-
-        <div class="label-form-group" id="walletSelectGroup" style="display:none">
-          <label>Select Wallets</label>
-          <div class="alert-wallet-list" id="alertWalletList"></div>
-        </div>
-
-        <div class="label-form-group">
-          <label>Telegram Username</label>
-          <input type="text" class="label-form-input" id="telegramUsername" placeholder="@username">
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.4rem">
-            You'll sign a message to enable notifications
-          </div>
-        </div>
-
-        <div class="label-form-group" id="notificationTypeSection" style="display:none">
-          <label>Notification Type</label>
-          <div class="alert-type-option"
-            onclick="document.getElementById('check-activity').classList.toggle('checked')">
-            <div class="alert-type-label">
-              <strong>Wallet Activity</strong>
-              <span>Alert on any transaction</span>
-            </div>
-            <div class="alert-checkbox" id="check-activity">✓</div>
-          </div>
-          <div class="alert-type-option portfolio-change-box" id="portfolioChangeOption">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%">
-              <div class="alert-type-label" onclick="toggleThresholdAlert()">
-                <strong>Portfolio Change</strong>
-                <span>Notify on value swing</span>
-              </div>
-              <div class="alert-checkbox" id="check-threshold" onclick="toggleThresholdAlert()">✓</div>
-            </div>
-            <div class="inline-slider" id="thresholdSlider" style="margin-top:0.5rem">
-              <input type="range" min="1" max="25" value="5" class="threshold-slider" id="thresholdRange"
-                oninput="updateThresholdDisplay(this.value)">
-              <div class="threshold-labels">
-                <span>1%</span>
-                <span class="threshold-current" id="thresholdCurrent">5%</span>
-                <span>25%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="alertModalStatus" style="margin-top:0.75rem;font-size:0.85rem;text-align:center"></div>
-        <div class="label-modal-actions">
-          <button class="btn" onclick="closeAlertModal()">Cancel</button>
-          <button class="btn btn-accent" onclick="saveAlert()">Enable Alert</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Delete Alert Modal -->
-    <div class="label-modal" id="deleteAlertModal">
-      <div class="label-modal-content" style="max-width:320px">
-        <div class="label-modal-header">
-          <h3>Delete Alert</h3>
-          <span class="label-modal-close" onclick="closeDeleteAlertModal()">&times;</span>
-        </div>
-        <p style="color:var(--text-secondary);margin:1rem 0">Are you sure you want to delete this alert?</p>
-        <div class="label-modal-actions">
-          <button class="btn" onclick="closeDeleteAlertModal()">Cancel</button>
-          <button class="btn btn-danger" onclick="confirmDeleteAlert()">Delete</button>
-        </div>
       </div>
     </div>
 
@@ -2931,35 +2832,6 @@
     </div>
   </div>
 
-  <!-- Payment Modal -->
-  <div class="modal-overlay" id="paymentModal">
-    <div class="modal">
-      <h2>⚡ Upgrade to Pro</h2>
-      <div class="pro-features">
-        <div class="pro-feature"><span class="check">✓</span> Aggregated multi-wallet portfolio view</div>
-        <div class="pro-feature"><span class="check">✓</span> Track unlimited wallets without connecting</div>
-        <div class="pro-feature"><span class="check">✓</span> Full P&L analytics & portfolio growth charts</div>
-        <div class="pro-feature"><span class="check">✓</span> Complete DeFi positions breakdown</div>
-        <div class="pro-feature"><span class="check">✓</span> Priority support via Twitter DM</div>
-      </div>
-      <div class="payment-offer">
-        <span class="payment-original" id="paymentOriginal">$3 USDC</span>
-        <span class="payment-amount" id="paymentAmount">$1 USDC</span>
-      </div>
-      <div class="payment-subtitle">per month • <span class="offer-tag">🎉 Launch Offer</span></div>
-      <div class="discount-row">
-        <input type="text" class="discount-input" id="discountCode" placeholder="Discount code">
-        <button class="btn btn-small" onclick="applyDiscount()">Apply</button>
-      </div>
-      <div class="discount-status" id="discountStatus"></div>
-      <button class="btn btn-accent wallet-btn" id="payBtn" onclick="makePayment()">
-        Pay with Connected Wallet
-      </button>
-      <button class="btn wallet-btn" onclick="closePaymentModal()">Cancel</button>
-      <div class="payment-info" id="paymentStatus"></div>
-    </div>
-  </div>
-
   <script>
     // Wallet data: { address, label, group }
     let walletData = [];
@@ -3147,318 +3019,23 @@
       return walletData.filter(w => w.label === activeGroup).map(w => w.address);
     }
 
-    // Pro status cache (refreshed from API)
-    let proStatusCache = { isPro: false, wallet: null, expiresAt: null };
+    let proStatusCache = { isPro: true, freeMode: true };
+    const isPro = () => true;
+    const shouldShowProView = () => true;
+    const isViewingDemoOnly = () => false;
+    let freeMode = true;
+    async function checkProStatus() { return true; }
+    function updateProUI() { }
+    async function loadPaymentConfig() { }
+    async function applyDiscount() { }
+    function updatePaymentAmount() { }
+    function showPaymentModal() { }
+    function closePaymentModal() { }
+    async function makePayment() { }
+    async function saveProStatus() { return true; }
+    async function startFreeTrial() { return true; }
+    function showProDetails() { }
 
-    // Check Pro status from API - must have the Pro wallet connected
-    async function checkProStatus() {
-      // In free mode, everyone is Pro
-      if (freeMode) {
-        proStatusCache = { isPro: true, freeMode: true };
-        updateProUI(true);
-        return true;
-      }
-
-      if (!connectedWallet) {
-        proStatusCache = { isPro: false, wallet: null, expiresAt: null };
-        updateProUI(false);
-        return false;
-      }
-
-      try {
-        const response = await fetch('/api/pro-status/' + connectedWallet);
-        const data = await response.json();
-
-        proStatusCache = {
-          isPro: data.isPro,
-          wallet: data.wallet,
-          expiresAt: data.expiresAt,
-          paidAt: data.paidAt,
-        };
-
-        updateProUI(data.isPro);
-        return data.isPro;
-      } catch (e) {
-        console.error('Pro status check failed:', e);
-        proStatusCache = { isPro: false, wallet: connectedWallet, expiresAt: null };
-        updateProUI(false);
-        return false;
-      }
-    }
-
-    function updateProUI(isPro) {
-      // In free mode, hide all payment/pro UI
-      if (freeMode) {
-        document.getElementById('proStatusDisplay').style.display = 'none';
-        document.getElementById('upgradeBtn').style.display = 'none';
-        return;
-      }
-
-      if (isPro) {
-        document.getElementById('proStatusDisplay').style.display = 'flex';
-        document.getElementById('upgradeBtn').style.display = 'none';
-        // Calculate days left (floor to show actual remaining full days)
-        if (proStatusCache.expiresAt) {
-          const daysLeft = Math.floor((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
-          document.getElementById('proDaysLeft').textContent = daysLeft + 'd left';
-        }
-      } else {
-        document.getElementById('proStatusDisplay').style.display = 'none';
-        document.getElementById('upgradeBtn').style.display = '';
-      }
-    }
-
-    function showProDetails() {
-      if (proStatusCache.isPro && proStatusCache.expiresAt) {
-        const shortWallet = proStatusCache.wallet
-          ? (proStatusCache.wallet.slice(0, 6) + '...' + proStatusCache.wallet.slice(-4))
-          : 'Unknown';
-        const expDate = new Date(proStatusCache.expiresAt).toLocaleDateString();
-        const daysLeft = Math.floor((new Date(proStatusCache.expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
-
-        // Create a nice tooltip/popover
-        const existing = document.querySelector('.pro-details-popup');
-        if (existing) {
-          existing.remove();
-          return;
-        }
-
-        const popup = document.createElement('div');
-        popup.className = 'pro-details-popup';
-        popup.innerHTML = `
-          <div class="pro-details-header">Pro Subscription</div>
-          <div class="pro-details-row">
-            <span class="pro-details-label">Status</span>
-            <span class="pro-details-value" style="color: var(--accent)">● Active</span>
-          </div>
-          <div class="pro-details-row">
-            <span class="pro-details-label">Wallet</span>
-            <span class="pro-details-value">${shortWallet}</span>
-          </div>
-          <div class="pro-details-row">
-            <span class="pro-details-label">Expires</span>
-            <span class="pro-details-value">${expDate}</span>
-          </div>
-          <div class="pro-details-row">
-            <span class="pro-details-label">Remaining</span>
-            <span class="pro-details-value">${daysLeft} days</span>
-          </div>
-        `;
-        document.body.appendChild(popup);
-
-        // Position near the pro pill
-        const pill = document.querySelector('.pro-pill');
-        if (pill) {
-          const rect = pill.getBoundingClientRect();
-          popup.style.top = (rect.bottom + 8) + 'px';
-          popup.style.right = (window.innerWidth - rect.right) + 'px';
-        }
-
-        // Close on click outside
-        setTimeout(() => {
-          document.addEventListener('click', function closePopup(e) {
-            if (!popup.contains(e.target) && !e.target.closest('.pro-pill')) {
-              popup.remove();
-              document.removeEventListener('click', closePopup);
-            }
-          });
-        }, 100);
-      }
-    }
-
-    // Save Pro status via API
-    async function saveProStatus(wallet, txSignature, discountCode = null) {
-      try {
-        const response = await fetch('/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet,
-            txSignature,
-            amount: paymentConfig.amount * (1 - appliedDiscount / 100),
-            discountCode,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          await checkProStatus();
-          await loadLabels(); // Load labels for new Pro users
-          await loadAlerts(); // Load alerts for new Pro users
-          refreshData();
-          return true;
-        } else {
-          console.error('Payment save failed:', data.error);
-          return false;
-        }
-      } catch (e) {
-        console.error('Payment save error:', e);
-        return false;
-      }
-    }
-
-    // Free trial activation
-    async function startFreeTrial() {
-      const statusEl = document.getElementById('paymentStatus');
-
-      if (!connectedWallet) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Connect a wallet first to start your free trial</span>';
-        return;
-      }
-
-      // Check if already used trial
-      const trialKey = 'trial_used_' + connectedWallet;
-      if (localStorage.getItem(trialKey)) {
-        statusEl.innerHTML = '<span style="color:var(--negative)">Free trial already used for this wallet</span>';
-        return;
-      }
-
-      statusEl.innerHTML = '<span style="color:var(--text-secondary)">Activating free trial...</span>';
-
-      try {
-        const response = await fetch('/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet: connectedWallet,
-            txSignature: 'trial_' + Date.now() + '_' + connectedWallet.slice(0, 8),
-            amount: 0,
-            discountCode: 'FREE_TRIAL',
-            isTrial: true,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          localStorage.setItem(trialKey, 'true');
-          statusEl.innerHTML = '<span style="color:var(--positive)">🎉 Free trial activated! Enjoy 7 days of Pro.</span>';
-          await checkProStatus();
-          await loadLabels(); // Show labels section for new Pro users
-          await loadAlerts(); // Show alerts section
-          closePaymentModal();
-          refreshData();
-        } else {
-          statusEl.innerHTML = '<span style="color:var(--negative)">Failed: ' + (data.error || 'Try again') + '</span>';
-        }
-      } catch (e) {
-        statusEl.innerHTML = '<span style="color:var(--negative)">Error: ' + e.message + '</span>';
-      }
-    }
-
-    // Discount codes (validated via API)
-    let appliedDiscount = 0;
-    let appliedDiscountCode = null;
-
-    async function applyDiscount() {
-      const code = document.getElementById('discountCode').value.trim();
-      const statusEl = document.getElementById('discountStatus');
-
-      if (!code) {
-        statusEl.textContent = '';
-        statusEl.className = 'discount-status';
-        appliedDiscount = 0;
-        appliedDiscountCode = null;
-        updatePaymentAmount();
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/discount/' + encodeURIComponent(code));
-        const data = await response.json();
-
-        if (data.valid) {
-          appliedDiscount = data.discount;
-          appliedDiscountCode = code;
-          if (appliedDiscount === 100) {
-            statusEl.textContent = '✓ Code applied: FREE!';
-            statusEl.className = 'discount-status success';
-          } else {
-            statusEl.textContent = '✓ Code applied: ' + appliedDiscount + '% off';
-            statusEl.className = 'discount-status success';
-          }
-          updatePaymentAmount();
-        } else {
-          statusEl.textContent = '✗ Invalid code';
-          statusEl.className = 'discount-status error';
-          appliedDiscount = 0;
-          appliedDiscountCode = null;
-          updatePaymentAmount();
-        }
-      } catch (e) {
-        statusEl.textContent = '✗ Could not validate code';
-        statusEl.className = 'discount-status error';
-        appliedDiscount = 0;
-        appliedDiscountCode = null;
-        updatePaymentAmount();
-      }
-    }
-
-    function updatePaymentAmount() {
-      const baseAmount = paymentConfig.amount || 1;
-      const originalAmount = paymentConfig.originalAmount || 3;
-      const finalAmount = baseAmount * (1 - appliedDiscount / 100);
-
-      // Show/hide original price based on discount
-      const originalEl = document.getElementById('paymentOriginal');
-      if (appliedDiscount > 0) {
-        originalEl.textContent = '$' + baseAmount + ' ' + paymentConfig.token;
-      } else {
-        originalEl.textContent = '$' + originalAmount + ' ' + paymentConfig.token;
-      }
-
-      if (finalAmount === 0) {
-        document.getElementById('paymentAmount').textContent = 'FREE';
-        document.getElementById('payBtn').textContent = 'Activate Pro';
-        originalEl.style.display = 'inline';
-      } else {
-        document.getElementById('paymentAmount').textContent = '$' + finalAmount.toFixed(0) + ' ' + paymentConfig.token;
-        document.getElementById('payBtn').textContent = 'Pay with Connected Wallet';
-        originalEl.style.display = appliedDiscount > 0 ? 'inline' : 'inline';
-      }
-    }
-
-    function isPro() {
-      return freeMode || proStatusCache.isPro;
-    }
-
-    // Check if viewing only the demo wallet (free users see full data for demo)
-    function isViewingDemoOnly() {
-      const activeWallets = getActiveWallets();
-      return activeWallets.length === 1 && activeWallets[0] === DEMO_WALLET;
-    }
-
-    // Check if should show Pro view (either Pro user or viewing demo wallet only)
-    function shouldShowProView() {
-      return isPro() || isViewingDemoOnly();
-    }
-
-    // Free mode - everything unlocked, no payment required
-    let freeMode = false;
-
-    async function loadPaymentConfig() {
-      try {
-        const res = await fetch('/api/payment-config');
-        paymentConfig = await res.json();
-
-        // Check if free mode is enabled
-        if (paymentConfig.freeMode) {
-          freeMode = true;
-          // Hide upgrade button and payment UI in free mode
-          document.getElementById('upgradeBtn').style.display = 'none';
-          document.getElementById('proStatusDisplay').style.display = 'none';
-          // Make everyone Pro in free mode
-          proStatusCache = { isPro: true, freeMode: true };
-          return;
-        }
-
-        document.getElementById('paymentAmount').textContent = '$' + paymentConfig.amount + ' ' + paymentConfig.token;
-        if (paymentConfig.originalAmount) {
-          document.getElementById('paymentOriginal').textContent = '$' + paymentConfig.originalAmount + ' ' + paymentConfig.token;
-        }
-      } catch (e) { console.error('Failed to load payment config', e); }
-    }
 
     // Load connected wallet from storage
     function loadConnectedWallet() {
@@ -3621,31 +3198,6 @@
         renderWalletTags(); // Restore main wallet tags
       }
 
-      // Free plan restrictions (always allow toly.sol / demo wallet)
-      const isTolyDomain = input.toLowerCase() === 'toly.sol';
-      if (!isPro() && !isTolyDomain) {
-        const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
-
-        if (connectedWallet) {
-          // When connected: only the connected wallet allowed (plus demo)
-          const resolvedAddr = input.toLowerCase().endsWith('.sol') ? null : input;
-          if (resolvedAddr && resolvedAddr !== connectedWallet && resolvedAddr !== DEMO_WALLET) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
-            return;
-          }
-        } else {
-          // When not connected: only 1 personal wallet allowed (plus demo)
-          if (personalWallets >= 1 && !input.toLowerCase().endsWith('.sol')) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
-            return;
-          }
-        }
-      }
-
       // Check if it's a .sol domain
       if (input.toLowerCase().endsWith('.sol')) {
         addrInput.disabled = true;
@@ -3666,26 +3218,6 @@
               addrInput.placeholder = 'Add wallet';
               addrInput.value = '';
               return;
-            }
-
-            // Free plan restrictions for .sol domains (allow demo wallet)
-            if (!isPro() && input !== DEMO_WALLET) {
-              const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
-              if (connectedWallet && input !== connectedWallet) {
-                addrInput.disabled = false;
-                addrInput.placeholder = 'Add wallet';
-                showPaymentModal();
-                document.getElementById('paymentStatus').innerHTML =
-                  '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
-                return;
-              } else if (!connectedWallet && personalWallets >= 1) {
-                addrInput.disabled = false;
-                addrInput.placeholder = 'Add wallet';
-                showPaymentModal();
-                document.getElementById('paymentStatus').innerHTML =
-                  '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
-                return;
-              }
             }
 
             // Add with domain as label
@@ -3724,22 +3256,6 @@
       }
       if (walletData.some(w => w.address === input)) {
         return; // Silently ignore duplicates
-      }
-
-      // Free plan restrictions for regular addresses
-      if (!isPro()) {
-        const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
-        if (connectedWallet && input !== connectedWallet) {
-          showPaymentModal();
-          document.getElementById('paymentStatus').innerHTML =
-            '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
-          return;
-        } else if (!connectedWallet && personalWallets >= 1) {
-          showPaymentModal();
-          document.getElementById('paymentStatus').innerHTML =
-            '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
-          return;
-        }
       }
 
       // Add without label
@@ -4022,39 +3538,30 @@
       document.getElementById('defiContent').innerHTML = '<div class="loading">Loading DeFi...</div>';
 
       try {
-        const res = await fetch('/api/labels/' + labelId + '/portfolio', {
-          headers: getAuthHeaders()
+        const labelWalletAddrs = (label.wallets || []).map(w => w.address).filter(Boolean);
+        if (labelWalletAddrs.length === 0) throw new Error('Portfolio has no wallets');
+
+        await waitForJwt();
+        const res = await fetch('/api/portfolio/aggregate/fast', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ wallets: labelWalletAddrs }),
         });
-
-        if (res.status === 429) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Rate limit exceeded. Please wait and try again.');
-        }
-        if (!res.ok) {
-          throw new Error('Server error (' + res.status + '). Please try again.');
-        }
-
+        if (!res.ok) throw new Error('Server error (' + res.status + ')');
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        if (data.success === false) throw new Error(data.message || 'Request failed');
 
-        // Update stats using setStatValue for proper privacy toggle
-        const p = data.portfolio;
-        lastNetWorth = p.totalNetWorth;
-        setStatValue('statNetWorth', p.totalNetWorth);
-        setStatValue('statDeposits', p.defiDeposits || 0);
+        const a = data.aggregate || {};
+        lastNetWorth = a.totalNetWorth || 0;
+        setStatValue('statNetWorth', lastNetWorth);
+        setStatValue('statDeposits', a.defiDeposits || 0);
         document.getElementById('statPnL').innerHTML = '<span class="loading-text">Loading...</span>';
-        setStatValue('statLiabilities', p.defiBorrows || 0);
+        setStatValue('statLiabilities', a.defiBorrows || 0);
 
-        // All-Time P&L is now driven by /api/portfolio/trade-pnl below
-        // (see loadTradePnLInBackground call). Birdeye PnL is no longer used.
-
-        // Render tokens (reset pagination)
         tokenPage = 0;
         allTokens = data.tokens || [];
         renderTokensPage();
 
-        // Build chart segments (same logic as renderFastData)
         const protocolTotals = {};
         let tokenTotal = 0;
         for (const t of allTokens) tokenTotal += t.value || 0;
@@ -4070,22 +3577,16 @@
         const chartSegments = Object.entries(protocolTotals)
           .map(([label, value]) => ({ label, value }))
           .sort((a, b) => b.value - a.value).slice(0, 6);
-        renderDonutChart(chartSegments, p.totalAssets || (tokenTotal + p.defiDeposits));
+        renderDonutChart(chartSegments, a.totalAssets || (tokenTotal + (a.defiDeposits || 0)));
 
-        // Render DeFi (reset pagination)
         defiPage = 0;
         renderDefiPage();
 
-        // Load portfolio tracking chart (our daily snapshots)
-        loadTrackingChart(labelId, p.totalNetWorth);
-
-        // Also load the Birdeye growth chart for the portfolio wallets
-        const labelWalletAddrs = (label.wallets || []).map(w => w.address);
-        if (labelWalletAddrs.length > 0) {
-          loadGrowthChart(labelWalletAddrs);
-          loadTradePnLInBackground(labelWalletAddrs);
-        }
-
+        loadTrackingChart(labelId, lastNetWorth);
+        loadGrowthChart(labelWalletAddrs);
+        loadTradePnLInBackground(labelWalletAddrs);
+        loadDialectInBackground(labelWalletAddrs);
+        sendUsagePing();
       } catch (e) {
         console.error('Load portfolio error:', e);
         document.getElementById('statNetWorth').textContent = '--';
@@ -4179,25 +3680,7 @@
     }
 
     function editWalletFromDropdown(addr) {
-      // First ensure wallet is tracked (with free plan check)
       if (!walletData.some(w => w.address === addr)) {
-        // Free plan check
-        if (!isPro() && addr !== DEMO_WALLET) {
-          const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
-          if (connectedWallet && addr !== connectedWallet) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
-            hideWalletDropdown();
-            return;
-          } else if (!connectedWallet && personalWallets >= 1) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
-            hideWalletDropdown();
-            return;
-          }
-        }
         walletData.push({ address: addr, label: '', group: '' });
         saveWallets();
         renderWalletTags();
@@ -4211,27 +3694,9 @@
       document.getElementById('walletInput').value = '';
       hideWalletDropdown();
 
-      // If not already tracked, add it (with free plan check)
       if (!walletData.some(w => w.address === addr)) {
-        // Free plan check (allow demo wallet always)
-        if (!isPro() && addr !== DEMO_WALLET) {
-          const personalWallets = walletData.filter(w => w.address !== DEMO_WALLET).length;
-          if (connectedWallet && addr !== connectedWallet) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Upgrade to track multiple wallets</span>';
-            return;
-          } else if (!connectedWallet && personalWallets >= 1) {
-            showPaymentModal();
-            document.getElementById('paymentStatus').innerHTML =
-              '<span style="color:var(--warning)">⚡ Connect wallet or upgrade to track multiple wallets</span>';
-            return;
-          }
-        }
-
-        // Add with label for toly.sol
-        const label = addr === DEMO_WALLET ? 'toly.sol' : '';
-        walletData.push({ address: addr, label: label, group: '' });
+        const label = addr === DEMO_WALLET ? 'demo' : '';
+        walletData.push({ address: addr, label, group: '' });
         if (addr !== DEMO_WALLET && !searchHistory.some(h => h.address === addr)) {
           searchHistory.unshift({ address: addr, label: '' });
           saveSearchHistory();
@@ -4448,10 +3913,9 @@
         // Show fast data immediately
         renderFastData(data, wallets);
 
-        // STEP 2: Load Dialect + trade-pnl (drives All-Time P&L card) in background
         loadDialectInBackground(wallets);
         loadTradePnLInBackground(wallets);
-
+        sendUsagePing();
       } catch (error) {
         console.error('Refresh error:', error);
         document.getElementById('statNetWorth').textContent = '--';
@@ -4830,9 +4294,6 @@
         html += '</div>';
       }
 
-      if (!hasProView && (blurredTokens.length > 0 || tokens.length > ITEMS_PER_PAGE)) {
-        html += '<div class="upgrade-prompt" onclick="showPaymentModal()">⚡ Upgrade to see all ' + tokens.length + ' tokens</div>';
-      }
 
       document.getElementById('tokensContent').innerHTML = html;
     }
@@ -5103,46 +4564,50 @@
     // ============================================================================
     // Portfolio Tracking Chart (Our daily snapshots for labels/portfolios)
     // ============================================================================
+    // Local snapshot history (per portfolio) — stored as YYYY-MM-DD → netWorth.
+    // Snapshot is taken every time the user opens the portfolio; one entry per day.
+    function snapshotsKey(labelId) {
+      return connectedWallet ? `snapshots:${connectedWallet}:${labelId}` : null;
+    }
+    function readSnapshots(labelId) {
+      const key = snapshotsKey(labelId);
+      if (!key) return {};
+      try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; }
+    }
+    function recordSnapshot(labelId, netWorth) {
+      const key = snapshotsKey(labelId);
+      if (!key || !Number.isFinite(netWorth) || netWorth <= 0) return;
+      const snaps = readSnapshots(labelId);
+      const today = new Date().toISOString().slice(0, 10);
+      snaps[today] = netWorth;
+      const keep = Object.keys(snaps).sort().slice(-180);
+      const trimmed = {};
+      for (const k of keep) trimmed[k] = snaps[k];
+      try { localStorage.setItem(key, JSON.stringify(trimmed)); } catch (e) { }
+    }
+
     async function loadTrackingChart(labelId, currentNetWorth) {
       const trackingSection = document.getElementById('trackingSection');
-
-      if (!labelId) {
-        trackingSection.style.display = 'none';
-        return;
-      }
-
-      // Ensure labelId is a number for comparison
+      if (!labelId) { trackingSection.style.display = 'none'; return; }
       const numLabelId = parseInt(labelId);
       const label = userLabels.find(l => l.id === numLabelId || l.id === labelId);
-      if (!label) {
-        trackingSection.style.display = 'none';
-        return;
-      }
+      if (!label) { trackingSection.style.display = 'none'; return; }
+
+      recordSnapshot(labelId, currentNetWorth);
 
       try {
-        // Fetch snapshot history from our database
-        const res = await fetch('/api/labels/' + labelId + '/history?days=90', {
-          headers: getAuthHeaders()
-        });
-        const data = await res.json();
+        const snaps = readSnapshots(labelId);
+        let history = Object.entries(snaps)
+          .map(([date, value]) => ({ snapshot_date: date, total_net_worth: value }))
+          .sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
 
-        let history = data.history || [];
-
-        // Build chart data points
         let chartData = [];
-
-        // If we have snapshots, use them
-        if (history.length > 0) {
-          // Sort by date ascending
-          history = history.sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
-
-          for (const snap of history) {
-            chartData.push({
-              date: new Date(snap.snapshot_date),
-              value: parseFloat(snap.total_net_worth) || 0,
-              label: new Date(snap.snapshot_date).toLocaleDateString()
-            });
-          }
+        for (const snap of history) {
+          chartData.push({
+            date: new Date(snap.snapshot_date),
+            value: parseFloat(snap.total_net_worth) || 0,
+            label: new Date(snap.snapshot_date).toLocaleDateString(),
+          });
         }
 
         // Helper to get UTC date string for comparison
@@ -5564,9 +5029,6 @@
       }
 
       // Add upgrade prompt for free users
-      if (!hasProView && (blurredPositions.length > 0 || positions.length > ITEMS_PER_PAGE)) {
-        html += '<div class="upgrade-prompt" onclick="showPaymentModal()">⚡ Upgrade to see all ' + positions.length + ' positions</div>';
-      }
 
       document.getElementById('defiContent').innerHTML = html;
     }
@@ -5872,19 +5334,13 @@
       window.connectedProvider = null;
       saveConnectedWallet();
       updateWalletStatusUI();
-      await checkProStatus(); // Re-check Pro when wallet disconnects (will be false)
 
-      // Clear portfolios (they belong to the connected wallet)
       userLabels = [];
       activeLabelId = null;
       localStorage.removeItem('activeLabelId');
       hiddenLabelWallets = [];
       renderLabels();
 
-      // Clear alerts (Dialect component handles its own state)
-      userAlerts = [];
-
-      // Clear ALL wallet data - reset everything
       walletData = [];
       searchHistory = [];
       allTokens = [];
@@ -5931,41 +5387,16 @@
     function showWalletModal() { document.getElementById('walletModal').classList.add('active'); }
     function closeWalletModal() { document.getElementById('walletModal').classList.remove('active'); }
 
-    function showPaymentModal() {
-      document.getElementById('paymentModal').classList.add('active');
-      if (proStatusCache.isPro && proStatusCache.expiresAt) {
-        const exp = new Date(proStatusCache.expiresAt);
-        document.getElementById('paymentStatus').innerHTML =
-          '<div class="pro-status">✓ Pro active until ' + exp.toLocaleDateString() + '</div>';
-        document.getElementById('payBtn').textContent = 'Extend Subscription';
-      } else {
-        document.getElementById('paymentStatus').innerHTML = connectedWallet
-          ? 'Connected: ' + connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4)
-          : '<span style="color:var(--warning)">Connect a wallet first</span>';
-      }
-      document.getElementById('payBtn').disabled = !connectedWallet;
-    }
-    function closePaymentModal() { document.getElementById('paymentModal').classList.remove('active'); }
-
     async function updateWalletUI(addr) {
       connectedWallet = addr;
-      window.connectedWallet = addr; // Expose for React component
-      window.connectedProvider = connectedProvider; // Expose for React component
+      window.connectedWallet = addr;
+      window.connectedProvider = connectedProvider;
       saveConnectedWallet();
       updateWalletStatusUI();
       closeWalletModal();
-      await checkProStatus(); // Re-check Pro when wallet connects
-      await loadLabels(); // Load labels for Pro users
-      await loadAlerts(); // Load alerts
-
-      // When wallet connects: remove demo wallet (toly.sol) and keep only connected wallet
-      // For free users: only keep the connected wallet
-      if (!isPro()) {
-        walletData = walletData.filter(w => w.address === addr);
-      } else {
-        // For Pro users: remove auto-added demo wallet but keep other tracked wallets
-        walletData = walletData.filter(w => w.address !== DEMO_WALLET);
-      }
+      await loadLabels();
+      sendSignupPing();
+      walletData = walletData.filter(w => w.address !== DEMO_WALLET);
 
       // Add connected wallet to tracked wallets if not already present
       const existingAddresses = walletData.map(w => w.address);
@@ -5980,50 +5411,46 @@
       refreshData();
     }
 
-    async function connectBackpack() {
-      const provider = window.backpack;
-      if (!provider) { window.open('https://backpack.app/', '_blank'); return; }
+    // Wallet adapter table — name → (provider getter, install URL, optional
+    // additional check). Add new wallets here, not by copy-pasting connect fns.
+    const WALLET_ADAPTERS = {
+      backpack: {
+        get: () => window.backpack,
+        install: 'https://backpack.app/',
+      },
+      phantom: {
+        get: () => window.solana?.isPhantom ? window.solana : null,
+        install: 'https://phantom.app/',
+      },
+      solflare: {
+        get: () => window.solflare,
+        install: 'https://solflare.com/',
+      },
+    };
+
+    async function connectWallet(name) {
+      const adapter = WALLET_ADAPTERS[name];
+      if (!adapter) { console.error('Unknown wallet:', name); return; }
+      const provider = adapter.get();
+      if (!provider) { window.open(adapter.install, '_blank'); return; }
       try {
-        // Disconnect first to allow wallet selection
+        // Disconnect first so the extension shows the account picker.
         if (provider.isConnected) {
           try { await provider.disconnect(); } catch (e) { }
         }
         const resp = await provider.connect();
         connectedProvider = provider;
-        connectedWalletType = 'backpack';
-        updateWalletUI(resp.publicKey.toString());
+        connectedWalletType = name;
+        const pk = (resp && resp.publicKey) ? resp.publicKey : provider.publicKey;
+        updateWalletUI(pk.toString());
       } catch (e) { alert('Connection failed: ' + e.message); }
     }
 
-    async function connectPhantom() {
-      const provider = window.solana;
-      if (!provider?.isPhantom) { window.open('https://phantom.app/', '_blank'); return; }
-      try {
-        // Disconnect first to allow wallet selection
-        if (provider.isConnected) {
-          try { await provider.disconnect(); } catch (e) { }
-        }
-        const resp = await provider.connect();
-        connectedProvider = provider;
-        connectedWalletType = 'phantom';
-        updateWalletUI(resp.publicKey.toString());
-      } catch (e) { alert('Connection failed: ' + e.message); }
-    }
-
-    async function connectSolflare() {
-      const provider = window.solflare;
-      if (!provider) { window.open('https://solflare.com/', '_blank'); return; }
-      try {
-        // Disconnect first to allow wallet selection
-        if (provider.isConnected) {
-          try { await provider.disconnect(); } catch (e) { }
-        }
-        await provider.connect();
-        connectedProvider = provider;
-        connectedWalletType = 'solflare';
-        updateWalletUI(provider.publicKey.toString());
-      } catch (e) { alert('Connection failed: ' + e.message); }
-    }
+    // Back-compat wrappers for the existing onclick="connectBackpack()" etc.
+    // markup in the wallet modal. Cheaper than rewriting the markup.
+    const connectBackpack = () => connectWallet('backpack');
+    const connectPhantom = () => connectWallet('phantom');
+    const connectSolflare = () => connectWallet('solflare');
 
     // Try to get wallet provider - use saved wallet type
     async function ensureProvider() {
@@ -6064,185 +5491,6 @@
       return false;
     }
 
-    // USDC Payment
-    async function makePayment() {
-      const statusEl = document.getElementById('paymentStatus');
-      const payBtn = document.getElementById('payBtn');
-
-      // Handle 100% discount (free activation)
-      if (appliedDiscount === 100) {
-        // Require connected wallet for discount activation
-        if (!connectedWallet) {
-          statusEl.innerHTML = '<span style="color:var(--warning)">Connect a wallet first</span>';
-          return;
-        }
-        payBtn.disabled = true;
-        statusEl.innerHTML = '<span style="color:var(--warning)">Activating Pro...</span>';
-
-        const success = await saveProStatus(connectedWallet, null, appliedDiscountCode);
-        if (success) {
-          statusEl.innerHTML = '<span style="color:var(--positive)">✓ Pro activated!</span>';
-          payBtn.textContent = '✓ Activated';
-          setTimeout(closePaymentModal, 1500);
-        } else {
-          statusEl.innerHTML = '<span style="color:var(--negative)">Activation failed. Try again.</span>';
-          payBtn.disabled = false;
-        }
-        return;
-      }
-
-      if (!connectedWallet) {
-        alert('Please connect a wallet first');
-        return;
-      }
-
-      // Try to get provider if not set
-      if (!connectedProvider) {
-        const hasProvider = await ensureProvider();
-        if (!hasProvider) {
-          alert('Please reconnect your wallet');
-          showWalletModal();
-          return;
-        }
-      }
-
-      try {
-        payBtn.disabled = true;
-        statusEl.innerHTML = '<span style="color:var(--warning)">Creating USDC transfer...</span>';
-
-        const { Connection, PublicKey, Transaction } = solanaWeb3;
-        const connection = new Connection('https://mainnet.helius-rpc.com/?api-key=ed2c2720-f40d-44d0-83be-ee7f3b8d5359', 'confirmed');
-
-        const fromPubkey = new PublicKey(connectedWallet);
-        const toPubkey = new PublicKey(paymentConfig.wallet);
-        const mintPubkey = new PublicKey(paymentConfig.tokenMint);
-
-        // Calculate amount in token units (with discount applied)
-        const baseAmount = paymentConfig.amount;
-        const discountedAmount = baseAmount * (1 - appliedDiscount / 100);
-        const amount = Math.round(discountedAmount * Math.pow(10, paymentConfig.tokenDecimals));
-
-        // Get associated token accounts
-        const fromAta = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
-        const toAta = await getAssociatedTokenAddress(mintPubkey, toPubkey);
-
-        // Check if destination ATA exists
-        const toAtaInfo = await connection.getAccountInfo(toAta);
-
-        const transaction = new Transaction();
-
-        // Create destination ATA if needed
-        if (!toAtaInfo) {
-          transaction.add(
-            createAssociatedTokenAccountInstruction(fromPubkey, toAta, toPubkey, mintPubkey)
-          );
-        }
-
-        // Add transfer instruction
-        transaction.add(
-          createTransferInstruction(fromAta, toAta, fromPubkey, amount)
-        );
-
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = fromPubkey;
-
-        statusEl.innerHTML = '<span style="color:var(--warning)">Please approve in your wallet...</span>';
-
-        let signature;
-        if (connectedProvider.signAndSendTransaction) {
-          const result = await connectedProvider.signAndSendTransaction(transaction);
-          signature = result.signature;
-        } else {
-          const signed = await connectedProvider.signTransaction(transaction);
-          signature = await connection.sendRawTransaction(signed.serialize());
-        }
-
-        statusEl.innerHTML = '<span style="color:var(--warning)">Confirming transaction...</span>';
-        await connection.confirmTransaction(signature, 'confirmed');
-
-        // Save pro status via API
-        statusEl.innerHTML = '<span style="color:var(--warning)">Activating Pro...</span>';
-        const success = await saveProStatus(connectedWallet, signature, appliedDiscountCode);
-
-        if (success) {
-          statusEl.innerHTML =
-            '<span style="color:var(--positive)">✓ Payment successful!</span><br>' +
-            '<a class="tx-link" href="https://www.orbmarkets.io/tx/' + signature + '" target="_blank">View on Orb →</a>' +
-            '<div class="pro-status">Pro activated for 30 days</div>';
-          payBtn.textContent = '✓ Paid';
-          payBtn.classList.remove('btn-accent');
-          payBtn.classList.add('btn');
-        } else {
-          statusEl.innerHTML =
-            '<span style="color:var(--warning)">Payment received but Pro activation failed. Contact support with tx: ' + signature + '</span>';
-        }
-
-      } catch (e) {
-        console.error('Payment failed:', e);
-        statusEl.innerHTML = '<span style="color:var(--negative)">Payment failed: ' + (e.message || 'Unknown error') + '</span>';
-        payBtn.disabled = false;
-      }
-    }
-
-    // SPL Token helpers (simplified versions)
-    async function getAssociatedTokenAddress(mint, owner) {
-      const { PublicKey } = solanaWeb3;
-      const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-
-      const [address] = await PublicKey.findProgramAddress(
-        [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      );
-      return address;
-    }
-
-    function createAssociatedTokenAccountInstruction(payer, ata, owner, mint) {
-      const { PublicKey, TransactionInstruction } = solanaWeb3;
-      const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-      const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
-      const SYSVAR_RENT_PUBKEY = new PublicKey('SysvarRent111111111111111111111111111111111');
-
-      return new TransactionInstruction({
-        keys: [
-          { pubkey: payer, isSigner: true, isWritable: true },
-          { pubkey: ata, isSigner: false, isWritable: true },
-          { pubkey: owner, isSigner: false, isWritable: false },
-          { pubkey: mint, isSigner: false, isWritable: false },
-          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-          { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-        ],
-        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-        data: new Uint8Array(0),
-      });
-    }
-
-    function createTransferInstruction(source, dest, owner, amount) {
-      const { PublicKey, TransactionInstruction } = solanaWeb3;
-      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-
-      // Create data buffer for SPL Token transfer instruction
-      // Instruction 3 = Transfer, followed by u64 amount (little-endian)
-      const data = new Uint8Array(9);
-      data[0] = 3; // Transfer instruction
-      const amountBig = BigInt(amount);
-      for (let i = 0; i < 8; i++) {
-        data[1 + i] = Number((amountBig >> BigInt(8 * i)) & BigInt(0xff));
-      }
-
-      return new TransactionInstruction({
-        keys: [
-          { pubkey: source, isSigner: false, isWritable: true },
-          { pubkey: dest, isSigner: false, isWritable: true },
-          { pubkey: owner, isSigner: true, isWritable: false },
-        ],
-        programId: TOKEN_PROGRAM_ID,
-        data,
-      });
-    }
 
     // ============================================================================
     // Labels Management (Pro Feature)
@@ -6253,72 +5501,53 @@
     let activeLabelId = null; // For filtering by label
     let hiddenLabelWallets = []; // Wallets hidden from current portfolio view
 
+    function labelsStorageKey() {
+      return connectedWallet ? `labels:${connectedWallet}` : null;
+    }
+
+    function readLocalLabels() {
+      const key = labelsStorageKey();
+      if (!key) return [];
+      try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; }
+    }
+
+    function writeLocalLabels(labels) {
+      const key = labelsStorageKey();
+      if (!key) return;
+      try { localStorage.setItem(key, JSON.stringify(labels)); } catch (e) { console.error('Failed to persist labels:', e); }
+    }
+
     async function loadLabels() {
-      // Portfolios require a connected wallet (to store per-user) AND Pro status
-      // In free mode, still require wallet connection for portfolios
       if (!connectedWallet) {
         document.getElementById('labelsSection').style.display = 'none';
         return;
       }
-
-      // In free mode, show portfolios for all connected users
-      // In paid mode, require Pro status
-      if (!freeMode && !proStatusCache.isPro) {
-        document.getElementById('labelsSection').style.display = 'none';
-        return;
-      }
-
       document.getElementById('labelsSection').style.display = 'block';
 
-      // Wait for JWT authentication
-      await waitForJwt();
+      userLabels = readLocalLabels();
+      window.userLabels = userLabels;
+      renderLabels();
 
-      try {
-        const res = await fetch('/api/labels/' + connectedWallet, {
-          headers: getAuthHeaders()
-        });
-        const data = await res.json();
-        userLabels = data.labels || [];
-        window.userLabels = userLabels; // Expose for React component
-        renderLabels();
-
-        // Restore previously selected portfolio from localStorage
-        const savedLabelId = localStorage.getItem('activeLabelId');
-        if (savedLabelId) {
-          const labelId = parseInt(savedLabelId);
-          const labelExists = userLabels.some(l => l.id === labelId);
-          if (labelExists) {
-            activeLabelId = labelId;
-            renderLabels();
-            loadLabelPortfolio(labelId);
-          } else {
-            // Label no longer exists, clear saved value
-            localStorage.removeItem('activeLabelId');
-          }
+      const savedLabelId = localStorage.getItem('activeLabelId');
+      if (savedLabelId) {
+        const labelId = parseInt(savedLabelId);
+        if (userLabels.some(l => l.id === labelId)) {
+          activeLabelId = labelId;
+          renderLabels();
+          loadLabelPortfolio(labelId);
+        } else {
+          localStorage.removeItem('activeLabelId');
         }
-      } catch (e) {
-        console.error('Failed to load labels:', e);
-        userLabels = [];
-        renderLabels();
       }
     }
 
     function renderLabels() {
       const section = document.getElementById('labelsSection');
       const container = document.getElementById('labelsList');
-
-      // Hide section if no wallet connected
       if (!connectedWallet) {
         section.style.display = 'none';
         return;
       }
-
-      // In paid mode, require Pro status
-      if (!freeMode && !proStatusCache.isPro) {
-        section.style.display = 'none';
-        return;
-      }
-
       section.style.display = 'block';
 
       if (userLabels.length === 0) {
@@ -6541,51 +5770,19 @@
         return;
       }
 
-      try {
-        let res;
-        if (editingLabelId) {
-          // Update existing label
-          res = await fetch('/api/labels/' + editingLabelId, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-              owner_wallet: connectedWallet,
-              name,
-              color: selectedLabelColor,
-              wallets
-            })
-          });
-        } else {
-          // Create new label
-          res = await fetch('/api/labels', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-              owner_wallet: connectedWallet,
-              name,
-              color: selectedLabelColor,
-              wallets
-            })
-          });
+      const labels = readLocalLabels();
+      if (editingLabelId) {
+        const idx = labels.findIndex(l => l.id === editingLabelId);
+        if (idx >= 0) {
+          labels[idx] = { ...labels[idx], name, color: selectedLabelColor, wallets };
         }
-
-        const data = await res.json();
-        if (data.error) {
-          const statusEl = document.getElementById('labelModalStatus');
-          if (data.code === 'PRO_REQUIRED') {
-            statusEl.innerHTML = '<span style="color:var(--warning)">⚡ Portfolios are a Pro feature. Please upgrade.</span>';
-          } else {
-            statusEl.innerHTML = '<span style="color:var(--negative)">' + escapeHtml(data.error) + '</span>';
-          }
-          return;
-        }
-
-        closeLabelModal();
-        await loadLabels();
-      } catch (e) {
-        console.error('Save portfolio error:', e);
-        alert('Failed to save portfolio');
+      } else {
+        const id = labels.reduce((m, l) => Math.max(m, l.id || 0), 0) + 1;
+        labels.push({ id, name, color: selectedLabelColor, wallets, created_at: new Date().toISOString() });
       }
+      writeLocalLabels(labels);
+      closeLabelModal();
+      await loadLabels();
     }
 
     function deleteLabel() {
@@ -6599,26 +5796,13 @@
 
     async function confirmDeleteLabel() {
       if (!editingLabelId) return;
-
       try {
-        const res = await fetch('/api/labels/' + editingLabelId, {
-          method: 'DELETE',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner_wallet: connectedWallet })
-        });
-
-        const data = await res.json();
-        if (data.error) {
-          closeDeleteLabelModal();
-          alert(data.error);
-          return;
-        }
-
-        // Clear filter if deleting active label
+        const labels = readLocalLabels().filter(l => l.id !== editingLabelId);
+        writeLocalLabels(labels);
         if (activeLabelId === editingLabelId) {
           activeLabelId = null;
+          localStorage.removeItem('activeLabelId');
         }
-
         closeDeleteLabelModal();
         closeLabelModal();
         await loadLabels();
@@ -6661,590 +5845,45 @@
       });
     });
 
-    // ============================================================================
-    // ALERTS FUNCTIONALITY
-    // ============================================================================
-    let userAlerts = [];
-    let editingAlertId = null;
-
-    // Alerts are now handled by Dialect React component
-    async function loadAlerts() {
-      // No-op - Dialect handles alerts UI
-    }
-
-    function renderAlerts() {
-      // No-op - Dialect handles alerts UI
-    }
-
-    async function showAlertModal() {
-      editingAlertId = null;
-      selectedAlertType = 'any_tx';
-      const modal = document.getElementById('alertModal');
-      const titleEl = document.getElementById('alertModalTitle');
-      const targetSelect = document.getElementById('alertTargetSelect');
-      const telegramInput = document.getElementById('telegramUsername');
-
-      // First ensure Dialect subscription (one-time signature)
-      const statusDiv = document.createElement('div');
-      statusDiv.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
-      const subscribed = await ensureDialectSubscription(statusDiv);
-      if (!subscribed) {
-        // User rejected signature
-        return;
-      }
-
-      titleEl.textContent = 'Create Alert';
-      telegramInput.value = localStorage.getItem('telegramUsername') || '';
-
-      // Populate target options - clean list
-      let options = '<option value="">Select...</option>';
-
-      // Add connected wallet
-      if (connectedWallet) {
-        const shortAddr = connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4);
-        options += `<option value="wallet:${connectedWallet}">${shortAddr}</option>`;
-      }
-
-      // Add portfolios
-      for (const label of userLabels) {
-        options += `<option value="label:${label.id}">${escapeHtml(label.name)}</option>`;
-      }
-
-      targetSelect.innerHTML = options;
-
-      // Hide wallet select
-      document.getElementById('walletSelectGroup').style.display = 'none';
-
-      // Reset checkboxes - none checked by default
-      document.getElementById('check-activity').classList.remove('checked');
-      document.getElementById('check-threshold').classList.remove('checked');
-      document.getElementById('thresholdRange').value = 5;
-      document.getElementById('thresholdCurrent').textContent = '5%';
-
-      // Hide portfolio change option until a portfolio is selected
-      document.getElementById('portfolioChangeOption').style.display = 'none';
-
-      document.getElementById('alertModalStatus').textContent = '';
-      modal.classList.add('active');
-    }
-
-    function closeAlertModal() {
-      document.getElementById('alertModal').classList.remove('active');
-    }
-
-    async function showAlertModalForWallet(walletAddress) {
-      // Show the alert modal pre-selecting this wallet
-      editingAlertId = null;
-      selectedAlertType = 'any_tx';
-      const modal = document.getElementById('alertModal');
-      const titleEl = document.getElementById('alertModalTitle');
-      const targetSelect = document.getElementById('alertTargetSelect');
-      const telegramInput = document.getElementById('telegramUsername');
-
-      // First ensure Dialect subscription (one-time signature)
-      const statusDiv = document.createElement('div');
-      statusDiv.innerHTML = '<span class="loading-text">Setting up notifications...</span>';
-      const subscribed = await ensureDialectSubscription(statusDiv);
-      if (!subscribed) {
-        return;
-      }
-
-      titleEl.textContent = 'Create Alert';
-      telegramInput.value = localStorage.getItem('telegramUsername') || '';
-
-      // Populate target options with the specific wallet pre-selected
-      const shortAddr = walletAddress.slice(0, 4) + '...' + walletAddress.slice(-4);
-      let options = `<option value="wallet:${walletAddress}" selected>${shortAddr}</option>`;
-
-      // Add other wallets
-      for (const w of walletData) {
-        if (w.address !== walletAddress) {
-          const otherShort = w.address.slice(0, 4) + '...' + w.address.slice(-4);
-          const displayName = w.label || otherShort;
-          options += `<option value="wallet:${w.address}">${displayName}</option>`;
-        }
-      }
-
-      // Add portfolios
-      for (const label of userLabels) {
-        options += `<option value="label:${label.id}">${escapeHtml(label.name)}</option>`;
-      }
-
-      targetSelect.innerHTML = options;
-
-      // Hide wallet select
-      document.getElementById('walletSelectGroup').style.display = 'none';
-
-      // Reset checkboxes
-      document.getElementById('check-activity').classList.remove('checked');
-      document.getElementById('check-threshold').classList.remove('checked');
-      document.getElementById('thresholdRange').value = 5;
-      document.getElementById('thresholdCurrent').textContent = '5%';
-      document.getElementById('portfolioChangeOption').style.display = 'none';
-
-      document.getElementById('alertModalStatus').textContent = '';
-      modal.classList.add('active');
-    }
-
-    function toggleThresholdAlert() {
-      document.getElementById('check-threshold').classList.toggle('checked');
-    }
-
-    function updateThresholdDisplay(val) {
-      document.getElementById('thresholdCurrent').textContent = val + '%';
-    }
-
-    const DIALECT_APP_ID = 'ffb32fc6-5e32-47ba-acdf-3c77ce999360';
-    const DIALECT_CLIENT_KEY = 'pk_rjryqg4hkgb4tbxrhau62sdq';
-
-    async function ensureDialectSubscription(statusEl) {
-      console.log('ensureDialectSubscription called');
-      console.log('connectedWallet:', connectedWallet);
-      console.log('connectedProvider:', connectedProvider);
-
-      if (!connectedWallet) {
-        console.log('No wallet connected');
-        return false;
-      }
-
-      // Check localStorage first (already subscribed before)
-      const subscriptionKey = `dialect_subscribed_${connectedWallet}`;
-      const jwtKey = `dialect_jwt_${connectedWallet}`;
-
-      if (localStorage.getItem(subscriptionKey) === 'true') {
-        console.log('Already subscribed (cached)');
-        return true;
-      }
-
-      try {
-        // Check backend if subscribed
-        console.log('Checking Dialect subscription status...');
-        const checkRes = await fetch(`/api/dialect/check-subscription?wallet=${connectedWallet}`);
-        const checkData = await checkRes.json();
-        console.log('Dialect check result:', checkData);
-
-        if (checkData.subscribed) {
-          localStorage.setItem(subscriptionKey, 'true');
-          console.log('Already subscribed to Dialect');
-          return true;
-        }
-
-        // Need to subscribe - get message and trigger wallet sign directly
-        // Step 1: Prepare auth message from Dialect
-        console.log('Preparing Dialect auth...');
-        const prepareRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/prepare', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
-          },
-          body: JSON.stringify({ walletAddress: connectedWallet })
-        });
-
-        if (!prepareRes.ok) {
-          const err = await prepareRes.text();
-          console.error('Dialect prepare error:', err);
-          return false;
-        }
-
-        const { message } = await prepareRes.json();
-        console.log('Dialect message to sign:', message);
-
-        // Step 2: User signs the message using the connected wallet
-        const encodedMessage = new TextEncoder().encode(message);
-        // Get the provider - try to reconnect if needed
-        let provider = connectedProvider;
-        if (!provider) {
-          console.log('connectedProvider is null, trying to get wallet...');
-          // Try backpack first, then phantom, then solflare
-          provider = window.backpack || window.phantom?.solana || window.solflare;
-          if (!provider) {
-            console.error('No wallet provider found');
-            return false;
-          }
-        }
-        console.log('Requesting signature from wallet...');
-        // Try different signMessage formats for different wallets
-        let signResult;
-        try {
-          // Backpack/Phantom format - just pass the bytes
-          signResult = await provider.signMessage(encodedMessage);
-        } catch (e1) {
-          console.log('First signMessage attempt failed:', e1.message);
-          try {
-            // Alternative format with display option
-            signResult = await provider.signMessage(encodedMessage, { display: 'utf8' });
-          } catch (e2) {
-            console.log('Second signMessage attempt failed:', e2.message);
-            // Last resort - try with utf8 string
-            signResult = await provider.signMessage(encodedMessage, 'utf8');
-          }
-        }
-        console.log('Signature received:', signResult);
-
-        // Convert signature to base58 - handle different wallet formats
-        let signatureBytes;
-        if (signResult.signature) {
-          signatureBytes = signResult.signature;
-        } else if (signResult instanceof Uint8Array) {
-          signatureBytes = signResult;
-        } else if (Array.isArray(signResult)) {
-          signatureBytes = new Uint8Array(signResult);
-        } else {
-          console.error('Unknown signature format:', signResult);
-          return false;
-        }
-        const signatureBase58 = base58Encode(signatureBytes);
-        console.log('Signature base58:', signatureBase58.slice(0, 20) + '...');
-
-        // Step 3: Verify signature with Dialect to get JWT
-        let token;
-        try {
-          console.log('Verifying signature with Dialect...');
-          const verifyRes = await fetch('https://alerts-api.dial.to/v2/auth/solana/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
-            },
-            body: JSON.stringify({
-              message: message,
-              signature: signatureBase58,
-              walletAddress: connectedWallet
-            })
-          });
-
-          console.log('Verify response status:', verifyRes.status);
-          const verifyText = await verifyRes.text();
-          console.log('Verify response text:', verifyText);
-
-          if (!verifyRes.ok) {
-            console.error('Dialect verify failed:', verifyRes.status, verifyText);
-            return false;
-          }
-
-          const verifyData = JSON.parse(verifyText);
-          token = verifyData.token;
-
-          if (!token) {
-            console.error('No token in verify response:', verifyData);
-            return false;
-          }
-
-          localStorage.setItem(jwtKey, token);
-          console.log('JWT token saved, length:', token.length);
-        } catch (verifyError) {
-          console.error('Verify step exception:', verifyError);
-          return false;
-        }
-
-        // Step 4: Subscribe using the JWT
-        console.log('Subscribing to Dialect...');
-        const subscribeRes = await fetch(`https://alerts-api.dial.to/v2/${DIALECT_APP_ID}/subscribers`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'X-Dialect-Client-Key': DIALECT_CLIENT_KEY
-          },
-          body: JSON.stringify({
-            walletAddress: connectedWallet,
-            channels: { telegram: true, email: false, inApp: true }
-          })
-        });
-
-        if (subscribeRes.ok || subscribeRes.status === 201) {
-          console.log('✓ Subscribed to Dialect');
-          localStorage.setItem(subscriptionKey, 'true');
-          return true;
-        } else {
-          const err = await subscribeRes.text();
-          console.error('Dialect subscribe error:', err);
-          // Still allow if we got the JWT - subscription might already exist
-          localStorage.setItem(subscriptionKey, 'true');
-          return true;
-        }
-      } catch (error) {
-        console.error('Dialect subscription error:', error.message);
-        return false;
-      }
-    }
-
-    // Base58 encoding for Solana signatures
-    function base58Encode(bytes) {
-      const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-      let result = '';
-      let num = BigInt('0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''));
-      while (num > 0) {
-        result = ALPHABET[Number(num % 58n)] + result;
-        num = num / 58n;
-      }
-      for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
-        result = '1' + result;
-      }
-      return result || '1';
-    }
-
-    function updateAlertTargetOptions() {
-      const target = document.getElementById('alertTargetSelect').value;
-      const notificationSection = document.getElementById('notificationTypeSection');
-      const portfolioOption = document.getElementById('portfolioChangeOption');
-      const checkThreshold = document.getElementById('check-threshold');
-      const walletSelectGroup = document.getElementById('walletSelectGroup');
-      const walletSelect = document.getElementById('alertWalletSelect');
-
-      // Show notification type section only after target is selected
-      if (target) {
-        notificationSection.style.display = 'block';
-
-        // If portfolio selected, show wallet checkboxes
-        if (target.startsWith('label:')) {
-          const labelId = parseInt(target.split(':')[1]);
-          const label = userLabels.find(l => l.id === labelId);
-
-          if (label && (label.wallets || []).length > 0) {
-            const walletList = document.getElementById('alertWalletList');
-            let html = `<label class="alert-wallet-item all-wallets">
-              <input type="checkbox" id="alertAllWallets" checked onchange="toggleAllWallets(this)">
-              <span>All wallets (${label.wallets.length})</span>
-            </label>`;
-            for (const w of label.wallets) {
-              const addr = w.address || w;
-              const shortAddr = addr.slice(0, 4) + '...' + addr.slice(-4);
-              const name = w.name || shortAddr;
-              html += `<label class="alert-wallet-item">
-                <input type="checkbox" class="alert-wallet-check" value="${addr}" checked onchange="updateWalletSelection()">
-                <span>${escapeHtml(name)}</span>
-              </label>`;
-            }
-            walletList.innerHTML = html;
-            walletSelectGroup.style.display = 'block';
-          } else {
-            walletSelectGroup.style.display = 'none';
-          }
-
-          portfolioOption.style.display = 'flex';
-        } else {
-          walletSelectGroup.style.display = 'none';
-          portfolioOption.style.display = 'none';
-          checkThreshold.classList.remove('checked');
-        }
-      } else {
-        notificationSection.style.display = 'none';
-        walletSelectGroup.style.display = 'none';
-      }
-    }
-
-    function toggleAllWallets(checkbox) {
-      const checks = document.querySelectorAll('.alert-wallet-check');
-      checks.forEach(c => c.checked = checkbox.checked);
-      updateWalletSelection();
-    }
-
-    function updateWalletSelection() {
-      const checks = document.querySelectorAll('.alert-wallet-check');
-      const allCheck = document.getElementById('alertAllWallets');
-      const portfolioOption = document.getElementById('portfolioChangeOption');
-      const checkThreshold = document.getElementById('check-threshold');
-
-      const checkedCount = Array.from(checks).filter(c => c.checked).length;
-      const totalCount = checks.length;
-
-      // Update "All wallets" checkbox state
-      if (allCheck) {
-        allCheck.checked = checkedCount === totalCount;
-        allCheck.indeterminate = checkedCount > 0 && checkedCount < totalCount;
-      }
-
-      // Show portfolio change only if all wallets selected
-      if (checkedCount === totalCount) {
-        portfolioOption.style.display = 'flex';
-      } else {
-        portfolioOption.style.display = 'none';
-        checkThreshold.classList.remove('checked');
-      }
-    }
-
-    async function saveAlert() {
-      const statusEl = document.getElementById('alertModalStatus');
-      const targetSelect = document.getElementById('alertTargetSelect');
-      const telegramInput = document.getElementById('telegramUsername');
-
-      const target = targetSelect.value;
-      const telegram = telegramInput.value.trim().replace('@', '');
-
-      // Check which types are selected
-      const activityChecked = document.getElementById('check-activity').classList.contains('checked');
-      const thresholdChecked = document.getElementById('check-threshold').classList.contains('checked');
-      const thresholdPercent = parseInt(document.getElementById('thresholdRange').value);
-
-      if (!target) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Please select what to monitor</span>';
-        return;
-      }
-
-      if (!telegram) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Please enter your Telegram username</span>';
-        return;
-      }
-
-      if (!activityChecked && !thresholdChecked) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one notification type</span>';
-        return;
-      }
-
-      // Save telegram username for next time
-      localStorage.setItem('telegramUsername', '@' + telegram);
-
-      // Determine actual targets - check which wallets are selected
-      const [baseType, baseId] = target.split(':');
-      const selectedWallets = [];
-
-      if (baseType === 'label') {
-        const checks = document.querySelectorAll('.alert-wallet-check:checked');
-        checks.forEach(c => selectedWallets.push(c.value));
-      }
-
-      // If all wallets selected in portfolio, treat as portfolio alert
-      const label = userLabels.find(l => l.id === parseInt(baseId));
-      const allSelected = label && selectedWallets.length === (label.wallets || []).length;
-
-      const alertTypes = [];
-      if (activityChecked) alertTypes.push({ type: 'any_tx' });
-      if (thresholdChecked) alertTypes.push({ type: 'threshold', threshold_percent: thresholdPercent });
-
-      // Validate wallet selection for portfolios
-      if (baseType === 'label' && selectedWallets.length === 0) {
-        statusEl.innerHTML = '<span style="color:var(--warning)">Select at least one wallet</span>';
-        return;
-      }
-
-      statusEl.innerHTML = '<span class="loading-text">Creating alerts...</span>';
-
-      try {
-
-        // If portfolio with all wallets, create one portfolio alert
-        // Otherwise create individual wallet alerts
-        if (baseType === 'label' && allSelected) {
-          for (const alert of alertTypes) {
-            const payload = {
-              owner_wallet: connectedWallet,
-              telegram_username: telegram,
-              alert_type: alert.type,
-              threshold_percent: alert.threshold_percent || 5.00,
-              label_id: parseInt(baseId)
-            };
-            await fetch('/api/alerts', {
-              method: 'POST',
-              headers: getAuthHeaders(),
-              body: JSON.stringify(payload)
-            });
-          }
-        } else if (baseType === 'label') {
-          // Create alerts for selected wallets only
-          for (const wallet of selectedWallets) {
-            for (const alert of alertTypes) {
-              const payload = {
-                owner_wallet: connectedWallet,
-                telegram_username: telegram,
-                alert_type: alert.type,
-                threshold_percent: alert.threshold_percent || 5.00,
-                target_wallet: wallet
-              };
-              await fetch('/api/alerts', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload)
-              });
-            }
-          }
-        } else {
-          // Single wallet alert
-          for (const alert of alertTypes) {
-            const payload = {
-              owner_wallet: connectedWallet,
-              telegram_username: telegram,
-              alert_type: alert.type,
-              threshold_percent: alert.threshold_percent || 5.00,
-              target_wallet: baseId
-            };
-            await fetch('/api/alerts', {
-              method: 'POST',
-              headers: getAuthHeaders(),
-              body: JSON.stringify(payload)
-            });
-          }
-        }
-
-        closeAlertModal();
-        await loadAlerts();
-      } catch (e) {
-        console.error('Create alert error:', e);
-        statusEl.innerHTML = '<span style="color:var(--negative)">Failed to create alert</span>';
-      }
-    }
-
-    async function toggleAlert(alertId, enabled) {
-      try {
-        await fetch('/api/alerts/' + alertId, {
-          method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            owner_wallet: connectedWallet,
-            enabled: enabled
-          })
-        });
-        await loadAlerts();
-      } catch (e) {
-        console.error('Toggle alert error:', e);
-      }
-    }
-
-    let pendingDeleteAlertId = null;
-
-    function deleteAlert(alertId) {
-      pendingDeleteAlertId = alertId;
-      document.getElementById('deleteAlertModal').classList.add('active');
-    }
-
-    function closeDeleteAlertModal() {
-      document.getElementById('deleteAlertModal').classList.remove('active');
-      pendingDeleteAlertId = null;
-    }
-
-    async function confirmDeleteAlert() {
-      if (!pendingDeleteAlertId) return;
-      try {
-        await fetch('/api/alerts/' + pendingDeleteAlertId, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ owner_wallet: connectedWallet })
-        });
-        await loadAlerts();
-      } catch (e) {
-        console.error('Delete alert error:', e);
-      }
-      closeDeleteAlertModal();
-    }
 
     // ============================================================================
     // Initialize
     // ============================================================================
-    async function init() {
-      initPrivacyMode(); // Initialize privacy toggle
-      loadConnectedWallet();
-      await loadPaymentConfig();
-      await checkProStatus();
-      loadWallets();
-      await loadLabels(); // Load labels after pro status check
-      await loadAlerts(); // Load alerts after labels
+    async function sendTelegramPing(event, payload) {
+      if (!connectedWallet) return;
+      try {
+        await fetch('/api/internal/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event, wallet: connectedWallet, payload: payload || null }),
+        });
+      } catch (e) { }
+    }
+    function sendSignupPing() {
+      if (!connectedWallet) return;
+      const seenKey = `signupPingSent:${connectedWallet}`;
+      if (localStorage.getItem(seenKey)) return;
+      localStorage.setItem(seenKey, '1');
+      sendTelegramPing('signup');
+    }
+    function sendUsagePing() {
+      if (!connectedWallet) return;
+      const lastKey = `usagePingAt:${connectedWallet}`;
+      const last = parseInt(localStorage.getItem(lastKey) || '0', 10);
+      if (Date.now() - last < 6 * 60 * 60 * 1000) return;
+      localStorage.setItem(lastKey, String(Date.now()));
+      sendTelegramPing('usage');
+    }
 
-      // Click outside to close dropdown
+    async function init() {
+      initPrivacyMode();
+      loadConnectedWallet();
+      loadWallets();
+      await loadLabels();
+
       document.addEventListener('click', (e) => {
         const wrapper = document.querySelector('.wallet-input-wrapper');
-        if (wrapper && !wrapper.contains(e.target)) {
-          hideWalletDropdown();
-        }
+        if (wrapper && !wrapper.contains(e.target)) hideWalletDropdown();
       });
     }
     init();
@@ -7264,9 +5903,6 @@
       });
     }
   </script>
-
-  <!-- Dialect Notifications React Component -->
-  <script src="/js/dialect-notifications.js?v=25"></script>
 
   <!-- Turnstile invisible widget container -->
   <div id="turnstile-container"></div>

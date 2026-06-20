@@ -1,31 +1,18 @@
 {
   "name": "portfolio-dashboard",
   "version": "1.0.0",
-  "description": "Minimalistic multi-wallet portfolio dashboard",
+  "description": "Self-hosted multi-wallet Solana portfolio tracker",
   "type": "module",
+  "license": "MIT",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "db:init": "node scripts/init-db.js",
-    "build:dialect": "node scripts/build-dialect.js"
+    "dev": "node --watch server/index.js"
   },
   "dependencies": {
-    "@dialectlabs/blockchain-sdk-solana": "^2.0.0-beta.4",
-    "@dialectlabs/react-sdk-blockchain-solana": "^3.0.0-beta.7",
-    "@dialectlabs/react-ui": "^3.0.0-beta.7",
-    "@dialectlabs/sdk": "^2.0.0-beta.7",
-    "@solana/wallet-adapter-react": "^0.15.39",
-    "@solana/wallet-adapter-wallets": "^0.19.37",
-    "@solana/web3.js": "^1.98.4",
-    "bs58": "^6.0.0",
-    "esbuild": "^0.27.2",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "lru-cache": "^11.2.4",
-    "pg": "^8.11.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "ws": "^8.16.0"
   }
 }

@@ -22,8 +22,10 @@ const STABLECOIN_MINTS = new Set([
     'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
     '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo', // PYUSD
 ]);
+// Wrapped SOL mint — what Helius emits in swap events and token transfers.
+// (The previous version of this file also referenced a "native" SOL constant
+// ending in …111 which isn't a real Solana mint; that branch was dead.)
 const SOL_MINT_WRAPPED = 'So11111111111111111111111111111111111111112';
-const SOL_MINT_NATIVE = 'So11111111111111111111111111111111111111111';
 
 const PAGE_SIZE = 100;
 const DEFAULT_MAX_PAGES = 5; // up to 500 most recent txs per wallet
@@ -111,12 +113,12 @@ function rawToFloat(rawTokenAmount) {
     return raw / Math.pow(10, decimals);
 }
 
-function valueOfInputUsd(mint, amount, solPriceUsd) {
+// Translate an input/output amount in `mint` to a USD value, if `mint` is a
+// known cash token (stablecoin or SOL). Returns 0 for unknown tokens.
+function cashMintUsd(mint, amount, solPriceUsd) {
     if (STABLECOIN_MINTS.has(mint)) return amount;
-    if (mint === SOL_MINT_WRAPPED || mint === SOL_MINT_NATIVE) {
-        return amount * (solPriceUsd || 0);
-    }
-    return 0; // unknown token cost
+    if (mint === SOL_MINT_WRAPPED) return amount * (solPriceUsd || 0);
+    return 0;
 }
 
 /**
@@ -136,11 +138,7 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
     const sells = new Map();
     const events = [];
 
-    const cashMintUsd = (mint, amt) => {
-        if (STABLECOIN_MINTS.has(mint)) return amt;
-        if (mint === SOL_MINT_WRAPPED || mint === SOL_MINT_NATIVE) return amt * (solPriceUsd || 0);
-        return 0;
-    };
+    const cashUsd = (mint, amt) => cashMintUsd(mint, amt, solPriceUsd);
 
     for (const tx of txs) {
         // Prefer Helius's parsed swap event; if absent on a SWAP-type tx, synth
@@ -166,7 +164,7 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
             if (i.userAccount !== wallet) continue;
             const amt = rawToFloat(i.rawTokenAmount);
             if (amt <= 0) continue;
-            const usd = cashMintUsd(i.mint, amt);
+            const usd = cashUsd(i.mint, amt);
             if (usd > 0) cashInUsd += usd;
             else tokensOut.push({ mint: i.mint, amount: amt });
         }
@@ -178,7 +176,7 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
             if (o.userAccount !== wallet) continue;
             const amt = rawToFloat(o.rawTokenAmount);
             if (amt <= 0) continue;
-            const usd = cashMintUsd(o.mint, amt);
+            const usd = cashUsd(o.mint, amt);
             if (usd > 0) cashOutUsd += usd;
             else tokensIn.push({ mint: o.mint, amount: amt });
         }
@@ -216,11 +214,6 @@ export function aggregateSwapEvents(wallet, txs, solPriceUsd) {
     }
 
     return { buys, sells, events };
-}
-
-// Back-compat: callers that only need the buys map can use this thin wrapper.
-export function aggregateSwaps(wallet, txs, solPriceUsd) {
-    return aggregateSwapEvents(wallet, txs, solPriceUsd).buys;
 }
 
 // ============================================================================
@@ -287,9 +280,7 @@ export function computeXIRR(cashflows) {
 function deriveSolPriceFromHoldings(holdingsList) {
     for (const h of holdingsList) {
         const sol = (h.tokens || []).find(t =>
-            t.address === SOL_MINT_WRAPPED ||
-            t.address === SOL_MINT_NATIVE ||
-            t.symbol === 'SOL'
+            t.address === SOL_MINT_WRAPPED || t.symbol === 'SOL'
         );
         if (sol?.price) return sol.price;
     }
