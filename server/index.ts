@@ -7,6 +7,7 @@ import { CONFIG } from './config.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import portfolioRoutes from './routes/portfolio.js';
 import internalRoutes from './routes/internal.js';
+import vaultRoutes from './routes/vault.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,6 +35,7 @@ app.use(express.static(publicDir));
 app.use('/api/', rateLimitMiddleware);
 
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/vault', vaultRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api', internalRoutes);
 

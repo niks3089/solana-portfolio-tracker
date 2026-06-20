@@ -1,76 +1,136 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+    EMPTY_VAULT,
+    nextPortfolioId,
     type Portfolio,
     type PortfolioWallet,
-    nextPortfolioId,
-    readPortfolios,
-    writePortfolios,
+    type VaultPayload,
 } from '../lib/portfolios.ts';
+import { useVault, type VaultStatus } from './useVault.ts';
 
-export function usePortfolios(connectedWallet: string | null) {
-    const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+// Portfolio CRUD + active selection, backed by the encrypted server vault.
+// `activeId` lives in localStorage (it's just UI state, not user data —
+// "which portfolio am I looking at right now").
+export function usePortfolios() {
+    const { data, save, status, wallet } = useVault<VaultPayload>(EMPTY_VAULT);
+
     const [activeId, setActiveIdState] = useState<number | null>(null);
 
-    // Load from localStorage when wallet changes.
+    // Restore activeId after the vault loads.
     useEffect(() => {
-        if (!connectedWallet) {
-            setPortfolios([]);
+        if (status.kind !== 'ready' || !wallet) {
             setActiveIdState(null);
             return;
         }
-        const loaded = readPortfolios(connectedWallet);
-        setPortfolios(loaded);
-
-        const saved = localStorage.getItem('activeLabelId');
+        const saved = localStorage.getItem(`activeLabelId:${wallet}`);
         const id = saved ? Number.parseInt(saved, 10) : NaN;
-        if (Number.isFinite(id) && loaded.some((p) => p.id === id)) {
+        if (Number.isFinite(id) && data.portfolios.some((p) => p.id === id)) {
             setActiveIdState(id);
         } else {
             setActiveIdState(null);
-            localStorage.removeItem('activeLabelId');
+            localStorage.removeItem(`activeLabelId:${wallet}`);
         }
-    }, [connectedWallet]);
-
-    const persist = useCallback(
-        (next: Portfolio[]) => {
-            setPortfolios(next);
-            if (connectedWallet) writePortfolios(connectedWallet, next);
-        },
-        [connectedWallet],
-    );
+    }, [status.kind, wallet, data.portfolios]);
 
     const setActiveId = useCallback((id: number | null) => {
         setActiveIdState(id);
-        if (id == null) localStorage.removeItem('activeLabelId');
-        else localStorage.setItem('activeLabelId', String(id));
-    }, []);
+        if (!wallet) return;
+        if (id == null) localStorage.removeItem(`activeLabelId:${wallet}`);
+        else localStorage.setItem(`activeLabelId:${wallet}`, String(id));
+    }, [wallet]);
+
+    const persist = useCallback(
+        async (next: VaultPayload) => {
+            await save(next);
+        },
+        [save],
+    );
 
     const create = useCallback(
-        (name: string, color: string, wallets: PortfolioWallet[]) => {
-            const id = nextPortfolioId(portfolios);
-            const next: Portfolio = { id, name, color, wallets, created_at: new Date().toISOString() };
-            persist([...portfolios, next]);
-            return next;
+        async (name: string, color: string, wallets: PortfolioWallet[]) => {
+            const id = nextPortfolioId(data.portfolios);
+            const portfolio: Portfolio = { id, name, color, wallets, created_at: new Date().toISOString() };
+            await persist({ ...data, portfolios: [...data.portfolios, portfolio] });
+            return portfolio;
         },
-        [portfolios, persist],
+        [data, persist],
     );
 
     const update = useCallback(
-        (id: number, patch: Partial<Pick<Portfolio, 'name' | 'color' | 'wallets'>>) => {
-            persist(portfolios.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+        async (id: number, patch: Partial<Pick<Portfolio, 'name' | 'color' | 'wallets'>>) => {
+            await persist({
+                ...data,
+                portfolios: data.portfolios.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+            });
         },
-        [portfolios, persist],
+        [data, persist],
     );
 
     const remove = useCallback(
-        (id: number) => {
-            persist(portfolios.filter((p) => p.id !== id));
+        async (id: number) => {
+            const { [String(id)]: _gone, ...remainingSnaps } = data.snapshots;
+            await persist({
+                ...data,
+                portfolios: data.portfolios.filter((p) => p.id !== id),
+                snapshots: remainingSnaps,
+            });
             if (activeId === id) setActiveId(null);
         },
-        [portfolios, persist, activeId, setActiveId],
+        [data, persist, activeId, setActiveId],
     );
 
-    const active = activeId != null ? portfolios.find((p) => p.id === activeId) || null : null;
+    const addTracked = useCallback(
+        async (addr: string) => {
+            if (data.trackedWallets.includes(addr)) return;
+            await persist({ ...data, trackedWallets: [...data.trackedWallets, addr] });
+        },
+        [data, persist],
+    );
 
-    return { portfolios, active, activeId, setActiveId, create, update, remove };
+    const removeTracked = useCallback(
+        async (addr: string) => {
+            await persist({ ...data, trackedWallets: data.trackedWallets.filter((a) => a !== addr) });
+        },
+        [data, persist],
+    );
+
+    const recordSnapshot = useCallback(
+        async (labelId: number, netWorth: number) => {
+            if (!Number.isFinite(netWorth) || netWorth <= 0) return;
+            const today = new Date().toISOString().slice(0, 10);
+            const prev = data.snapshots[String(labelId)] || {};
+            // Skip if today's value already matches within 0.01% — avoids vault churn on every render.
+            if (prev[today] != null && Math.abs(prev[today] - netWorth) / Math.max(1, netWorth) < 0.0001) return;
+            const next = { ...prev, [today]: netWorth };
+            const keys = Object.keys(next).sort();
+            const trimmed: Record<string, number> = {};
+            for (const k of keys.slice(-180)) trimmed[k] = next[k]!;
+            await persist({
+                ...data,
+                snapshots: { ...data.snapshots, [String(labelId)]: trimmed },
+            });
+        },
+        [data, persist],
+    );
+
+    const active = activeId != null ? data.portfolios.find((p) => p.id === activeId) || null : null;
+    const snapshotsFor = (labelId: number): Record<string, number> => data.snapshots[String(labelId)] || {};
+
+    return {
+        portfolios: data.portfolios,
+        trackedWallets: data.trackedWallets,
+        active,
+        activeId,
+        setActiveId,
+        create,
+        update,
+        remove,
+        addTracked,
+        removeTracked,
+        recordSnapshot,
+        snapshotsFor,
+        status,
+    };
 }
+
+export type { VaultStatus };

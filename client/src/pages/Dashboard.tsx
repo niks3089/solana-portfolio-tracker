@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 
 import { StatsRow } from '../components/StatsRow.tsx';
 import { ReturnsRow } from '../components/ReturnsRow.tsx';
@@ -11,11 +10,12 @@ import { TradeHistory } from '../components/TradeHistory.tsx';
 import { TrackerChart } from '../components/TrackerChart.tsx';
 import { PortfolioChips } from '../components/PortfolioChips.tsx';
 import { PortfolioModal } from '../components/PortfolioModal.tsx';
+import { WalletInput } from '../components/WalletInput.tsx';
 
 import { useAggregateFast, useDialectPositions, useTradePnL } from '../hooks/usePortfolioData.ts';
 import { usePortfolios } from '../hooks/usePortfolios.ts';
 import { useTelegramPings } from '../hooks/useTelegramPings.ts';
-import { readSnapshots, recordSnapshot, type PortfolioWallet } from '../lib/portfolios.ts';
+import type { PortfolioWallet } from '../lib/portfolios.ts';
 
 export function Dashboard() {
     const { publicKey } = useWallet();
@@ -23,17 +23,30 @@ export function Dashboard() {
 
     useTelegramPings(connectedWallet);
 
-    const { portfolios, active, activeId, setActiveId, create, update, remove } = usePortfolios(connectedWallet);
+    const {
+        portfolios, active, activeId, setActiveId,
+        create, update, remove,
+        trackedWallets, addTracked, removeTracked,
+        recordSnapshot, snapshotsFor,
+        status,
+    } = usePortfolios();
+
     const [modalMode, setModalMode] = useState<{ kind: 'create' } | { kind: 'edit'; id: number } | null>(null);
 
-    const wallets = useMemo(() => (active?.wallets || []).map((w) => w.address), [active]);
+    // Wallet set: portfolio (if selected) else tracked + connected.
+    const wallets = useMemo(() => {
+        if (active) return (active.wallets || []).map((w) => w.address);
+        const base = new Set<string>();
+        if (connectedWallet) base.add(connectedWallet);
+        for (const a of trackedWallets) base.add(a);
+        return Array.from(base);
+    }, [active, trackedWallets, connectedWallet]);
     const showWalletCol = wallets.length > 1;
 
     const agg = useAggregateFast(wallets);
     const trade = useTradePnL(wallets);
     const dialect = useDialectPositions(wallets);
 
-    // Merge DeFi from aggregate-fast (Lambda) + Dialect, dedup by (protocol,token,type).
     const defiPositions = useMemo(() => {
         const lambda = agg.data?.defiPositions || [];
         const dialectRows = dialect.data?.positions || [];
@@ -50,7 +63,6 @@ export function Dashboard() {
     const allTimePnL = summary?.absoluteReturnUsd ?? null;
     const allTimePnLPct = summary?.absoluteReturnPct ?? null;
 
-    // Build chart segments + record daily snapshot when net worth lands.
     const segments = useMemo(() => {
         const protocolTotals: Record<string, number> = {};
         let tokenTotal = 0;
@@ -66,29 +78,61 @@ export function Dashboard() {
             .slice(0, 6);
     }, [agg.data, defiPositions]);
 
+    // Record one daily snapshot per active portfolio when net worth lands.
     useEffect(() => {
-        if (connectedWallet && activeId != null && aggregate?.totalNetWorth) {
-            recordSnapshot(connectedWallet, activeId, aggregate.totalNetWorth);
+        if (activeId != null && aggregate?.totalNetWorth) {
+            void recordSnapshot(activeId, aggregate.totalNetWorth);
         }
-    }, [connectedWallet, activeId, aggregate?.totalNetWorth]);
-
-    const snapshots = useMemo(
-        () => (connectedWallet && activeId != null ? readSnapshots(connectedWallet, activeId) : {}),
-        // re-read after each refetch lands
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [connectedWallet, activeId, aggregate?.totalNetWorth],
-    );
+    }, [activeId, aggregate?.totalNetWorth, recordSnapshot]);
 
     if (!connectedWallet) {
         return (
             <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
                 <h2 className="text-2xl font-semibold">Connect a wallet</h2>
                 <p className="mt-2 text-text-secondary">
-                    Group multiple wallets into portfolios and track P&L across them. Nothing is stored server-side.
+                    Your portfolio data is encrypted in your browser before it touches the server.
+                    Even the operator can't read your wallet groupings.
                 </p>
                 <div className="mt-6 inline-block">
-                    <WalletMultiButton />
+                    <UnifiedWalletButton />
                 </div>
+            </section>
+        );
+    }
+
+    if (status.kind === 'awaiting-signature') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <h2 className="text-2xl font-semibold">Sign to unlock your vault</h2>
+                <p className="mt-2 text-text-secondary">
+                    Your wallet will pop up asking to sign a deterministic message. The signature is
+                    hashed into an AES-256 key that lives only in this browser tab. The server never
+                    sees it.
+                </p>
+                <p className="mt-3 text-xs text-text-secondary">
+                    One signature per browser session.
+                </p>
+            </section>
+        );
+    }
+
+    if (status.kind === 'error') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <h2 className="text-2xl font-semibold text-negative">Vault error</h2>
+                <p className="mt-2 text-text-secondary">{status.message}</p>
+                <p className="mt-2 text-xs text-text-secondary">
+                    Try reloading the page. If the issue persists, the encrypted blob may be from a
+                    different key version.
+                </p>
+            </section>
+        );
+    }
+
+    if (status.kind === 'loading' || status.kind === 'idle') {
+        return (
+            <section className="rounded-xl border border-border bg-bg-secondary p-12 text-center">
+                <p className="text-text-secondary">Loading vault…</p>
             </section>
         );
     }
@@ -97,6 +141,12 @@ export function Dashboard() {
 
     return (
         <div className="flex flex-col gap-4">
+            <WalletInput
+                trackedWallets={active ? [] : trackedWallets.filter((a) => a !== connectedWallet)}
+                onAdd={(addr) => { void addTracked(addr); }}
+                onRemove={(addr) => { void removeTracked(addr); }}
+            />
+
             <PortfolioChips
                 portfolios={portfolios}
                 activeId={activeId}
@@ -108,9 +158,7 @@ export function Dashboard() {
             {wallets.length === 0 ? (
                 <section className="rounded-xl border border-border bg-bg-secondary p-8 text-center">
                     <p className="text-text-secondary">
-                        {portfolios.length === 0
-                            ? 'Create your first portfolio above to get started.'
-                            : 'Select a portfolio above to view its holdings.'}
+                        Paste a wallet address above, or create a portfolio.
                     </p>
                 </section>
             ) : (
@@ -130,7 +178,7 @@ export function Dashboard() {
 
                     {active && aggregate?.totalNetWorth ? (
                         <TrackerChart
-                            snapshots={snapshots}
+                            snapshots={snapshotsFor(active.id)}
                             currentNetWorth={aggregate.totalNetWorth}
                             label={active.name}
                         />
@@ -171,19 +219,19 @@ export function Dashboard() {
                             : { kind: 'edit', portfolio: portfolios.find((p) => p.id === modalMode.id)! }
                     }
                     onClose={() => setModalMode(null)}
-                    onSave={(name, color, ws: PortfolioWallet[]) => {
+                    onSave={async (name, color, ws: PortfolioWallet[]) => {
                         if (modalMode.kind === 'edit') {
-                            update(modalMode.id, { name, color, wallets: ws });
+                            await update(modalMode.id, { name, color, wallets: ws });
                         } else {
-                            const created = create(name, color, ws);
+                            const created = await create(name, color, ws);
                             setActiveId(created.id);
                         }
                         setModalMode(null);
                     }}
                     onDelete={
                         modalMode.kind === 'edit'
-                            ? () => {
-                                remove(modalMode.id);
+                            ? async () => {
+                                await remove(modalMode.id);
                                 setModalMode(null);
                             }
                             : undefined
