@@ -1,5 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { fmtUsd } from '../lib/format.ts';
+import { Priv } from './PrivateContext.tsx';
 
 type Segment = { label: string; value: number };
 
@@ -38,7 +39,7 @@ export function DonutChart({ segments, total }: { segments: Segment[]; total: nu
                     </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-xl font-semibold">{fmtUsd(total)}</div>
+                    <div className="text-xl font-semibold"><Priv>{fmtUsd(total)}</Priv></div>
                     <div className="text-[11px] uppercase tracking-wide text-text-secondary">Total</div>
                 </div>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 
 import { StatsRow } from '../components/StatsRow.tsx';
@@ -10,11 +10,25 @@ import { TradeHistory } from '../components/TradeHistory.tsx';
 import { TrackerChart } from '../components/TrackerChart.tsx';
 import { PortfolioChips } from '../components/PortfolioChips.tsx';
 import { PortfolioModal } from '../components/PortfolioModal.tsx';
+import { WalletInput } from '../components/WalletInput.tsx';
 
 import { useAggregateFast, useDialectPositions, useTradePnL } from '../hooks/usePortfolioData.ts';
 import { usePortfolios } from '../hooks/usePortfolios.ts';
 import { useTelegramPings } from '../hooks/useTelegramPings.ts';
 import { readSnapshots, recordSnapshot, type PortfolioWallet } from '../lib/portfolios.ts';
+
+// Ephemeral "tracked wallets" — wallets the user pasted at the top, kept in
+// localStorage but separate from named portfolios. When no portfolio is active,
+// these drive the dashboard data.
+function loadTracked(connected: string | null): string[] {
+    if (!connected) return [];
+    try {
+        return JSON.parse(localStorage.getItem(`trackedWallets:${connected}`) || '[]') as string[];
+    } catch { return []; }
+}
+function saveTracked(connected: string, list: string[]): void {
+    try { localStorage.setItem(`trackedWallets:${connected}`, JSON.stringify(list)); } catch { /* ignore */ }
+}
 
 export function Dashboard() {
     const { publicKey } = useWallet();
@@ -25,7 +39,41 @@ export function Dashboard() {
     const { portfolios, active, activeId, setActiveId, create, update, remove } = usePortfolios(connectedWallet);
     const [modalMode, setModalMode] = useState<{ kind: 'create' } | { kind: 'edit'; id: number } | null>(null);
 
-    const wallets = useMemo(() => (active?.wallets || []).map((w) => w.address), [active]);
+    const [tracked, setTracked] = useState<string[]>(() => loadTracked(connectedWallet));
+    useEffect(() => { setTracked(loadTracked(connectedWallet)); }, [connectedWallet]);
+
+    const addTracked = useCallback((addr: string) => {
+        if (!connectedWallet) return;
+        setTracked((prev) => {
+            if (prev.includes(addr)) return prev;
+            const next = [...prev, addr];
+            saveTracked(connectedWallet, next);
+            return next;
+        });
+        // Adding via the input box deactivates portfolio selection so the
+        // dashboard immediately reflects the new wallet set.
+        setActiveId(null);
+    }, [connectedWallet, setActiveId]);
+
+    const removeTracked = useCallback((addr: string) => {
+        if (!connectedWallet) return;
+        setTracked((prev) => {
+            const next = prev.filter((a) => a !== addr);
+            saveTracked(connectedWallet, next);
+            return next;
+        });
+    }, [connectedWallet]);
+
+    // Active wallet set: portfolio's wallets (if a portfolio is selected) else
+    // the user's pasted-tracked list. Always includes the connected wallet so
+    // an unconfigured user still sees their own holdings.
+    const wallets = useMemo(() => {
+        if (active) return (active.wallets || []).map((w) => w.address);
+        const base = new Set<string>();
+        if (connectedWallet) base.add(connectedWallet);
+        for (const a of tracked) base.add(a);
+        return Array.from(base);
+    }, [active, tracked, connectedWallet]);
     const showWalletCol = wallets.length > 1;
 
     const agg = useAggregateFast(wallets);
@@ -96,6 +144,12 @@ export function Dashboard() {
 
     return (
         <div className="flex flex-col gap-4">
+            <WalletInput
+                trackedWallets={active ? [] : tracked.filter((a) => a !== connectedWallet)}
+                onAdd={addTracked}
+                onRemove={removeTracked}
+            />
+
             <PortfolioChips
                 portfolios={portfolios}
                 activeId={activeId}
@@ -107,9 +161,7 @@ export function Dashboard() {
             {wallets.length === 0 ? (
                 <section className="rounded-xl border border-border bg-bg-secondary p-8 text-center">
                     <p className="text-text-secondary">
-                        {portfolios.length === 0
-                            ? 'Create your first portfolio above to get started.'
-                            : 'Select a portfolio above to view its holdings.'}
+                        Paste a wallet address above, or create a portfolio.
                     </p>
                 </section>
             ) : (

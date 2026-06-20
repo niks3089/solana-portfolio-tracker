@@ -1,5 +1,6 @@
 import { fmtPct, fmtUsd } from '../lib/format.ts';
 import type { TradePnLSummary } from '@shared/types.ts';
+import { Priv } from './PrivateContext.tsx';
 
 type Props = {
     summary: TradePnLSummary | null;
@@ -62,7 +63,7 @@ function Card({
     return (
         <div className="rounded-lg border border-border bg-bg-tertiary p-3">
             <div className="text-[11px] uppercase tracking-wide text-text-secondary">{label}</div>
-            <div className={`mt-1 text-lg font-semibold tabular-nums ${valueClass}`}>{value}</div>
+            <div className={`mt-1 text-lg font-semibold tabular-nums ${valueClass}`}><Priv>{value}</Priv></div>
             {sub && <div className="mt-0.5 text-[11px] text-text-secondary">{sub}</div>}
         </div>
     );
