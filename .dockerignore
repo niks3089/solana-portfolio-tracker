@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+*.log
+.env
+.env.*
+.DS_Store
+.vscode
+.idea
+Dockerfile
+.dockerignore
+README.md
+LICENSE
+Makefile

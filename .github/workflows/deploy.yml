@@ -1,0 +1,28 @@
+name: Notify ops of new commit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ vars.OPS_REPO != '' }}
+    steps:
+      - name: Fire repository_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.OPS_DISPATCH_TOKEN }}
+        run: |
+          gh api -X POST "repos/${{ vars.OPS_REPO }}/dispatches" \
+            -f event_type=deploy \
+            -F client_payload[sha]="${{ github.sha }}" \
+            -F client_payload[ref]="${{ github.ref }}"

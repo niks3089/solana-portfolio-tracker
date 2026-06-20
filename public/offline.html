@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Solana Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+        }
+
+        h1 {
+            color: #00d4aa;
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        button {
+            background: #00d4aa;
+            color: #0a0a0f;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #00b894;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <svg class="icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="#0a0a0f" stroke="#00d4aa" stroke-width="3" />
+            <ellipse cx="50" cy="50" rx="45" ry="20" fill="none" stroke="#00d4aa" stroke-width="2" />
+            <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="#00d4aa" stroke-width="2" />
+            <line x1="5" y1="50" x2="95" y2="50" stroke="#00d4aa" stroke-width="2" />
+        </svg>
+        <h1>You're Offline</h1>
+        <p>Solana Portfolio needs an internet connection to fetch your wallet data. Please check your connection and try
+            again.</p>
+        <button onclick="location.reload()">Try Again</button>
+    </div>
+</body>
+
+</html>
