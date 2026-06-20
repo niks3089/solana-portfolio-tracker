@@ -1,10 +1,10 @@
-function required(name) {
+function required(name: string): string {
     const v = process.env[name];
     if (!v) throw new Error(`Missing required environment variable: ${name}`);
     return v;
 }
 
-function optional(name, fallback = '') {
+function optional(name: string, fallback = ''): string {
     return process.env[name] || fallback;
 }
 
@@ -19,10 +19,12 @@ export const CONFIG = {
     TELEGRAM_BOT_TOKEN: optional('TELEGRAM_BOT_TOKEN'),
     TELEGRAM_CHAT_ID: optional('TELEGRAM_CHAT_ID'),
 
-    PORT: optional('PORT', 3000),
+    PORT: Number(optional('PORT', '3000')),
 
-    TURNSTILE_SITE_KEY: (process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SITE_KEY !== 'disabled') ? process.env.TURNSTILE_SITE_KEY : null,
-    TURNSTILE_SECRET_KEY: (process.env.TURNSTILE_SECRET_KEY && process.env.TURNSTILE_SECRET_KEY !== 'disabled') ? process.env.TURNSTILE_SECRET_KEY : null,
-};
+    TURNSTILE_SITE_KEY: (process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SITE_KEY !== 'disabled')
+        ? process.env.TURNSTILE_SITE_KEY : null,
+    TURNSTILE_SECRET_KEY: (process.env.TURNSTILE_SECRET_KEY && process.env.TURNSTILE_SECRET_KEY !== 'disabled')
+        ? process.env.TURNSTILE_SECRET_KEY : null,
+} as const;
 
 export const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${CONFIG.HELIUS_API_KEY}`;
