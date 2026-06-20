@@ -6,12 +6,11 @@ on:
     branches: [main]
     paths:
       - 'server/**'
+      - 'client/**'
       - 'public/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'Dockerfile'
-      - '.dockerignore'
 
 jobs:
   notify:
