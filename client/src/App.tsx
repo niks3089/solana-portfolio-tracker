@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 
 import { Dashboard } from './pages/Dashboard.tsx';
 
@@ -20,7 +19,7 @@ export function App() {
                         {connected && publicKey && (
                             <span className="hidden text-xs text-text-secondary md:inline">{short}</span>
                         )}
-                        <WalletMultiButton />
+                        <UnifiedWalletButton />
                     </div>
                 </div>
             </header>
