@@ -248,10 +248,6 @@ function PortfoliosSection({
 function EmptyHero() {
     return (
         <div className="mt-2 flex flex-col items-center text-center">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs uppercase tracking-wider text-text-secondary">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                Open source · Self-hostable
-            </div>
             <h1 className="text-3xl font-semibold sm:text-4xl">
                 Your Solana portfolio, <span className="text-accent">one view</span>
             </h1>
