@@ -88,35 +88,28 @@ export function Dashboard() {
         ? []
         : tracked.wallets.filter((a) => a !== connectedWallet);
 
+    const isEmpty = wallets.length === 0;
+
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
+            {isEmpty && <EmptyHero />}
+
             <WalletInput
                 trackedWallets={trackedForInput}
                 onAdd={tracked.add}
                 onRemove={tracked.remove}
             />
 
-            {connectedWallet ? (
+            {connectedWallet && (
                 <PortfoliosSection
                     portfolios={portfolios}
                     onCreate={() => setModalMode({ kind: 'create' })}
                     onEdit={(id) => setModalMode({ kind: 'edit', id })}
                 />
-            ) : (
-                <p className="text-sm text-text-secondary">
-                    Connect a wallet to save portfolios across devices. Your data is
-                    encrypted in your browser before it touches the server — even the
-                    operator can't read it.
-                </p>
             )}
 
-            {wallets.length === 0 ? (
-                <section className="rounded-xl border border-border bg-bg-secondary p-8 text-center">
-                    <p className="text-text-secondary">
-                        Paste a wallet address above to start tracking it,
-                        or <ConnectInline /> to load saved portfolios.
-                    </p>
-                </section>
+            {isEmpty ? (
+                <EmptyFeatureGrid />
             ) : (
                 <>
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr,1fr]">
@@ -252,10 +245,83 @@ function PortfoliosSection({
     );
 }
 
-function ConnectInline() {
+function EmptyHero() {
     return (
-        <span className="inline-flex">
-            <UnifiedWalletButton />
-        </span>
+        <div className="mt-2 flex flex-col items-center text-center">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs uppercase tracking-wider text-text-secondary">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                Open source · Self-hostable
+            </div>
+            <h1 className="text-3xl font-semibold sm:text-4xl">
+                Your Solana portfolio, <span className="text-accent">one view</span>
+            </h1>
+            <p className="mt-3 max-w-2xl text-text-secondary">
+                Track any wallet's holdings, DeFi positions, and P&amp;L. Group
+                wallets into named portfolios that live encrypted on the server —
+                even the operator can't read them.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <UnifiedWalletButton />
+                <a
+                    href="https://github.com/niks3089/solana-portfolio-tracker"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-text-secondary hover:border-accent/60 hover:text-text-primary"
+                >
+                    View source →
+                </a>
+            </div>
+        </div>
+    );
+}
+
+// ponytail: three static cards, no config. Swap for data-driven grid when we
+// actually need a fourth or per-network variant.
+function EmptyFeatureGrid() {
+    const cards: Array<{ color: 'green' | 'purple' | 'blue'; title: string; body: string }> = [
+        {
+            color: 'green',
+            title: 'Multiple wallets',
+            body: 'Group any number of wallets into portfolios. Household P&L, unified holdings, one chart.',
+        },
+        {
+            color: 'purple',
+            title: 'DeFi + on-chain P&L',
+            body: 'Kamino, Drift, Meteora, Exponent positions. Cost basis derived from swap history and transfer-in prices.',
+        },
+        {
+            color: 'blue',
+            title: 'Zero-knowledge server',
+            body: 'AES-256-GCM in your browser before anything hits the server. Wallet-signature-derived key, never uploaded.',
+        },
+    ];
+    return (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {cards.map((c) => (
+                <div
+                    key={c.title}
+                    className={`rounded-xl border p-5 ${
+                        c.color === 'green'
+                            ? 'border-green-500/20 bg-green-500/[0.04]'
+                            : c.color === 'purple'
+                              ? 'border-purple-500/20 bg-purple-500/[0.04]'
+                              : 'border-blue-500/20 bg-blue-500/[0.04]'
+                    }`}
+                >
+                    <div
+                        className={`text-xs font-semibold uppercase tracking-wider ${
+                            c.color === 'green'
+                                ? 'text-green-400'
+                                : c.color === 'purple'
+                                  ? 'text-purple-400'
+                                  : 'text-blue-400'
+                        }`}
+                    >
+                        {c.title}
+                    </div>
+                    <p className="mt-2 text-sm text-text-secondary">{c.body}</p>
+                </div>
+            ))}
+        </div>
     );
 }
