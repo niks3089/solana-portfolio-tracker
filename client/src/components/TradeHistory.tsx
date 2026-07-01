@@ -10,7 +10,7 @@ export function TradeHistory({ rows }: { rows: TradeHistoryRow[] }) {
     const [dir, setDir] = useState<SortDir>('desc');
     const [filter, setFilter] = useState('');
     const [page, setPage] = useState(0);
-    const PAGE_SIZE = 25;
+    const PAGE_SIZE = 10;
 
     const filtered = useMemo(() => {
         if (!filter) return rows;
