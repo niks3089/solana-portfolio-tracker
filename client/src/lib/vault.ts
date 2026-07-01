@@ -25,60 +25,60 @@
 import bs58 from 'bs58';
 
 const KEY_VERSION = 'v1';
-const SESSION_KEY_NAME = 'vault.aesKey';
+// Per-wallet cache key: otherwise switching wallets reads the previous
+// wallet's key from sessionStorage and either mis-decrypts or leaks state.
+const sessionKeyName = (wallet: string) => `vault.aesKey:${wallet}`;
 
 function challengeFor(wallet: string): Uint8Array {
     return new TextEncoder().encode(`solana-portfolio:vault:${KEY_VERSION}:${wallet}`);
 }
 
-// In-memory + session cache. We hold the CryptoKey in memory and a base58 of
-// the raw key bytes in sessionStorage so a reload doesn't re-prompt.
-let cachedKey: CryptoKey | null = null;
+// In-memory cache keyed by wallet so switching wallets doesn't reuse the
+// wrong key. Session storage does the same across reloads.
+const cachedKeys = new Map<string, CryptoKey>();
 
-async function loadKeyFromSession(): Promise<CryptoKey | null> {
-    if (cachedKey) return cachedKey;
-    const raw = sessionStorage.getItem(SESSION_KEY_NAME);
+async function loadKeyFromSession(wallet: string): Promise<CryptoKey | null> {
+    const inMem = cachedKeys.get(wallet);
+    if (inMem) return inMem;
+    const raw = sessionStorage.getItem(sessionKeyName(wallet));
     if (!raw) return null;
     try {
         const bytes = bs58.decode(raw);
-        cachedKey = await crypto.subtle.importKey(
+        const key = await crypto.subtle.importKey(
             'raw',
             bytes as BufferSource,
             { name: 'AES-GCM' },
             false,
             ['encrypt', 'decrypt'],
         );
-        return cachedKey;
+        cachedKeys.set(wallet, key);
+        return key;
     } catch {
-        sessionStorage.removeItem(SESSION_KEY_NAME);
+        sessionStorage.removeItem(sessionKeyName(wallet));
         return null;
     }
 }
 
-async function persistKeyToSession(rawBytes: Uint8Array): Promise<void> {
-    sessionStorage.setItem(SESSION_KEY_NAME, bs58.encode(rawBytes));
-}
-
-export function forgetVaultKey(): void {
-    cachedKey = null;
-    try { sessionStorage.removeItem(SESSION_KEY_NAME); } catch { /* ignore */ }
+async function persistKeyToSession(wallet: string, rawBytes: Uint8Array): Promise<void> {
+    sessionStorage.setItem(sessionKeyName(wallet), bs58.encode(rawBytes));
 }
 
 /**
- * Acquire the vault AES key for `wallet`. If cached in sessionStorage, returns
- * immediately. Otherwise prompts the wallet to sign the challenge (one popup).
+ * Acquire the vault AES key for `wallet`. If cached (memory or session),
+ * returns immediately. Otherwise prompts the wallet to sign the challenge.
  */
 export async function ensureVaultKey(
     wallet: string,
     signMessage: (msg: Uint8Array) => Promise<Uint8Array>,
 ): Promise<CryptoKey> {
-    const cached = await loadKeyFromSession();
+    const cached = await loadKeyFromSession(wallet);
     if (cached) return cached;
     const sig = await signMessage(challengeFor(wallet));
     const hashed = await crypto.subtle.digest('SHA-256', sig as BufferSource);
-    await persistKeyToSession(new Uint8Array(hashed));
-    cachedKey = await crypto.subtle.importKey('raw', hashed, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-    return cachedKey;
+    await persistKeyToSession(wallet, new Uint8Array(hashed));
+    const key = await crypto.subtle.importKey('raw', hashed, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    cachedKeys.set(wallet, key);
+    return key;
 }
 
 export type EncryptedBlob = { ciphertext: string; iv: string };

@@ -7,7 +7,7 @@
 // `unlock()` is idempotent and resolves to the decrypted data. Subsequent
 // `save(...)` calls reuse the cached key + version.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWallet } from '@jup-ag/wallet-adapter';
 import { decryptJson, encryptJson, ensureVaultKey, type EncryptedBlob } from '../lib/vault.ts';
 
@@ -29,6 +29,18 @@ export function useVault<T>(emptyValue: T) {
     const keyRef = useRef<CryptoKey | null>(null);
     const versionRef = useRef<number>(0);
     const inflight = useRef<Promise<T> | null>(null);
+
+    // Reset every scrap of state when the connected wallet changes (or clears)
+    // — otherwise a wallet switch shows the previous wallet's decrypted data.
+    useEffect(() => {
+        keyRef.current = null;
+        versionRef.current = 0;
+        inflight.current = null;
+        setData(emptyValue);
+        setStatus({ kind: 'locked' });
+        // emptyValue is expected to be a stable reference in callers.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wallet]);
 
     const unlock = useCallback(async (): Promise<T> => {
         if (!wallet || !signMessage) throw new Error('connect a wallet first');
