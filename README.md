@@ -127,17 +127,19 @@ What is **not** encrypted, by necessity:
 ### Audit it yourself
 
 ```bash
-# Confirm no vault decryption on the server.
-# The only matches you should see are README-style doc comments and
-# server/utils/jwt.ts (HMAC for the signup-throttling cookie — unrelated
-# to the vault):
+# Confirm no vault decryption on the server. The only hits should be
+# doc-comment mentions of the word — no code that actually decrypts:
 grep -rEn 'crypto\.subtle|createDecipher|decrypt' server/
 
 # Confirm what the server stores — owner_wallet + ciphertext + iv + version:
 grep -A 10 'CREATE TABLE' server/vault.ts
 
-# Confirm the client key derivation is what the README claims:
+# Confirm the client key derivation and the separate auth signature:
 cat client/src/lib/vault.ts
+
+# Confirm PUT is authenticated (server verifies a wallet-signed challenge
+# before issuing a JWT; PUT requires that JWT):
+grep -n 'verifyVaultToken\|verifyAuthChallenge' server/routes/vault.ts
 ```
 
 ## Telegram notifications

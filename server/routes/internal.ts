@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import { CONFIG } from '../config.js';
 import { metrics, updateCacheSizes, getPercentile } from '../metrics.js';
 import { validateTurnstileToken } from '../middleware/turnstile.js';
@@ -27,7 +28,13 @@ router.get('/health', (_req, res) => {
 
 router.get('/metrics', (req: Request, res: Response): void => {
     const providedSecret = (req.query.secret as string | undefined) || (req.headers['x-metrics-secret'] as string | undefined);
-    if (providedSecret !== CONFIG.METRICS_SECRET) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    // Length-mismatch means never-equal; otherwise use timingSafeEqual so we
+    // don't leak the secret via response-time side channel.
+    const a = Buffer.from(providedSecret || '');
+    const b = Buffer.from(CONFIG.METRICS_SECRET);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        res.status(401).json({ error: 'Unauthorized' }); return;
+    }
     updateCacheSizes();
     const uptimeMs = Date.now() - metrics.startTime;
     const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));

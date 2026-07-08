@@ -2,15 +2,12 @@ import crypto from 'crypto';
 
 const JWT_EXPIRATION = 60 * 60;
 
-let jwtSecret: string | null = null;
 function getJwtSecret(): string {
-    if (!jwtSecret) {
-        jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-        if (!process.env.JWT_SECRET) {
-            console.log("⚠️ JWT_SECRET not set, using random secret (tokens won't persist across restarts)");
-        }
+    const s = process.env.JWT_SECRET;
+    if (!s || s.length < 32) {
+        throw new Error('JWT_SECRET must be set to a random 32+ byte string');
     }
-    return jwtSecret;
+    return s;
 }
 
 function base64UrlEncode(str: string): string {

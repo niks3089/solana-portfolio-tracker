@@ -1,26 +1,26 @@
 // Client-side encrypted vault.
 //
-// Threat model:
-//   - Operator (you) can SSH into the VM and dump SQLite → sees only AES-GCM
-//     ciphertext + IV. No plaintext for portfolio names, wallet groupings,
-//     snapshots.
-//   - Anyone auditing the server source (server/vault.ts, server/routes/vault.ts)
-//     can verify: no decryption code, no logging of plaintext, just opaque
-//     bytes stored against `owner_wallet`.
+// Two independent wallet signatures are used:
 //
-// Key derivation:
-//   1. App asks user's wallet to sign a deterministic challenge:
-//      `solana-portfolio:vault:v1:<pubkey>`
-//      Same wallet + same message = same signature (Phantom/Solflare/Backpack
-//      all use ed25519 deterministic signing per RFC 8032). So the key is
-//      stable across sessions without any server-side seed.
-//   2. key = SHA-256(signature)  →  32-byte AES-256-GCM key
-//   3. Cached in sessionStorage (cleared on tab close).
+//   1. KEY-DERIVATION signature — `solana-portfolio:vault:v1:<pubkey>`
+//      Deterministic. NEVER sent to the server. Hashed with SHA-256 to
+//      produce the AES-256-GCM key. Cached in sessionStorage.
 //
-// Two things this does NOT hide (called out in the README too):
-//   - The pubkey of the connecting user (it's the DB lookup key)
-//   - Wallets you actively query (those go through Helius/Birdeye via the
-//     server's API key; server logs see the addresses requested)
+//   2. AUTH signature — `solana-portfolio:vault-auth:v1:<pubkey>:<ts>`
+//      Timestamped, sent to the server (POST /api/vault/:wallet/session).
+//      The server verifies with ed25519 and returns a 24h JWT bound to the
+//      wallet. Required as `Authorization: Bearer` on PUT. The auth
+//      signature does NOT let the server derive the AES key — it's a
+//      distinct message.
+//
+// Threat model (see also README.md):
+//   - Operator dumping SQLite → opaque AES-GCM ciphertext + IV.
+//   - Operator MITMing writes → auth signature required, and even with a
+//     captured auth signature the attacker gets 5 min of write ability at
+//     most before the challenge expires. Reads remain opaque forever.
+//   - Server compromise → attacker sees GET responses (opaque) and can
+//     forge tokens (JWT_SECRET on the server), but the AES key never
+//     touches the server, so ciphertext stays confidential.
 
 import bs58 from 'bs58';
 
@@ -79,6 +79,58 @@ export async function ensureVaultKey(
     const key = await crypto.subtle.importKey('raw', hashed, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
     cachedKeys.set(wallet, key);
     return key;
+}
+
+// --- Auth token (JWT from the server) ---
+
+const sessionTokenName = (wallet: string) => `vault.token:${wallet}`;
+const cachedTokens = new Map<string, { token: string; exp: number }>();
+
+function readTokenFromSession(wallet: string): { token: string; exp: number } | null {
+    const inMem = cachedTokens.get(wallet);
+    if (inMem && inMem.exp > Math.floor(Date.now() / 1000) + 30) return inMem;
+    try {
+        const raw = sessionStorage.getItem(sessionTokenName(wallet));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { token: string; exp: number };
+        if (!parsed?.token || !parsed?.exp) return null;
+        if (parsed.exp <= Math.floor(Date.now() / 1000) + 30) return null;
+        cachedTokens.set(wallet, parsed);
+        return parsed;
+    } catch { return null; }
+}
+
+function writeTokenToSession(wallet: string, token: string, exp: number): void {
+    cachedTokens.set(wallet, { token, exp });
+    try { sessionStorage.setItem(sessionTokenName(wallet), JSON.stringify({ token, exp })); } catch { /* quota */ }
+}
+
+/**
+ * Return a valid server-issued token for `wallet`, prompting the wallet to
+ * sign the AUTH challenge if we don't already have a fresh token cached.
+ * The signed message is distinct from the AES-key challenge.
+ */
+export async function ensureVaultToken(
+    wallet: string,
+    signMessage: (msg: Uint8Array) => Promise<Uint8Array>,
+): Promise<string> {
+    const cached = readTokenFromSession(wallet);
+    if (cached) return cached.token;
+
+    const ts = Math.floor(Date.now() / 1000);
+    const msg = new TextEncoder().encode(`solana-portfolio:vault-auth:${KEY_VERSION}:${wallet}:${ts}`);
+    const sig = await signMessage(msg);
+    const signatureBase58 = bs58.encode(sig);
+
+    const res = await fetch(`/api/vault/${wallet}/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ts, signature: signatureBase58 }),
+    });
+    if (!res.ok) throw new Error(`vault session failed: ${res.status}`);
+    const body = (await res.json()) as { token: string; exp: number };
+    writeTokenToSession(wallet, body.token, body.exp);
+    return body.token;
 }
 
 export type EncryptedBlob = { ciphertext: string; iv: string };

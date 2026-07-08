@@ -14,7 +14,27 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// CSP: reduce the sessionStorage AES-key exfil surface. Wallet-adapter UIs
+// need inline styles; token icons come from various CDNs (img-src https:).
+// All app data flows through /api on the same origin, so connect-src stays 'self'.
+app.use(helmet({
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            'default-src': ["'self'"],
+            'script-src': ["'self'"],
+            'style-src': ["'self'", "'unsafe-inline'"],
+            'img-src': ["'self'", 'data:', 'https:'],
+            'connect-src': ["'self'"],
+            'font-src': ["'self'", 'data:'],
+            'object-src': ["'none'"],
+            'frame-src': ["'self'"],
+            'base-uri': ["'self'"],
+            'form-action': ["'self'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+}));
 
 app.use((req, res, next) => {
     if (req.path.endsWith('.png') || req.path.endsWith('.json')) {
@@ -25,28 +45,27 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.set('trust proxy', true);
+// Trust exactly one proxy hop (nginx on the VM). Trusting all hops would
+// let a direct request spoof X-Forwarded-For and bypass rate limiting.
+app.set('trust proxy', 1);
 
 const publicDir = join(__dirname, '../public');
 const spaDir = join(publicDir, 'dist');
 
-// Static assets (icons, manifest, sw.js, etc.) served from /public.
 app.use(express.static(publicDir));
 app.use('/api/', rateLimitMiddleware);
 
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/vault', vaultRoutes);
-app.use('/api/internal', internalRoutes);
+// Single mount for the miscellaneous / internal routes (health, resolve,
+// metrics, ping, etc.). Do NOT also mount at `/api/internal` — that just
+// doubled the attack surface for no benefit.
 app.use('/api', internalRoutes);
 
-// SPA: Vite build output at /app/*, falls back to the SPA's own index.html
-// for any client-side route so React Router can handle it.
 app.use('/app', express.static(spaDir));
 app.get('/app/*', (_req, res) => {
     res.sendFile(join(spaDir, 'index.html'));
 });
-
-// Root + any other path → redirect into the SPA.
 app.get('*', (_req, res) => {
     res.redirect('/app/');
 });

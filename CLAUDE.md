@@ -30,6 +30,8 @@ deploy/           systemd unit, nginx template, install.sh, deploy README
 - **API keys are server-only.** Nothing under `client/` should ever read `BIRDEYE_API_KEY` / `HELIUS_API_KEY` / `LAMBDA_P2P_API_KEY` / `DIALECT_API_KEY`. If the client needs data, add a server route that proxies.
 - **The vault session key is per-wallet.** `sessionStorage` key is `vault.aesKey:<pubkey>`. Never regress to a single shared key — that's a data-leak bug we've already fixed.
 - **Tracked wallets are per-browser localStorage, NOT vault data.** They're ephemeral browsing state. Don't move them into `VaultPayload`.
+- **Vault writes are authenticated with a separate signature.** Two distinct wallet messages: key derivation (`vault:v1:<pubkey>`, never sent) and auth challenge (`vault-auth:v1:<pubkey>:<ts>`, sent to `POST /api/vault/:wallet/session` → JWT). Never collapse them into one signature — that would leak the AES key to the server. `PUT /api/vault/:wallet` requires `Authorization: Bearer <token>` bound to the wallet.
+- **`JWT_SECRET` is required.** Server refuses to start without a 32+ byte secret. It signs vault-session JWTs and the Turnstile cookie.
 
 ## Dev
 

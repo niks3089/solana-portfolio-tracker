@@ -15,6 +15,7 @@ export const CONFIG = {
     DIALECT_API_KEY: required('DIALECT_API_KEY'),
 
     METRICS_SECRET: required('METRICS_SECRET'),
+    JWT_SECRET: required('JWT_SECRET'),
 
     TELEGRAM_BOT_TOKEN: optional('TELEGRAM_BOT_TOKEN'),
     TELEGRAM_CHAT_ID: optional('TELEGRAM_CHAT_ID'),

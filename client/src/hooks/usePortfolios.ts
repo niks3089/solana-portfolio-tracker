@@ -101,22 +101,27 @@ export function usePortfolios() {
 
     // One-shot legacy migration: runs after unlock when the vault is
     // brand-new (version 0, empty) AND legacy localStorage portfolios exist.
+    // Reset per-wallet so migration re-attempts if the user switches wallets.
+    // Only mark migration "done" AFTER persist resolves so a transient
+    // network / auth failure doesn't lock us out of migrating on the next
+    // render cycle.
     const migrationAttempted = useRef<string | null>(null);
     useEffect(() => {
         if (status.kind !== 'ready' || !wallet) return;
         if (status.version !== 0) return;
         if (data.portfolios.length > 0) return;
         if (migrationAttempted.current === wallet) return;
-        migrationAttempted.current = wallet;
 
         const legacy = readLegacyPortfolios(wallet);
-        if (legacy.length === 0) return;
+        if (legacy.length === 0) { migrationAttempted.current = wallet; return; }
         const snapshots: Record<string, Record<string, number>> = {};
         for (const p of legacy) {
             const snaps = readLegacySnapshots(wallet, p.id);
             if (Object.keys(snaps).length > 0) snapshots[String(p.id)] = snaps;
         }
-        void persist({ portfolios: legacy, snapshots });
+        void persist({ portfolios: legacy, snapshots })
+            .then(() => { migrationAttempted.current = wallet; })
+            .catch(() => { /* leave the flag unset so we retry next render */ });
     }, [status, wallet, data.portfolios.length, persist]);
 
     const active = activeId != null ? data.portfolios.find((p) => p.id === activeId) || null : null;
