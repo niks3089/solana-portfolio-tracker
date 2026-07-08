@@ -3,6 +3,17 @@
 Managed by [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org/). Merging the release PR that release-please opens on `main` tags a new version and appends a section here.
 
+## [1.0.0](https://github.com/niks3089/solana-portfolio-tracker/compare/solana-portfolio-tracker-v0.1.0...solana-portfolio-tracker-v1.0.0) (2026-07-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* `PUT /api/vault/:wallet` now requires a Bearer token from `POST /api/vault/:wallet/session`. Clients built before this commit will get 401 on save. JWT_SECRET env var is now required.
+
+### Features
+
+* authenticate vault writes + close 7 review gaps ([7a74b43](https://github.com/niks3089/solana-portfolio-tracker/commit/7a74b43b34614b38425665ac63ac8deaefe3f11c))
+
 ## 0.1.0 - 2026-07-08
 
 Initial public release.
