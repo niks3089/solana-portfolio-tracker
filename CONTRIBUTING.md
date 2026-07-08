@@ -38,6 +38,22 @@ Both typechecks must be clean. There is no test suite yet — if you add one, ke
 - Explain *why* in the PR description; the diff already shows *what*.
 - No new dependencies without a good reason. See `CLAUDE.md` for the stdlib-first ladder.
 
+## Commit messages
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) so that
+[release-please](https://github.com/googleapis/release-please) can generate
+`CHANGELOG.md` and tag releases automatically. Common types:
+
+- `feat:` new user-visible feature (minor version bump)
+- `fix:` bug fix (patch bump)
+- `perf:` performance improvement
+- `docs:` documentation only
+- `refactor:` internal restructure with no behavior change
+- `ci:` / `chore:` / `test:` hidden from changelog
+
+Breaking changes: put `!` after the type (`feat!: ...`) or a `BREAKING CHANGE:`
+footer. Major bump.
+
 ## Areas that specifically welcome help
 
 - Additional DeFi protocol integrations (see `server/utils/lambda-p2p.ts` and `server/utils/dialect.ts` for the patterns)
