@@ -191,8 +191,14 @@ router.post('/trade-pnl', async (req: Request<unknown, unknown, WalletsBody>, re
 
         metrics.requests.total++;
         const wallets = await Promise.all(inputWallets.map((w) => resolveSNS(w)));
-        const holdings = await Promise.all(wallets.map((w) => getHoldings(w)));
-        const result = await getAggregateTradePnL(wallets, holdings);
+        const emptyDefi: DefiSummary = { positions: [], totalDeposits: 0, totalBorrows: 0 };
+        const [holdings, defis] = await Promise.all([
+            Promise.all(wallets.map((w) => getHoldings(w))),
+            Promise.all(wallets.map((w) => getDefiPositionsFast(w).catch(() => emptyDefi))),
+        ]);
+        const netWorth = holdings.reduce((s, h) => s + (h.totalValue || 0), 0)
+            + defis.reduce((s, d) => s + d.totalDeposits - d.totalBorrows, 0);
+        const result = await getAggregateTradePnL(wallets, holdings, netWorth);
         res.json(result);
     } catch (error) {
         if (error instanceof HeliusAuthError) {

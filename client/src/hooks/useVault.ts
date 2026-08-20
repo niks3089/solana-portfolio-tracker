@@ -74,11 +74,6 @@ export function useVault<T>(emptyValue: T) {
                 setStatus({ kind: 'awaiting-signature' });
                 const key = await ensureVaultKey(startWallet, (msg) => signMessage(msg));
                 if (!stillCurrent()) throw new Error('vault: wallet changed');
-                // Auth token — signs a separate challenge distinct from the
-                // AES-key challenge, so the signature we send to the server
-                // does NOT let the server derive the AES key.
-                await ensureVaultToken(startWallet, (msg) => signMessage(msg));
-                if (!stillCurrent()) throw new Error('vault: wallet changed');
                 keyRef.current = key;
 
                 setStatus({ kind: 'loading' });

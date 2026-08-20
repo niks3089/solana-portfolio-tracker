@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { TokenHolding, TradePnLRow } from '@shared/types.ts';
 import { fmtNum, fmtPct, fmtUsd } from '../lib/format.ts';
 import { SortableHeader, type SortDir } from './SortableHeader.tsx';
+import { DonutChart } from './DonutChart.tsx';
 
 type TokenRow = TokenHolding & { wallet: string; walletShort: string };
 
@@ -64,6 +65,46 @@ function mergeTokens(tokens: TokenRow[], perWallet: Record<string, TradePnLRow[]
     });
 }
 
+function groupByMint(rows: Merged[]): Merged[] {
+    const byMint = new Map<string, Merged & { walletCount: number; missingBasis: boolean }>();
+    for (const r of rows) {
+        let g = byMint.get(r.address);
+        if (!g) {
+            g = { ...r, walletCount: 0, missingBasis: false };
+            g.costBasis = null;
+            g.pnl = null;
+            g.hasTrade = false;
+            g.costSource = null;
+            byMint.set(r.address, g);
+        } else {
+            g.balance = (g.balance || 0) + (r.balance || 0);
+            g.value = (g.value || 0) + (r.value || 0);
+        }
+        g.walletCount += 1;
+        if (r.hasTrade) {
+            g.hasTrade = true;
+            g.costBasis = (g.costBasis || 0) + (r.costBasis || 0);
+            g.pnl = (g.pnl || 0) + (r.pnl || 0);
+            for (const src of (r.costSource || '').split('+')) {
+                if (src && !(g.costSource || '').includes(src)) {
+                    g.costSource = g.costSource ? `${g.costSource}+${src}` : src;
+                }
+            }
+        } else {
+            g.missingBasis = true;
+        }
+    }
+    const out: Merged[] = [];
+    for (const g of byMint.values()) {
+        g.walletShort = g.walletCount > 1 ? `×${g.walletCount}` : g.walletShort;
+        g.pnlPercent = g.costBasis && g.costBasis > 0 ? ((g.pnl || 0) / g.costBasis) * 100 : null;
+        g.avgCost = g.costBasis != null && (g.balance || 0) > 0 ? g.costBasis / g.balance : null;
+        if (g.hasTrade && g.missingBasis) g.costSource = `${g.costSource || ''}+partial`;
+        out.push(g);
+    }
+    return out;
+}
+
 export function TokenHoldings({
     tokens,
     perWallet,
@@ -76,13 +117,26 @@ export function TokenHoldings({
     const [col, setCol] = useState<Sort>('value');
     const [dir, setDir] = useState<SortDir>('desc');
     const [page, setPage] = useState(0);
+    const [grouped, setGrouped] = useState(true);
     const PAGE_SIZE = 10;
+    const isGrouped = grouped && showWalletCol;
 
     const merged = useMemo(() => mergeTokens(tokens, perWallet), [tokens, perWallet]);
+    const displayRows = useMemo(() => (isGrouped ? groupByMint(merged) : merged), [merged, isGrouped]);
+
+    const segments = useMemo(() => {
+        if (!isGrouped) return [];
+        const byValue = [...displayRows].sort((a, b) => (b.value || 0) - (a.value || 0));
+        const top = byValue.slice(0, 7).map((t) => ({ label: t.symbol || '?', value: t.value || 0 }));
+        const rest = byValue.slice(7).reduce((s, t) => s + (t.value || 0), 0);
+        if (rest > 0) top.push({ label: 'Other', value: rest });
+        return top;
+    }, [displayRows, isGrouped]);
+    const tokenTotal = useMemo(() => displayRows.reduce((s, t) => s + (t.value || 0), 0), [displayRows]);
 
     const sorted = useMemo(() => {
         const sign = dir === 'asc' ? 1 : -1;
-        const arr = [...merged];
+        const arr = [...displayRows];
         const nullsLast = (a: number | null, b: number | null) => {
             if (a == null && b == null) return 0;
             if (a == null) return 1;
@@ -110,7 +164,7 @@ export function TokenHoldings({
             }
         });
         return arr;
-    }, [merged, col, dir]);
+    }, [displayRows, col, dir]);
 
     const sortClick = (c: Sort) => {
         if (c === col) setDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -126,7 +180,23 @@ export function TokenHoldings({
 
     return (
         <section className="rounded-xl border border-border bg-bg-secondary">
-            <div className="border-b border-border px-4 py-3 text-sm font-semibold text-accent">Token Holdings</div>
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <span className="text-sm font-semibold text-accent">Token Holdings</span>
+                {showWalletCol && (
+                    <button
+                        type="button"
+                        onClick={() => { setGrouped((g) => !g); setPage(0); }}
+                        className="rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[11px] text-text-secondary hover:border-accent/60 hover:text-text-primary"
+                    >
+                        {isGrouped ? 'Show per wallet' : 'Group by token'}
+                    </button>
+                )}
+            </div>
+            {isGrouped && segments.length > 1 && (
+                <div className="border-b border-border">
+                    <DonutChart segments={segments} total={tokenTotal} title="Token Allocation" className="relative p-4" />
+                </div>
+            )}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-bg-tertiary">
@@ -187,7 +257,7 @@ export function TokenHoldings({
 function Row({ t, showWalletCol }: { t: Merged; showWalletCol: boolean }) {
     const pnlClass = t.pnl == null ? 'text-text-secondary' : t.pnl >= 0 ? 'text-positive' : 'text-negative';
     const sign = t.pnl != null && t.pnl >= 0 ? '+' : '';
-    const isEstimated = t.costSource?.includes('transfer');
+    const isEstimated = t.costSource?.includes('transfer') || t.costSource?.includes('partial');
     const muted = <span className="text-text-secondary">—</span>;
 
     return (

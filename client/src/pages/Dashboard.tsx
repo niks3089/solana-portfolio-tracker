@@ -80,7 +80,7 @@ export function Dashboard() {
 
     useEffect(() => {
         if (portfolios.activeId != null && aggregate?.totalNetWorth) {
-            void portfolios.recordSnapshot(portfolios.activeId, aggregate.totalNetWorth);
+            portfolios.recordSnapshot(portfolios.activeId, aggregate.totalNetWorth).catch(() => {});
         }
     }, [portfolios.activeId, aggregate?.totalNetWorth, portfolios.recordSnapshot]);
 

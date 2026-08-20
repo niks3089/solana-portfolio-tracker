@@ -322,7 +322,7 @@ type MintAcc = {
 type WalletMintAcc = { totalSpent: number; totalBought: number; txCount: number; sources: Set<string> };
 type TransferEvent = { mint: string; amount: number; ts: number; wallet: string; signature: string | null; fromAccount: string | null };
 
-export async function getAggregateTradePnL(wallets: string[], holdings: Holdings[]): Promise<TradePnLResult> {
+export async function getAggregateTradePnL(wallets: string[], holdings: Holdings[], netWorthUsd?: number): Promise<TradePnLResult> {
     const cacheKey = [...wallets].sort().join(',');
     const cached = resultCache.get(cacheKey);
     if (cached) return cached;
@@ -575,7 +575,8 @@ export async function getAggregateTradePnL(wallets: string[], holdings: Holdings
     const absoluteReturnPct = investedDisplay > 0 ? (absoluteReturnUsd / investedDisplay) * 100 : null;
 
     const nowTs = Math.floor(Date.now() / 1000);
-    const xirrRate = computeXIRR([...cashflowEvents, { ts: nowTs, amount: totalValue }]);
+    const terminalValue = netWorthUsd ?? totalValue;
+    const xirrRate = computeXIRR([...cashflowEvents, { ts: nowTs, amount: terminalValue }]);
     const xirrPct = xirrRate != null ? xirrRate * 100 : null;
 
     let benchmarkSolXirrPct: number | null = null;

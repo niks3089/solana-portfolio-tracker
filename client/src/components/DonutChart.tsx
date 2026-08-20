@@ -6,12 +6,22 @@ type Segment = { label: string; value: number };
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
 
-export function DonutChart({ segments, total }: { segments: Segment[]; total: number }) {
+export function DonutChart({
+    segments,
+    total,
+    title = 'Total Value Locked',
+    className = 'relative rounded-xl border border-border bg-bg-secondary p-4',
+}: {
+    segments: Segment[];
+    total: number;
+    title?: string;
+    className?: string;
+}) {
     const filtered = segments.filter((s) => s.value > 0);
 
     return (
-        <div className="relative rounded-xl border border-border bg-bg-secondary p-4">
-            <div className="mb-2 text-xs uppercase tracking-wide text-text-secondary">Total Value Locked</div>
+        <div className={className}>
+            <div className="mb-2 text-xs uppercase tracking-wide text-text-secondary">{title}</div>
             <div className="relative h-48 w-full">
                 <ResponsiveContainer>
                     <PieChart>
