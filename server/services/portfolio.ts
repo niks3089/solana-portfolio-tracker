@@ -250,6 +250,20 @@ export async function getLambdaPositions(wallet: string): Promise<DefiPosition[]
     }
 }
 
+export function dropDefiDuplicateTokens(holdings: Holdings, defi: DefiSummary): Holdings {
+    const tokens = holdings.tokens.filter((t) => {
+        if (!t.symbol || !(t.balance > 0)) return true;
+        const sym = t.symbol.toLowerCase();
+        return !defi.positions.some((p) =>
+            p.type === 'deposit'
+            && (p.token || '').toLowerCase() === sym
+            && p.amount > 0
+            && Math.abs(p.amount - t.balance) / t.balance < 0.01);
+    });
+    if (tokens.length === holdings.tokens.length) return holdings;
+    return { tokens, totalValue: tokens.reduce((s, t) => s + t.value, 0) };
+}
+
 export async function getDefiPositionsFast(wallet: string): Promise<DefiSummary> {
     const lambdaPos = await getLambdaPositions(wallet);
     let totalDeposits = 0, totalBorrows = 0;

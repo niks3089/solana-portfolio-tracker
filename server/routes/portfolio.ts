@@ -4,7 +4,7 @@ import { resolveSNS } from '../utils/sns.js';
 import { authMiddleware } from '../middleware/turnstile.js';
 import {
     getHoldings, getTokenPnL, getDefiPositionsFast, getDefiPositions,
-    getDialectPositions, getPortfolioHistory,
+    getDialectPositions, getPortfolioHistory, dropDefiDuplicateTokens,
 } from '../services/portfolio.js';
 import { getAggregateTradePnL, HeliusAuthError } from '../services/trade-pnl.js';
 import type { DefiSummary, Holdings, TokenPnL } from '../types.js';
@@ -21,7 +21,8 @@ router.get('/:wallet', async (req: Request<WalletParam>, res: Response): Promise
         metrics.uniqueWallets.add(wallet);
         metrics.requests.total++;
 
-        const [holdings, defi] = await Promise.all([getHoldings(wallet), getDefiPositions(wallet)]);
+        const [rawHoldings, defi] = await Promise.all([getHoldings(wallet), getDefiPositions(wallet)]);
+        const holdings = dropDefiDuplicateTokens(rawHoldings, defi);
         const totalNetWorth = holdings.totalValue + defi.totalDeposits - defi.totalBorrows;
 
         res.json({
@@ -54,7 +55,7 @@ router.post('/aggregate', async (req: Request<unknown, unknown, WalletsBody>, re
             wallets.map(async (wallet): Promise<WalletResult> => {
                 try {
                     const [holdings, defi] = await Promise.all([getHoldings(wallet), getDefiPositions(wallet)]);
-                    return { wallet, holdings, defi };
+                    return { wallet, holdings: dropDefiDuplicateTokens(holdings, defi), defi };
                 } catch (e) {
                     return { wallet, error: (e as Error).message };
                 }
@@ -116,7 +117,8 @@ router.get('/fast/:wallet', async (req: Request<WalletParam>, res: Response): Pr
     try {
         const wallet = await resolveSNS(req.params.wallet);
         metrics.requests.total++;
-        const [holdings, defi] = await Promise.all([getHoldings(wallet), getDefiPositionsFast(wallet)]);
+        const [rawHoldings, defi] = await Promise.all([getHoldings(wallet), getDefiPositionsFast(wallet)]);
+        const holdings = dropDefiDuplicateTokens(rawHoldings, defi);
         res.json({
             wallet,
             totalNetWorth: holdings.totalValue + defi.totalDeposits - defi.totalBorrows,
@@ -145,7 +147,7 @@ router.post('/aggregate/fast', async (req: Request<unknown, unknown, WalletsBody
             wallets.map(async (wallet): Promise<WalletResult> => {
                 try {
                     const [holdings, defi] = await Promise.all([getHoldings(wallet), getDefiPositionsFast(wallet)]);
-                    return { wallet, holdings, defi };
+                    return { wallet, holdings: dropDefiDuplicateTokens(holdings, defi), defi };
                 } catch (e) {
                     return { wallet, error: (e as Error).message };
                 }
@@ -192,10 +194,11 @@ router.post('/trade-pnl', async (req: Request<unknown, unknown, WalletsBody>, re
         metrics.requests.total++;
         const wallets = await Promise.all(inputWallets.map((w) => resolveSNS(w)));
         const emptyDefi: DefiSummary = { positions: [], totalDeposits: 0, totalBorrows: 0 };
-        const [holdings, defis] = await Promise.all([
+        const [rawHoldings, defis] = await Promise.all([
             Promise.all(wallets.map((w) => getHoldings(w))),
             Promise.all(wallets.map((w) => getDefiPositionsFast(w).catch(() => emptyDefi))),
         ]);
+        const holdings = rawHoldings.map((h, i) => dropDefiDuplicateTokens(h, defis[i]!));
         const netWorth = holdings.reduce((s, h) => s + (h.totalValue || 0), 0)
             + defis.reduce((s, d) => s + d.totalDeposits - d.totalBorrows, 0);
         const result = await getAggregateTradePnL(wallets, holdings, netWorth);

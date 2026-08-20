@@ -97,9 +97,6 @@ function groupByMint(rows: Merged[], defiPositions: DefiPosition[]): Merged[] {
         }
     }
 
-    // Fold DeFi deposits in by symbol so the grouped view covers the full
-    // position (wallet + deposited). Cost basis for the deposited part is
-    // extended at the wallet lots' average cost — an estimate, marked ~.
     const bySymbol = new Map<string, GroupedRow>();
     for (const g of byMint.values()) {
         if (g.symbol) bySymbol.set(g.symbol.toLowerCase(), g);
@@ -109,6 +106,7 @@ function groupByMint(rows: Merged[], defiPositions: DefiPosition[]): Merged[] {
         const sym = (d.token || '').toLowerCase();
         if (!sym) continue;
         let g = bySymbol.get(sym);
+        if (g && (g.balance || 0) > 0 && Math.abs(g.balance - (d.amount || 0)) / g.balance < 0.01) continue;
         if (!g) {
             g = {
                 address: `defi:${sym}`,
