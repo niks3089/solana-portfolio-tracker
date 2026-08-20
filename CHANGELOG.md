@@ -3,6 +3,18 @@
 Managed by [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org/). Merging the release PR that release-please opens on `main` tags a new version and appends a section here.
 
+## [1.1.0](https://github.com/niks3089/solana-portfolio-tracker/compare/solana-portfolio-tracker-v1.0.0...solana-portfolio-tracker-v1.1.0) (2026-08-20)
+
+
+### Features
+
+* aggregate token view + allocation donut; single-signature unlock; fix XIRR terminal value ([85b0197](https://github.com/niks3089/solana-portfolio-tracker/commit/85b01977afb29cd47537a26fd49eaa1592ff8530))
+
+
+### Bug Fixes
+
+* raise trade-history scan to 2000 txs per wallet for XIRR cashflows ([913a42e](https://github.com/niks3089/solana-portfolio-tracker/commit/913a42e580fdb9b34097eea91e5a8dfe4a62e2ff))
+
 ## [1.0.0](https://github.com/niks3089/solana-portfolio-tracker/compare/solana-portfolio-tracker-v0.1.0...solana-portfolio-tracker-v1.0.0) (2026-07-08)
 
 
