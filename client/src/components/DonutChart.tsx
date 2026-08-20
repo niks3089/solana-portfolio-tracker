@@ -18,6 +18,8 @@ export function DonutChart({
     className?: string;
 }) {
     const filtered = segments.filter((s) => s.value > 0);
+    const segSum = filtered.reduce((s, x) => s + x.value, 0);
+    const pctOf = (v: number) => (segSum > 0 ? `${((v / segSum) * 100).toFixed(1)}%` : '');
 
     return (
         <div className={className}>
@@ -28,6 +30,7 @@ export function DonutChart({
                         <Pie
                             data={filtered}
                             dataKey="value"
+                            nameKey="label"
                             innerRadius="60%"
                             outerRadius="90%"
                             paddingAngle={2}
@@ -38,13 +41,14 @@ export function DonutChart({
                             ))}
                         </Pie>
                         <Tooltip
+                            wrapperStyle={{ zIndex: 10 }}
                             contentStyle={{
                                 background: 'var(--color-bg-tertiary)',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: 8,
                                 fontSize: 12,
                             }}
-                            formatter={(v) => fmtUsd(Number(v))}
+                            formatter={(v) => `${fmtUsd(Number(v))} · ${pctOf(Number(v))}`}
                         />
                     </PieChart>
                 </ResponsiveContainer>
@@ -61,6 +65,7 @@ export function DonutChart({
                             style={{ background: COLORS[i % COLORS.length] }}
                         />
                         {s.label}
+                        <span className="text-text-secondary">{pctOf(s.value)}</span>
                     </span>
                 ))}
             </div>

@@ -140,6 +140,7 @@ export function Dashboard() {
                             tokens={agg.data.tokens}
                             perWallet={trade.data?.perWallet || {}}
                             showWalletCol={showWalletCol}
+                            defiPositions={defiPositions}
                         />
                     )}
 

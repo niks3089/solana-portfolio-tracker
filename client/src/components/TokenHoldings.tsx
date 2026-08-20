@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { TokenHolding, TradePnLRow } from '@shared/types.ts';
+import type { DefiPosition, TokenHolding, TradePnLRow } from '@shared/types.ts';
 import { fmtNum, fmtPct, fmtUsd } from '../lib/format.ts';
 import { SortableHeader, type SortDir } from './SortableHeader.tsx';
 import { DonutChart } from './DonutChart.tsx';
@@ -65,8 +65,10 @@ function mergeTokens(tokens: TokenRow[], perWallet: Record<string, TradePnLRow[]
     });
 }
 
-function groupByMint(rows: Merged[]): Merged[] {
-    const byMint = new Map<string, Merged & { walletCount: number; missingBasis: boolean }>();
+type GroupedRow = Merged & { walletCount: number; missingBasis: boolean };
+
+function groupByMint(rows: Merged[], defiPositions: DefiPosition[]): Merged[] {
+    const byMint = new Map<string, GroupedRow>();
     for (const r of rows) {
         let g = byMint.get(r.address);
         if (!g) {
@@ -94,6 +96,56 @@ function groupByMint(rows: Merged[]): Merged[] {
             g.missingBasis = true;
         }
     }
+
+    // Fold DeFi deposits in by symbol so the grouped view covers the full
+    // position (wallet + deposited). Cost basis for the deposited part is
+    // extended at the wallet lots' average cost — an estimate, marked ~.
+    const bySymbol = new Map<string, GroupedRow>();
+    for (const g of byMint.values()) {
+        if (g.symbol) bySymbol.set(g.symbol.toLowerCase(), g);
+    }
+    for (const d of defiPositions) {
+        if (d.type !== 'deposit' || !((d.value || 0) > 0)) continue;
+        const sym = (d.token || '').toLowerCase();
+        if (!sym) continue;
+        let g = bySymbol.get(sym);
+        if (!g) {
+            g = {
+                address: `defi:${sym}`,
+                symbol: d.token,
+                name: d.token,
+                balance: 0,
+                price: (d.amount || 0) > 0 ? d.value / d.amount : 0,
+                value: 0,
+                icon: d.tokenIcon,
+                wallet: '',
+                walletShort: 'DeFi',
+                hasTrade: false,
+                costBasis: null,
+                pnl: null,
+                pnlPercent: null,
+                avgCost: null,
+                costSource: null,
+                walletCount: 1,
+                missingBasis: false,
+            };
+            byMint.set(g.address, g);
+            bySymbol.set(sym, g);
+        }
+        const avg = g.costBasis != null && (g.balance || 0) > 0 ? g.costBasis / g.balance : null;
+        g.balance = (g.balance || 0) + (d.amount || 0);
+        g.value = (g.value || 0) + (d.value || 0);
+        if (avg != null && (d.amount || 0) > 0) {
+            g.costBasis = (g.costBasis || 0) + avg * d.amount;
+            g.pnl = (g.pnl || 0) + (d.value - avg * d.amount);
+            if (!(g.costSource || '').includes('defi')) {
+                g.costSource = g.costSource ? `${g.costSource}+defi` : 'defi';
+            }
+        } else {
+            g.missingBasis = true;
+        }
+    }
+
     const out: Merged[] = [];
     for (const g of byMint.values()) {
         g.walletShort = g.walletCount > 1 ? `×${g.walletCount}` : g.walletShort;
@@ -109,20 +161,25 @@ export function TokenHoldings({
     tokens,
     perWallet,
     showWalletCol,
+    defiPositions = [],
 }: {
     tokens: TokenRow[];
     perWallet: Record<string, TradePnLRow[]>;
     showWalletCol: boolean;
+    defiPositions?: DefiPosition[];
 }) {
     const [col, setCol] = useState<Sort>('value');
     const [dir, setDir] = useState<SortDir>('desc');
     const [page, setPage] = useState(0);
-    const [grouped, setGrouped] = useState(true);
+    const [grouped, setGrouped] = useState(false);
     const PAGE_SIZE = 10;
     const isGrouped = grouped && showWalletCol;
 
     const merged = useMemo(() => mergeTokens(tokens, perWallet), [tokens, perWallet]);
-    const displayRows = useMemo(() => (isGrouped ? groupByMint(merged) : merged), [merged, isGrouped]);
+    const displayRows = useMemo(
+        () => (isGrouped ? groupByMint(merged, defiPositions) : merged),
+        [merged, isGrouped, defiPositions],
+    );
 
     const segments = useMemo(() => {
         if (!isGrouped) return [];
@@ -257,7 +314,7 @@ export function TokenHoldings({
 function Row({ t, showWalletCol }: { t: Merged; showWalletCol: boolean }) {
     const pnlClass = t.pnl == null ? 'text-text-secondary' : t.pnl >= 0 ? 'text-positive' : 'text-negative';
     const sign = t.pnl != null && t.pnl >= 0 ? '+' : '';
-    const isEstimated = t.costSource?.includes('transfer') || t.costSource?.includes('partial');
+    const isEstimated = t.costSource?.includes('transfer') || t.costSource?.includes('partial') || t.costSource?.includes('defi');
     const muted = <span className="text-text-secondary">—</span>;
 
     return (
