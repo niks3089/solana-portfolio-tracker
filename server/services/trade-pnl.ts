@@ -16,7 +16,7 @@ const STABLECOIN_MINTS = new Set([
 const SOL_MINT_WRAPPED = 'So11111111111111111111111111111111111111112';
 
 const PAGE_SIZE = 100;
-const DEFAULT_MAX_PAGES = 5;
+const DEFAULT_MAX_PAGES = 20;
 
 // Helius enhanced tx — only the fields we read. Everything else stays `unknown`.
 type RawTokenAmount = { tokenAmount: string; decimals: number };
