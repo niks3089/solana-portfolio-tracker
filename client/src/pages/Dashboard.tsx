@@ -141,6 +141,7 @@ export function Dashboard() {
                             perWallet={trade.data?.perWallet || {}}
                             showWalletCol={showWalletCol}
                             defiPositions={defiPositions}
+                            mintCosts={trade.data?.mintCosts || []}
                         />
                     )}
 

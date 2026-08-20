@@ -121,8 +121,15 @@ export type TradePnLSummary = {
     cashflowCount: number;
 };
 
+export type MintCost = {
+    mint: SolanaAddress;
+    symbol: string | null;
+    avgCostPerToken: number;
+};
+
 export type TradePnLResult = {
     perWallet: Record<SolanaAddress, TradePnLRow[]>;
+    mintCosts: MintCost[];
     totals: { totalPnL: number; totalCostBasis: number; totalValue: number };
     summary: TradePnLSummary;
     tradeHistory: TradeHistoryRow[];

@@ -45,6 +45,27 @@ const resultCache = new LRUCache<string, TradePnLResult>({ max: 500, ttl: 5 * 60
 // Positive cache only — misses re-ask. The original "store null on miss" pattern
 // doesn't survive lru-cache's stricter generic constraint.
 const histPriceCache = new LRUCache<string, number>({ max: 10_000, ttl: 7 * 24 * 60 * 60 * 1000 });
+const tokenMetaCache = new LRUCache<string, { symbol: string; icon?: string }>({ max: 5_000, ttl: 7 * 24 * 60 * 60 * 1000 });
+
+async function getTokenMeta(mint: string): Promise<{ symbol: string; icon?: string } | null> {
+    const cached = tokenMetaCache.get(mint);
+    if (cached) return cached;
+    try {
+        type Resp = { success?: boolean; data?: { symbol?: string; logo_uri?: string } };
+        const data = await fetchJSON<Resp>(
+            `https://public-api.birdeye.so/defi/v3/token/meta-data/single?address=${mint}`,
+            { headers: { 'x-chain': 'solana', 'X-API-KEY': CONFIG.BIRDEYE_API_KEY } },
+        );
+        if (data?.success && data.data?.symbol) {
+            const meta = { symbol: data.data.symbol, icon: data.data.logo_uri };
+            tokenMetaCache.set(mint, meta);
+            return meta;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
 
 async function getHistoricalPrice(mint: string, unixTs: number): Promise<number | null> {
     if (!unixTs || unixTs <= 0) return null;
@@ -446,6 +467,18 @@ export async function getAggregateTradePnL(wallets: string[], holdings: Holdings
         if (wIdx !== -1) bumpWalletMint(wIdx, ev.mint, cost, ev.amount, 1, 'transfer');
     }
 
+    await Promise.all(
+        Array.from(byMint.entries())
+            .filter(([, m]) => m.totalSpent > 0 && !m.symbol)
+            .map(async ([mint, m]) => {
+                const meta = await getTokenMeta(mint);
+                if (meta) {
+                    m.symbol = meta.symbol;
+                    if (!m.icon) m.icon = meta.icon;
+                }
+            }),
+    );
+
     const perWallet: Record<string, TradePnLRow[]> = {};
     let totalPnL = 0, totalCostBasis = 0, totalValue = 0;
 
@@ -675,8 +708,17 @@ export async function getAggregateTradePnL(wallets: string[], holdings: Holdings
     }
     tradeHistory.sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
+    const mintCosts = Array.from(byMint.entries())
+        .filter(([, m]) => m.totalSpent > 0 && Math.max(m.totalBought, m.totalHeld) > 0)
+        .map(([mint, m]) => ({
+            mint,
+            symbol: m.symbol || null,
+            avgCostPerToken: m.totalSpent / Math.max(m.totalBought, m.totalHeld),
+        }));
+
     const result: TradePnLResult = {
         perWallet,
+        mintCosts,
         totals: { totalPnL, totalCostBasis, totalValue },
         summary,
         tradeHistory,

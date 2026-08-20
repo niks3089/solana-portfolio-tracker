@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { DefiPosition, TokenHolding, TradePnLRow } from '@shared/types.ts';
+import type { DefiPosition, MintCost, TokenHolding, TradePnLRow } from '@shared/types.ts';
 import { fmtNum, fmtPct, fmtUsd } from '../lib/format.ts';
 import { SortableHeader, type SortDir } from './SortableHeader.tsx';
 import { DonutChart } from './DonutChart.tsx';
@@ -67,7 +67,7 @@ function mergeTokens(tokens: TokenRow[], perWallet: Record<string, TradePnLRow[]
 
 type GroupedRow = Merged & { walletCount: number; missingBasis: boolean };
 
-function groupByMint(rows: Merged[], defiPositions: DefiPosition[]): Merged[] {
+function groupByMint(rows: Merged[], defiPositions: DefiPosition[], avgBySymbol: Map<string, number>): Merged[] {
     const byMint = new Map<string, GroupedRow>();
     for (const r of rows) {
         let g = byMint.get(r.address);
@@ -130,7 +130,7 @@ function groupByMint(rows: Merged[], defiPositions: DefiPosition[]): Merged[] {
             byMint.set(g.address, g);
             bySymbol.set(sym, g);
         }
-        const avg = g.costBasis != null && (g.balance || 0) > 0 ? g.costBasis / g.balance : null;
+        const avg = g.costBasis != null && (g.balance || 0) > 0 ? g.costBasis / g.balance : (avgBySymbol.get(sym) ?? null);
         g.balance = (g.balance || 0) + (d.amount || 0);
         g.value = (g.value || 0) + (d.value || 0);
         if (avg != null && (d.amount || 0) > 0) {
@@ -160,11 +160,13 @@ export function TokenHoldings({
     perWallet,
     showWalletCol,
     defiPositions = [],
+    mintCosts = [],
 }: {
     tokens: TokenRow[];
     perWallet: Record<string, TradePnLRow[]>;
     showWalletCol: boolean;
     defiPositions?: DefiPosition[];
+    mintCosts?: MintCost[];
 }) {
     const [col, setCol] = useState<Sort>('value');
     const [dir, setDir] = useState<SortDir>('desc');
@@ -174,9 +176,16 @@ export function TokenHoldings({
     const isGrouped = grouped && showWalletCol;
 
     const merged = useMemo(() => mergeTokens(tokens, perWallet), [tokens, perWallet]);
+    const avgBySymbol = useMemo(() => {
+        const m = new Map<string, number>();
+        for (const c of mintCosts) {
+            if (c.symbol && c.avgCostPerToken > 0) m.set(c.symbol.toLowerCase(), c.avgCostPerToken);
+        }
+        return m;
+    }, [mintCosts]);
     const displayRows = useMemo(
-        () => (isGrouped ? groupByMint(merged, defiPositions) : merged),
-        [merged, isGrouped, defiPositions],
+        () => (isGrouped ? groupByMint(merged, defiPositions, avgBySymbol) : merged),
+        [merged, isGrouped, defiPositions, avgBySymbol],
     );
 
     const segments = useMemo(() => {
