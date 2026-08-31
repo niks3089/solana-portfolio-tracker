@@ -75,7 +75,7 @@ export function App() {
             </header>
             <main className="mx-auto max-w-6xl px-4 py-6 lg:px-6 lg:py-8">
                 <PrivacyProvider hidden={hidden}>
-                    <Routes key={`${effCode}:${effRate}`}>
+                    <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
