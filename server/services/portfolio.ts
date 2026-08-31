@@ -9,6 +9,14 @@ import type {
 const NATIVE_SOL = 'So11111111111111111111111111111111111111111';
 const WRAPPED_SOL = 'So11111111111111111111111111111111111111112';
 
+const CANONICAL_MINTS: Record<string, string> = {
+    USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+    PYUSD: '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',
+    SOL: WRAPPED_SOL,
+    WSOL: WRAPPED_SOL,
+};
+
 type BirdeyeHoldingsResp = {
     data?: {
         items?: Array<{
@@ -50,7 +58,13 @@ export async function getHoldings(wallet: string): Promise<Holdings> {
             icon: t.logoURI,
             address: t.address === NATIVE_SOL ? WRAPPED_SOL : t.address,
         }))
-        .filter((t) => t.value > 0.01);
+        .filter((t) => t.value > 0.01)
+        .filter((t) => {
+            const canonical = CANONICAL_MINTS[(t.symbol || '').toUpperCase()];
+            if (!canonical || canonical === t.address) return true;
+            console.log(`[SPAM] dropping fake ${t.symbol} (${t.address}) worth $${t.value.toFixed(2)}`);
+            return false;
+        });
 
     const result: Holdings = {
         tokens,
@@ -251,6 +265,17 @@ export async function getLambdaPositions(wallet: string): Promise<DefiPosition[]
 }
 
 const WALLET_HELD_POSITION_PROTOCOLS = new Set(['exponent']);
+const LAMBDA_AUTHORITATIVE_PROTOCOLS = new Set(['kamino']);
+
+export function filterStaleDialect(dialectPos: DefiPosition[], lambdaPos: DefiPosition[]): DefiPosition[] {
+    const lambdaProtos = new Set(lambdaPos.map((p) => p.protocol.toLowerCase()));
+    return dialectPos.filter((p) => {
+        const proto = p.protocol.toLowerCase();
+        if (!LAMBDA_AUTHORITATIVE_PROTOCOLS.has(proto) || lambdaProtos.has(proto)) return true;
+        console.log(`[DEDUPE] dropping stale Dialect ${p.protocol} ${p.token} ${p.amount} — not in Lambda`);
+        return false;
+    });
+}
 
 export function dropDefiDuplicateTokens(holdings: Holdings, defi: DefiSummary): Holdings {
     const tokens = holdings.tokens.filter((t) => {
@@ -284,10 +309,11 @@ export async function getDefiPositionsFast(wallet: string): Promise<DefiSummary>
 }
 
 export async function getDefiPositions(wallet: string): Promise<DefiSummary> {
-    const [dialectPos, lambdaPos] = await Promise.all([
+    const [rawDialectPos, lambdaPos] = await Promise.all([
         getDialectPositions(wallet),
         getLambdaPositions(wallet),
     ]);
+    const dialectPos = filterStaleDialect(rawDialectPos, lambdaPos);
 
     const dialectKeys = new Set(
         dialectPos.map((p) => `${p.protocol.toLowerCase()}|${(p.token || '').toLowerCase()}|${p.type}`),

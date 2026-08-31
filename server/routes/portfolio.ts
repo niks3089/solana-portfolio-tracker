@@ -4,7 +4,8 @@ import { resolveSNS } from '../utils/sns.js';
 import { authMiddleware } from '../middleware/turnstile.js';
 import {
     getHoldings, getTokenPnL, getDefiPositionsFast, getDefiPositions,
-    getDialectPositions, getPortfolioHistory, dropDefiDuplicateTokens,
+    getDialectPositions, getLambdaPositions, getPortfolioHistory,
+    dropDefiDuplicateTokens, filterStaleDialect,
 } from '../services/portfolio.js';
 import { getAggregateTradePnL, HeliusAuthError } from '../services/trade-pnl.js';
 import { fetchJSON } from '../utils/fetch.js';
@@ -297,7 +298,11 @@ router.post('/dialect', async (req: Request<unknown, unknown, WalletsBody>, res:
         metrics.requests.total++;
         const allPositions: unknown[] = [];
         for (const wallet of wallets) {
-            const positions = await getDialectPositions(wallet);
+            const [dialectPos, lambdaPos] = await Promise.all([
+                getDialectPositions(wallet),
+                getLambdaPositions(wallet),
+            ]);
+            const positions = filterStaleDialect(dialectPos, lambdaPos);
             const walletShort = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
             for (const p of positions) allPositions.push({ ...p, wallet, walletShort });
         }
