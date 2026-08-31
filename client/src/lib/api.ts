@@ -65,3 +65,9 @@ export async function sendPing(event: 'signup' | 'usage', wallet: string): Promi
         // fire-and-forget
     }
 }
+
+export type FxResp = { rates: Record<string, number>; updatedAt: number };
+
+export function fetchFxRates(): Promise<FxResp> {
+    return getJSON('/api/portfolio/fx');
+}

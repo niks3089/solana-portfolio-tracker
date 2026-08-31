@@ -1,12 +1,29 @@
-export function fmtUsd(n: number | null | undefined): string {
-    if (n == null || !Number.isFinite(n)) return '—';
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+    INR: '₹',
+};
+
+let fxRate = 1;
+let fxSymbol = '$';
+
+export function setDisplayCurrency(code: string, rate: number): void {
+    fxRate = rate > 0 ? rate : 1;
+    fxSymbol = CURRENCY_SYMBOLS[code] || '$';
+}
+
+export function fmtUsd(usd: number | null | undefined): string {
+    if (usd == null || !Number.isFinite(usd)) return '—';
+    const n = usd * fxRate;
     const abs = Math.abs(n);
-    if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-    if (abs >= 1_000) return `$${(n / 1_000).toFixed(2)}K`;
-    if (abs >= 1) return `$${n.toFixed(2)}`;
-    if (abs >= 0.01) return `$${n.toFixed(2)}`;
-    if (abs === 0) return '$0';
-    return `$${n.toFixed(4)}`;
+    if (abs >= 1_000_000) return `${fxSymbol}${(n / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `${fxSymbol}${(n / 1_000).toFixed(2)}K`;
+    if (abs >= 1) return `${fxSymbol}${n.toFixed(2)}`;
+    if (abs >= 0.01) return `${fxSymbol}${n.toFixed(2)}`;
+    if (abs === 0) return `${fxSymbol}0`;
+    return `${fxSymbol}${n.toFixed(4)}`;
 }
 
 export function fmtNum(n: number | null | undefined, decimals = 4): string {

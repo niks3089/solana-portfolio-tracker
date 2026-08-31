@@ -7,6 +7,7 @@ import {
     getDialectPositions, getPortfolioHistory, dropDefiDuplicateTokens,
 } from '../services/portfolio.js';
 import { getAggregateTradePnL, HeliusAuthError } from '../services/trade-pnl.js';
+import { fetchJSON } from '../utils/fetch.js';
 import type { DefiSummary, Holdings, TokenPnL } from '../types.js';
 
 const router = Router();
@@ -14,6 +15,34 @@ router.use(authMiddleware);
 
 type WalletParam = { wallet: string };
 type WalletsBody = { wallets?: string[] };
+
+const FX_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'INR'] as const;
+let fxCache: { ts: number; rates: Record<string, number> } | null = null;
+
+router.get('/fx', async (_req: Request, res: Response): Promise<void> => {
+    try {
+        if (!fxCache || Date.now() - fxCache.ts > 6 * 60 * 60 * 1000) {
+            type Resp = { result?: string; rates?: Record<string, number> };
+            const data = await fetchJSON<Resp>('https://open.er-api.com/v6/latest/USD');
+            if (data?.result === 'success' && data.rates) {
+                fxCache = { ts: Date.now(), rates: data.rates };
+            }
+        }
+        if (!fxCache) {
+            res.status(503).json({ error: 'FX rates unavailable' });
+            return;
+        }
+        const rates: Record<string, number> = {};
+        for (const c of FX_CURRENCIES) {
+            const r = c === 'USD' ? 1 : fxCache.rates[c];
+            if (r && r > 0) rates[c] = r;
+        }
+        res.json({ rates, updatedAt: fxCache.ts });
+    } catch (error) {
+        console.error('FX error:', error);
+        res.status(500).json({ error: 'Failed to fetch FX rates' });
+    }
+});
 
 router.get('/:wallet', async (req: Request<WalletParam>, res: Response): Promise<void> => {
     try {
