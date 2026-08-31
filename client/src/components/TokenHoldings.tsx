@@ -106,7 +106,8 @@ function groupByMint(rows: Merged[], defiPositions: DefiPosition[], avgBySymbol:
         const sym = (d.token || '').toLowerCase();
         if (!sym) continue;
         let g = bySymbol.get(sym);
-        if (g && (g.balance || 0) > 0 && Math.abs(g.balance - (d.amount || 0)) / g.balance < 0.01) continue;
+        const walletHeldPosition = d.protocol.toLowerCase() === 'exponent' || sym.startsWith('pt-');
+        if (walletHeldPosition && g && (g.balance || 0) > 0 && Math.abs(g.balance - (d.amount || 0)) / g.balance < 0.01) continue;
         if (!g) {
             g = {
                 address: `defi:${sym}`,

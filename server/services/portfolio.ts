@@ -250,15 +250,20 @@ export async function getLambdaPositions(wallet: string): Promise<DefiPosition[]
     }
 }
 
+const WALLET_HELD_POSITION_PROTOCOLS = new Set(['exponent']);
+
 export function dropDefiDuplicateTokens(holdings: Holdings, defi: DefiSummary): Holdings {
     const tokens = holdings.tokens.filter((t) => {
         if (!t.symbol || !(t.balance > 0)) return true;
         const sym = t.symbol.toLowerCase();
-        return !defi.positions.some((p) =>
+        const isDupe = defi.positions.some((p) =>
             p.type === 'deposit'
+            && (WALLET_HELD_POSITION_PROTOCOLS.has(p.protocol.toLowerCase()) || sym.startsWith('pt-'))
             && (p.token || '').toLowerCase() === sym
             && p.amount > 0
             && Math.abs(p.amount - t.balance) / t.balance < 0.01);
+        if (isDupe) console.log(`[DEDUPE] dropping wallet token ${t.symbol} (${t.balance}) — matches DeFi deposit`);
+        return !isDupe;
     });
     if (tokens.length === holdings.tokens.length) return holdings;
     return { tokens, totalValue: tokens.reduce((s, t) => s + t.value, 0) };
