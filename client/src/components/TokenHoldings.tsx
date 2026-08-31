@@ -146,7 +146,10 @@ function groupByMint(rows: Merged[], defiPositions: DefiPosition[], avgBySymbol:
 
     const out: Merged[] = [];
     for (const g of byMint.values()) {
-        g.walletShort = g.walletCount > 1 ? `×${g.walletCount}` : g.walletShort;
+        if (g.walletCount > 1) {
+            g.walletShort = `×${g.walletCount}`;
+            g.wallet = '';
+        }
         g.pnlPercent = g.costBasis && g.costBasis > 0 ? ((g.pnl || 0) / g.costBasis) * 100 : null;
         g.avgCost = g.costBasis != null && (g.balance || 0) > 0 ? g.costBasis / g.balance : null;
         if (g.hasTrade && g.missingBasis) g.costSource = `${g.costSource || ''}+partial`;
@@ -328,15 +331,37 @@ function Row({ t, showWalletCol }: { t: Merged; showWalletCol: boolean }) {
         <tr className="border-t border-border hover:bg-bg-tertiary/40">
             {showWalletCol && (
                 <td className="px-3 py-2">
-                    <span className="rounded-md border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] tabular-nums">
-                        {t.walletShort}
-                    </span>
+                    {t.wallet ? (
+                        <a
+                            href={`https://www.orbmarkets.io/address/${t.wallet}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] tabular-nums hover:border-accent/60 hover:text-accent"
+                        >
+                            {t.walletShort}
+                        </a>
+                    ) : (
+                        <span className="rounded-md border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] tabular-nums">
+                            {t.walletShort}
+                        </span>
+                    )}
                 </td>
             )}
             <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
                     {t.icon && <img src={t.icon} alt="" className="h-4 w-4 rounded-full" onError={(e) => ((e.currentTarget.style.display = 'none'))} />}
-                    <span className="font-medium">{t.symbol || '?'}</span>
+                    {t.address.startsWith('defi:') ? (
+                        <span className="font-medium">{t.symbol || '?'}</span>
+                    ) : (
+                        <a
+                            href={`https://www.orbmarkets.io/address/${t.address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium hover:text-accent hover:underline"
+                        >
+                            {t.symbol || '?'}
+                        </a>
+                    )}
                 </div>
             </td>
             <td className="px-3 py-2 text-right tabular-nums">{fmtNum(t.balance, 4)}</td>

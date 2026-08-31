@@ -97,12 +97,26 @@ export function TradeHistory({ rows }: { rows: TradeHistoryRow[] }) {
                                 <tr key={`${sig || i}:${i}`} className="border-t border-border hover:bg-bg-tertiary/40">
                                     <td className="px-3 py-2 tabular-nums">{fmtDate(r.ts)}</td>
                                     <td className="px-3 py-2">
-                                        <span className="rounded-md border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] tabular-nums">
+                                        <a
+                                            href={`https://www.orbmarkets.io/address/${r.wallet}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="rounded-md border border-border bg-bg-tertiary px-1.5 py-0.5 text-[11px] tabular-nums hover:border-accent/60 hover:text-accent"
+                                        >
                                             {r.walletShort}
-                                        </span>
+                                        </a>
                                     </td>
                                     <td className={`px-3 py-2 ${sideClass}`}>{r.side}</td>
-                                    <td className="px-3 py-2 font-medium">{r.symbol || r.mint.slice(0, 4) + '…'}</td>
+                                    <td className="px-3 py-2 font-medium">
+                                        <a
+                                            href={`https://www.orbmarkets.io/address/${r.mint}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hover:text-accent hover:underline"
+                                        >
+                                            {r.symbol || r.mint.slice(0, 4) + '…'}
+                                        </a>
+                                    </td>
                                     <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.amount, 4)}</td>
                                     <td className="px-3 py-2 text-right tabular-nums">
                                         {isEstimated ? '~' : ''}{fmtUsd(r.usd)}
