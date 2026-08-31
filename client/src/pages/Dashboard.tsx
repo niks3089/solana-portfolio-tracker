@@ -78,6 +78,22 @@ export function Dashboard() {
             .slice(0, 6);
     }, [agg.data, defiPositions]);
 
+    const walletSegments = useMemo(() => {
+        if (wallets.length < 2 || !agg.data) return [];
+        const totals = new Map<string, number>();
+        for (const t of agg.data.tokens) totals.set(t.wallet, (totals.get(t.wallet) || 0) + (t.value || 0));
+        for (const p of defiPositions) {
+            const v = p.type === 'borrow' ? -(p.value || 0) : (p.value || 0);
+            totals.set(p.wallet, (totals.get(p.wallet) || 0) + v);
+        }
+        const labelFor = (addr: string) =>
+            portfolios.active?.wallets.find((w) => w.address === addr)?.name
+            || `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+        return Array.from(totals.entries())
+            .map(([addr, value]) => ({ label: labelFor(addr), value }))
+            .sort((a, b) => b.value - a.value);
+    }, [agg.data, defiPositions, wallets.length, portfolios.active]);
+
     useEffect(() => {
         if (portfolios.activeId != null && aggregate?.totalNetWorth) {
             portfolios.recordSnapshot(portfolios.activeId, aggregate.totalNetWorth).catch(() => {});
@@ -124,6 +140,14 @@ export function Dashboard() {
                             <DonutChart segments={segments} total={aggregate?.totalAssets ?? 0} />
                         )}
                     </div>
+
+                    {walletSegments.length > 1 && (
+                        <DonutChart
+                            segments={walletSegments}
+                            total={aggregate?.totalNetWorth ?? 0}
+                            title="Wallet Split"
+                        />
+                    )}
 
                     {portfolios.active && aggregate?.totalNetWorth ? (
                         <TrackerChart
