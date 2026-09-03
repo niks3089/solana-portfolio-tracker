@@ -1,3 +1,4 @@
+import { LRUCache } from 'lru-cache';
 import { CONFIG } from '../config.js';
 import { fetchJSON } from '../utils/fetch.js';
 import { metrics } from '../metrics.js';
@@ -16,6 +17,39 @@ const CANONICAL_MINTS: Record<string, string> = {
     SOL: WRAPPED_SOL,
     WSOL: WRAPPED_SOL,
 };
+
+const PRICE_SANITY_MIN_USD = 25;
+const jupPricedCache = new LRUCache<string, boolean>({ max: 5_000, ttl: 60 * 60 * 1000 });
+
+function priceSanityExempt(t: TokenHolding): boolean {
+    return t.value < PRICE_SANITY_MIN_USD || (t.symbol || '').toUpperCase().startsWith('PT-');
+}
+
+async function jupConfirmedMints(mints: string[]): Promise<Set<string>> {
+    const confirmed = new Set<string>();
+    const unknown: string[] = [];
+    for (const m of mints) {
+        const c = jupPricedCache.get(m);
+        if (c) confirmed.add(m);
+        else if (c === undefined) unknown.push(m);
+    }
+    for (let i = 0; i < unknown.length; i += 50) {
+        const batch = unknown.slice(i, i + 50);
+        try {
+            const data = await fetchJSON<Record<string, { usdPrice?: number }>>(
+                `https://lite-api.jup.ag/price/v3?ids=${batch.join(',')}`,
+            );
+            for (const m of batch) {
+                const ok = !!data?.[m]?.usdPrice;
+                jupPricedCache.set(m, ok);
+                if (ok) confirmed.add(m);
+            }
+        } catch {
+            for (const m of batch) confirmed.add(m);
+        }
+    }
+    return confirmed;
+}
 
 type BirdeyeHoldingsResp = {
     data?: {
@@ -66,9 +100,20 @@ export async function getHoldings(wallet: string): Promise<Holdings> {
             return false;
         });
 
+    let verified = tokens;
+    const suspects = tokens.filter((t) => !priceSanityExempt(t));
+    if (suspects.length > 0) {
+        const confirmed = await jupConfirmedMints(suspects.map((t) => t.address));
+        verified = tokens.filter((t) => {
+            if (priceSanityExempt(t) || confirmed.has(t.address)) return true;
+            console.log(`[SPAM] dropping unpriceable ${t.symbol} (${t.address}) worth $${t.value.toFixed(2)}`);
+            return false;
+        });
+    }
+
     const result: Holdings = {
-        tokens,
-        totalValue: tokens.reduce((sum, t) => sum + t.value, 0),
+        tokens: verified,
+        totalValue: verified.reduce((sum, t) => sum + t.value, 0),
     };
 
     holdingsCache.set(wallet, result);
