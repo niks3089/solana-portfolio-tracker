@@ -1,6 +1,6 @@
 {
   "name": "portfolio-dashboard",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Self-hosted multi-wallet Solana portfolio tracker",
   "type": "module",
   "license": "MIT",
