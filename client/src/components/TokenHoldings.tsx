@@ -17,7 +17,7 @@ type Sort =
     | 'pnlPercent';
 
 // Stablecoin mints: treat as P&L = 0, cost basis = value.
-const STABLECOIN_MINTS = new Set([
+export const STABLECOIN_MINTS = new Set([
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
     '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',

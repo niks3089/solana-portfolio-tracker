@@ -4,7 +4,7 @@ import { UnifiedWalletButton, useWallet } from '@jup-ag/wallet-adapter';
 import { StatsRow } from '../components/StatsRow.tsx';
 import { ReturnsRow } from '../components/ReturnsRow.tsx';
 import { DonutChart } from '../components/DonutChart.tsx';
-import { TokenHoldings } from '../components/TokenHoldings.tsx';
+import { TokenHoldings, STABLECOIN_MINTS } from '../components/TokenHoldings.tsx';
 import { DefiPositions } from '../components/DefiPositions.tsx';
 import { TradeHistory } from '../components/TradeHistory.tsx';
 import { TrackerChart } from '../components/TrackerChart.tsx';
@@ -100,6 +100,44 @@ export function Dashboard() {
         }
     }, [portfolios.activeId, aggregate?.totalNetWorth, portfolios.recordSnapshot]);
 
+    const exportCsv = () => {
+        const esc = (v: unknown) => {
+            const s = v == null ? '' : String(v);
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const usd = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? '' : n.toFixed(2));
+        const pnlByKey = new Map<string, { costBasis: number; pnl: number; pnlPercent: number }>();
+        for (const [w, rows] of Object.entries(trade.data?.perWallet || {})) {
+            for (const r of rows) pnlByKey.set(`${w}:${r.mint}`, r);
+        }
+        const rows: unknown[][] = [
+            ['kind', 'date', 'wallet', 'protocol', 'symbol', 'mint', 'amount', 'price_usd', 'value_usd', 'cost_basis_usd', 'pnl_usd', 'pnl_pct', 'tx'],
+        ];
+        for (const t of agg.data?.tokens || []) {
+            const pr = pnlByKey.get(`${t.wallet}:${t.address}`)
+                || (STABLECOIN_MINTS.has(t.address) ? { costBasis: t.value || 0, pnl: 0, pnlPercent: 0 } : null);
+            rows.push(['token', '', t.wallet, '', t.symbol || '', t.address, t.balance,
+                usd(t.price), usd(t.value), usd(pr?.costBasis), usd(pr?.pnl),
+                pr ? pr.pnlPercent.toFixed(2) : '', '']);
+        }
+        for (const p of defiPositions) {
+            rows.push([p.type === 'borrow' ? 'borrow' : 'deposit', '', p.wallet, p.protocol, p.token || '', '',
+                p.amount, usd(p.amount > 0 ? p.value / p.amount : null), usd(p.value), '', '', '', '']);
+        }
+        for (const r of trade.data?.tradeHistory || []) {
+            rows.push([r.side, r.ts ? new Date(r.ts * 1000).toISOString().slice(0, 10) : '', r.wallet,
+                r.source || '', r.symbol || '', r.mint, r.amount,
+                usd(r.amount > 0 ? r.usd / r.amount : null), usd(r.usd), '', '', '', r.signature || '']);
+        }
+        const blob = new Blob([rows.map((r) => r.map(esc).join(',')).join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `portfolio-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const trackedForInput = portfolios.active
         ? []
         : tracked.wallets.filter((a) => a !== connectedWallet);
@@ -128,6 +166,16 @@ export function Dashboard() {
                 <EmptyFeatureGrid />
             ) : (
                 <>
+                    <div className="-mb-4 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={exportCsv}
+                            disabled={!agg.data}
+                            className="rounded-md border border-border bg-bg-tertiary px-3 py-1.5 text-xs text-text-secondary hover:border-accent/60 hover:text-text-primary disabled:opacity-40"
+                        >
+                            ⬇ Export CSV
+                        </button>
+                    </div>
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr,1fr]">
                         <StatsRow
                             netWorth={aggregate?.totalNetWorth ?? null}
