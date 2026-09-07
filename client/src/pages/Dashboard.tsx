@@ -113,6 +113,29 @@ export function Dashboard() {
         const rows: unknown[][] = [
             ['kind', 'date', 'wallet', 'protocol', 'symbol', 'mint', 'amount', 'price_usd', 'value_usd', 'cost_basis_usd', 'pnl_usd', 'pnl_pct', 'tx'],
         ];
+        const metric = (name: string, value: number | null | undefined, pct?: number | null) =>
+            rows.push(['summary', '', '', '', name, '', '', '', usd(value), '', '', pct != null && Number.isFinite(pct) ? pct.toFixed(2) : '', '']);
+        metric('Net Worth', aggregate?.totalNetWorth);
+        metric('Total Value Locked', aggregate?.totalAssets);
+        metric('Tokens Value', aggregate?.totalTokens);
+        metric('DeFi Deposits', aggregate?.defiDeposits);
+        metric('Liabilities', aggregate?.defiBorrows);
+        metric('All-Time P&L', allTimePnL, allTimePnLPct);
+        if (summary) {
+            const netWorth = aggregate?.totalNetWorth ?? summary.currentValue;
+            const invested = Math.max(0, netWorth - (summary.absoluteReturnUsd ?? 0));
+            metric('Invested', invested);
+            metric('Absolute Return', summary.absoluteReturnUsd, invested > 0 ? ((summary.absoluteReturnUsd ?? 0) / invested) * 100 : null);
+            metric('XIRR (annualized)', null, summary.xirrPct);
+        }
+        for (const s of walletSegments) {
+            rows.push(['wallet', '', s.label, '', 'Wallet Net Worth', '', '', '', usd(s.value), '', '', '', '']);
+        }
+        if (portfolios.active) {
+            for (const [day, v] of Object.entries(portfolios.snapshotsFor(portfolios.active.id)).sort()) {
+                rows.push(['snapshot', day, '', '', portfolios.active.name, '', '', '', usd(v), '', '', '', '']);
+            }
+        }
         for (const t of agg.data?.tokens || []) {
             const pr = pnlByKey.get(`${t.wallet}:${t.address}`)
                 || (STABLECOIN_MINTS.has(t.address) ? { costBasis: t.value || 0, pnl: 0, pnlPercent: 0 } : null);
